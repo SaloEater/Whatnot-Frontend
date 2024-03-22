@@ -4,6 +4,8 @@ import {get, getEndpoints, post} from "@/app/lib/backend";
 import {useEffect, useState} from "react";
 import Day, {DayData, DayDate} from "@/app/days/dayComponent";
 import Break, {getBreakIndex, SelectedBreak} from "@/app/days/breakComponent";
+import moment from "moment/moment";
+import {TuiDateTimePicker} from "nextjs-tui-date-picker";
 
 interface DaysData {
     days: DayData[]
@@ -54,42 +56,25 @@ export default function Page() {
         fetchData();
     }, [requestedDaysReload])
 
+    const dateTimeFormat = "YYYY-MM-dd"
+
     return (
         <main>
             <div className="container-fluid mt-2">
-                <div className="row">
+                <div className="row gx-2">
                     <div className="col-3">
-                        <li key={"add_new"} className="list-group-item">
-                            <div className="d-flex input-group">
-                                <input type="number" className="form-control" id="year" placeholder="2023" value={newDayDate.year} onChange={
-                                    e => {
-                                        var newValue = parseInt(e.currentTarget.value)
-                                        if (isNaN(newValue)) {
-                                            newValue = newDayDate.year
-                                        }
-                                        setNewDayDate({year: newValue,  month: newDayDate.month, day: newDayDate.day})
-                                    }
-                                }/>
-                                <input type="number" className="form-control col-6" id="month" placeholder="12" value={newDayDate.month} onChange={
-                                    e => {
-                                        var newValue = parseInt(e.currentTarget.value)
-                                        if (isNaN(newValue)) {
-                                            newValue = newDayDate.month
-                                        }
-                                        setNewDayDate({year: newDayDate.year,  month: newValue, day: newDayDate.day})
-                                    }
-                                }/>
-                                <input type="number" className="form-control" id="day" placeholder="31" value={newDayDate.day} onChange={
-                                    e => {
-                                        var newValue = parseInt(e.currentTarget.value)
-                                        if (isNaN(newValue)) {
-                                            newValue = newDayDate.day
-                                        }
-                                        setNewDayDate({year: newDayDate.year,  month: newDayDate.month, day: newValue})
-                                    }
-                                }/>
-                            </div>
-                            <div className="d-flex justify-content-end mt-1">
+                        <ul className="list-group">
+                            <li className="list-group-item">
+                                <TuiDateTimePicker
+                                    key={`${newDayDate.year}-${newDayDate.month}-${newDayDate.day}`}
+                                    handleChange={async e => {
+                                        const newDate = moment(e, dateTimeFormat.toUpperCase()).toDate()
+                                        setNewDayDate({year: newDate.getFullYear(), month: newDate.getMonth(), day: newDate.getDate()})
+                                    }}
+                                    format={dateTimeFormat}
+                                    date={new Date(newDayDate.year, newDayDate.month, newDayDate.day)}
+                                    inputWidth="auto"
+                                />
                                 <button type="button" id="add-day" className="bg-primary" onClick={
                                     async e => {
                                         const username = localStorage?.getItem("username") ?? "";
@@ -107,9 +92,7 @@ export default function Page() {
                                         return false
                                     }
                                 }>Add</button>
-                            </div>
-                        </li>
-                        <ul className="list-group">
+                            </li>
                             {
                                 data.days.toReversed().map(
                                     (i) => {
@@ -121,7 +104,7 @@ export default function Page() {
                                         }}>
                                             <div className="container-fluid">
                                                 <div className="row">
-                                                    <div className="col">{date}</div>
+                                                    <div className="col">{moment(new Date(year, month, day)).format("YYYY/MM/DD")}</div>
                                                     <div className="col-2">
                                                         <img src="/images/bin_static_sm.png" className="img-fluid float-right" alt="" onClick={
                                                             async e => {
