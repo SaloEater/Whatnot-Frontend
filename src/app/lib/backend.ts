@@ -9,9 +9,14 @@ import {useRouter} from "next/navigation";
 export async function getEndpoints()  {
     return {
         days: "/api/days",
+        addDay: "/api/day/add",
         getBreak: "/api/break",
         addBreak: "/api/break/add",
-        changeOutcome: "/api/outcome/change_outcome"
+        changeOutcome: "/api/break/change_outcome",
+        deleteBreak: "/api/break/delete",
+        deleteDay: "/api/day/delete",
+        setBreakStartDate: "/api/break/set_start_data",
+        setBreakEndDate: "/api/break/set_end_data",
     }
 }
 
@@ -65,10 +70,7 @@ export async function get(endpoint: string, username: string, password: string) 
 }
 
 function getBasicAuth(username: string, password: string) {
-    console.log("using these: " + username+ ":" + password)
-    var auth = "Basic " + btoa(username + ":" + password);
-    console.log(auth)
-    return auth
+    return "Basic " + btoa(username + ":" + password);
 }
 
 function getUrl(host: string, endpoint: string) {
