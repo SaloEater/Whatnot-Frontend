@@ -1,42 +1,29 @@
-import {DayData} from "@/app/days/dayComponent";
-import {Dispatch, SetStateAction, useEffect, useState} from "react";
+import {createRef, Dispatch, SetStateAction, useEffect, useRef, useState} from "react";
 import {getEndpoints, post} from "@/app/lib/backend";
 import {TuiDateTimePicker} from "nextjs-tui-date-picker";
 import moment from "moment";
-
-export type SelectedBreak = string
-
-interface ProductSoldEvent {
-    customer: string
-    price: number
-    quantity: number
-    product_id: string
-    order_id: string
-}
-
-interface SoldEvent {
-    id: string
-    timestamp: string
-    object: ProductSoldEvent
-}
-
-interface Break {
-    sold_events: SoldEvent[]
-    outcomes: string[]
-    start_date: number
-    end_date: number
-}
+import {Simulate} from "react-dom/test-utils";
+import drop = Simulate.drop;
+import {Day, Break, Event, SelectedBreak} from "@/app/entity/entities";
+import EventComponent from "@/app/days/eventComponent";
+import {findDOMNode} from "react-dom";
+import NewEventComponent from "@/app/days/newEventComponent";
 
 export function getBreakIndex(selectedBreak: SelectedBreak) {
     return parseInt(selectedBreak.split('.')[0].split('_')[1])
 }
 
-export default function Break(props: {selectedDay: DayData|null, selectedBreak: SelectedBreak, requestedDaysReload: boolean, requestDaysReload: Dispatch<SetStateAction<boolean>>}) {
+export default function BreakComponent(props: {selectedDay: Day, selectedBreak: SelectedBreak, requestedDaysReload: boolean, requestDaysReload: Dispatch<SetStateAction<boolean>>}) {
     const [breakObject, setBreakObject] = useState<Break|null>(null);
-    const [requestedBreakObjectRefresh, requestBreakObjectRefresh] = useState(false)
-    const [newOutcome, setNewOutcome] = useState<string>("")
+    const [requestedBreakObjectRefresh, _requestBreakObjectRefresh] = useState(false)
+
+    function requestBreakObjectRefresh() {
+        _requestBreakObjectRefresh((old) => !old)
+    }
+
     const [startDate, setStartDate] = useState(new Date())
     const [endDate, setEndDate] = useState(new Date())
+
 
     useEffect(() => {
         if (!props.selectedDay || props.selectedBreak === "") {
@@ -44,23 +31,25 @@ export default function Break(props: {selectedDay: DayData|null, selectedBreak: 
         }
         const fetchData = async () => {
             try {
-                const username = localStorage?.getItem("username") ?? ""
-                const password = localStorage?.getItem("password") ?? ""
                 const body = {
                     year: props.selectedDay?.date.year,
                     month: props.selectedDay?.date.month,
                     day: props.selectedDay?.date.day,
-                    index: getBreakIndex(props.selectedBreak)
+                    name: props.selectedBreak
                 }
-                const breakData = await post((await getEndpoints()).getBreak, body, username, password)
+                const breakData = await post((await getEndpoints()).getBreak, body)
 
                 var _break: Break|null = breakData
                 if (breakData.error) {
                     _break = null
                 }
+
+                if (_break) {
+                    setStartDate(await getStartDate(_break.start_date))
+                    setEndDate(await getEndDate(_break.end_date))
+                }
+
                 setBreakObject(_break)
-                setStartDate(await getStartDate(_break?.start_date ?? 0))
-                setEndDate(await getEndDate(_break?.end_date ?? 0))
             } catch (error) {
                 console.error('Failed to fetch break:', error);
             }
@@ -69,30 +58,6 @@ export default function Break(props: {selectedDay: DayData|null, selectedBreak: 
         fetchData();
     }, [props.selectedDay, props.selectedBreak, requestedBreakObjectRefresh])
 
-    async function changeOutcomes(newOutcomes: string[]) {
-        const username = localStorage?.getItem("username") ?? "";
-        const password = localStorage?.getItem("password") ?? "";
-        const index = getBreakIndex(props.selectedBreak);
-        const body = {
-            year: props.selectedDay?.date.year,
-            month: props.selectedDay?.date.month,
-            day: props.selectedDay?.date.day,
-            index: index,
-            outcomes: newOutcomes
-        };
-        const response = await post((await getEndpoints()).changeOutcome, body, username, password);
-        if (response.error === undefined) {
-            props.requestDaysReload(!props.requestedDaysReload);
-            return true
-        }
-        return false
-    }
-
-    async function addNewOutcome(outcome: string) {
-        const newOutcomes = (breakObject?.outcomes ?? []).map(i => i)
-        newOutcomes.push(outcome);
-        return await changeOutcomes(newOutcomes);
-    }
 
     const dateTimeFormat = "YYYY-MM-dd hh:mm a"
 
@@ -100,7 +65,7 @@ export default function Break(props: {selectedDay: DayData|null, selectedBreak: 
         if (start_date <= 0) {
             const ok = await setStartDateRequest((new Date()).getTime().toString())
             if (ok) {
-                requestBreakObjectRefresh(!requestedBreakObjectRefresh)
+                requestBreakObjectRefresh()
             }
         }
 
@@ -111,7 +76,7 @@ export default function Break(props: {selectedDay: DayData|null, selectedBreak: 
         if (end_date <= 0) {
             const ok = await setEndDateRequest((new Date()).getTime().toString())
             if (ok) {
-                requestBreakObjectRefresh(!requestedBreakObjectRefresh)
+                requestBreakObjectRefresh()
             }
         }
 
@@ -119,33 +84,33 @@ export default function Break(props: {selectedDay: DayData|null, selectedBreak: 
     }
 
     async function setStartDateRequest(startDateUnix: string) {
-        const username = localStorage?.getItem("username") ?? "";
-        const password = localStorage?.getItem("password") ?? "";
-        const index = getBreakIndex(props.selectedBreak);
         const body = {
             year: props.selectedDay?.date.year,
             month: props.selectedDay?.date.month,
             day: props.selectedDay?.date.day,
-            index: index,
+            name: props.selectedBreak,
             start_date: startDateUnix
         };
-        const response = await post((await getEndpoints()).setBreakStartDate, body, username, password);
+        const response = await post((await getEndpoints()).setBreakStartDate, body);
         return response.error === undefined
     }
 
     async function setEndDateRequest(endDateUnix: string) {
-        const username = localStorage?.getItem("username") ?? "";
-        const password = localStorage?.getItem("password") ?? "";
-        const index = getBreakIndex(props.selectedBreak);
         const body = {
             year: props.selectedDay?.date.year,
             month: props.selectedDay?.date.month,
             day: props.selectedDay?.date.day,
-            index: index,
+            name: props.selectedBreak,
             end_date: endDateUnix
         };
-        const response = await post((await getEndpoints()).setBreakEndDate, body, username, password);
+        const response = await post((await getEndpoints()).setBreakEndDate, body);
         return response.error === undefined
+    }
+
+    function getDefinedTeams() {
+        const predefinedTeamsData = localStorage.getItem("teams") ?? ""
+        const teams = predefinedTeamsData == "" ? [] : JSON.parse(predefinedTeamsData)
+        return teams.join('\n');
     }
 
     return (
@@ -159,7 +124,7 @@ export default function Break(props: {selectedDay: DayData|null, selectedBreak: 
                                 const startDateUnix = moment(e, dateTimeFormat.toUpperCase()).format("x")
                                 const ok = await setStartDateRequest(startDateUnix)
                                 if (ok) {
-                                    requestBreakObjectRefresh(!requestedBreakObjectRefresh)
+                                    requestBreakObjectRefresh()
                                 }
                             }}
                             format={dateTimeFormat}
@@ -172,7 +137,7 @@ export default function Break(props: {selectedDay: DayData|null, selectedBreak: 
                                 const endDateUnix = moment(e, dateTimeFormat.toUpperCase()).format("x")
                                 const ok = await setEndDateRequest(endDateUnix)
                                 if (ok) {
-                                    requestBreakObjectRefresh(!requestedBreakObjectRefresh)
+                                    requestBreakObjectRefresh()
                                 }
                             }}
                             format={dateTimeFormat}
@@ -186,95 +151,54 @@ export default function Break(props: {selectedDay: DayData|null, selectedBreak: 
                 {
                     breakObject ? <div className="row">
                         <div className="col">
-
                             <ul className="list-group">
-                                <li key="title" className="list-group-item">Sold products</li>
-                                {(breakObject?.sold_events.length > 0) ? breakObject.sold_events.toReversed().map(
-                                    (i, j, arr) => {
-                                        const {customer, price} = i.object;
-                                        return <li key={i.id} className="list-group-item">
-                                            <div className="container-fluid">
-                                                <div className="col-1">{arr.length - j}</div>
-                                                <div className="col-4">{`${customer} - ${price}$`}</div>
-                                            </div>
-                                        </li>;
-                                    }
-                                ) : <li key="nothing" className="list-group-item">No events yet</li>}
-                            </ul>
-                        </div>
-                        <div className="col">
-                            <ul className="list-group">
-                                <li key="title" className="list-group-item">Outcomes</li>
-                                {
-                                    <li key={"add_new"} className="list-group-item">
-                                        <div className="form-group">
-                                            <input
-                                                className="form-control"
-                                                value={newOutcome}
-                                                placeholder="Add new outcome.."
-                                                onChange={e => {
-                                                    setNewOutcome(e.currentTarget.value)
-                                                }
-                                                }
-                                                onKeyDown={async (e) => {
-                                                    if (e.key === 'Enter') {
-                                                        const ok = await addNewOutcome(newOutcome);
-                                                        if (ok) {
-                                                            setNewOutcome("")
-                                                        }
-                                                    }
-                                                }}
-                                            />
-                                            <div className="d-flex justify-content-start gap-1 mt-1">
-                                                <button type="button" id="skip-btn" className="btn btn-danger" onClick={e => addNewOutcome("Skip")}>Skip</button>
-                                                <button type="button" id="giveaway-btn" className="btn btn-info" onClick={e => addNewOutcome("Giveaway")}>Giveaway</button>
-                                                <button type="button" id="add-btn" className="btn btn-primary" onClick={e => addNewOutcome(newOutcome)}>Add</button>
-                                            </div>
-                                        </div>
-                                    </li>
-                                }
-                                {breakObject.outcomes.toReversed().map(
-                                    (i, j, arr) => {
-                                        function getOutcomeBg() {
-                                            if (i === "Skip") {
-                                                return "bg-danger"
-                                            }
-                                            if (i === "Giveaway") {
-                                                return "bg-info"
-                                            }
-
-                                            return ""
+                                <li key="title" className="list-group-item">Events</li>
+                                <li key="new_event" className="list-group-item">
+                                    Add new event:
+                                    <NewEventComponent
+                                        selectedDay={props.selectedDay}
+                                        selectedBreak={props.selectedBreak}
+                                        requestBreakObjectRefresh={requestBreakObjectRefresh}
+                                    />
+                                </li>
+                                {(breakObject?.events.length > 0) ? breakObject.events.toReversed().map(
+                                    (event, j, arr) => {
+                                        if (!props.selectedDay) {
+                                            return
                                         }
 
-                                        const outcomeBg = getOutcomeBg()
-
-                                        const className = ["list-group-item", outcomeBg].join(" ")
-                                        return <li key={j} className={className}>
-                                            <div className="container-fluid">
-                                                <div className="row">
-                                                    <div className="col-2">{arr.length - j})</div>
-                                                    <div className="col-4">
-                                                        {
-                                                            <div>
-                                                                {i}
-                                                            </div>
-                                                        }
-                                                    </div>
-                                                    <div className="col-2">
-                                                        <img src="/images/bin_static_sm.png" className="img-fluid float-right" alt="Delete" onClick={
-                                                            e => {
-                                                                changeOutcomes(breakObject.outcomes.toSpliced(arr.length - j - 1, 1))
-                                                            }
-                                                        }/>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                        let normalJ = arr.length - j - 1
+                                        return <li  key={event.id} className="list-group-item">
+                                            <EventComponent
+                                                id={event.id}
+                                                reversedIndex={j}
+                                                normalIndex={normalJ}
+                                                isLastElement={normalJ == arr.length - 1}
+                                                isFirstElement={normalJ == 0}
+                                                selectedDay={props.selectedDay}
+                                                selectedBreak={props.selectedBreak}
+                                                requestBreakObjectRefresh={requestBreakObjectRefresh}
+                                                event={event}
+                                            />
                                         </li>;
                                     }
-                                )}
+                                ) : <li key="nothing" className="list-group-item">No ev ents yet</li>}
                             </ul>
                         </div>
-                    </div> : <div>Select break to access it's data...</div>
+                        <div className="col form-floating">
+                            <textarea readOnly={true} id="username-list" className="form-control username-list" style={{height: "100%"}} onChange={e => console.log('new value is' + e.currentTarget.value, e.currentTarget.value.split('\n'))}/>
+                            <label htmlFor="username-list">Usernames</label>
+                        </div>
+                        <div className="col form-floating">
+                            <textarea id="team-list" className="form-control team-list" style={{height: "100%"}} onBlur={e => {
+                                const newTeams = e.currentTarget.value.split('\n')
+                                localStorage.setItem("teams", JSON.stringify(newTeams))
+                            }} value={getDefinedTeams()}/>
+                            <label htmlFor="team-list">Teams</label>
+                        </div>
+                    </div> : <div>
+
+                    </div>
                 }
             </div>
         </div>

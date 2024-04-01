@@ -2,42 +2,33 @@
 
 import {get, getEndpoints, post} from "@/app/lib/backend";
 import {useEffect, useState} from "react";
-import Day, {DayData, DayDate} from "@/app/days/dayComponent";
-import Break, {getBreakIndex, SelectedBreak} from "@/app/days/breakComponent";
+import DayComponent from "@/app/days/dayComponent";
+import BreakComponent from "@/app/days/breakComponent";
 import moment from "moment/moment";
 import {TuiDateTimePicker} from "nextjs-tui-date-picker";
+import CreateNewDate from "@/app/days/CreateNewDate";
+import {Day, DayDate, SelectedBreak} from "@/app/entity/entities";
+import {daysAreEqual} from "@/app/common/helpers";
+import {useRouter} from "next/navigation";
+import {cleanAuth, requestClientAuthClean} from "@/app/lib/auth_storage";
 
 interface DaysData {
-    days: DayData[]
-}
-
-function daysAreEqual(a: DayData | null, b: DayData | null) {
-    if (!a && !b) {
-        return true
-    }
-
-    if (!a || !b) {
-        return false
-    }
-
-    return a.date.year === b.date.year && a.date.month === b.date.month && a.date.day === b.date.day;
+    days: Day[]
 }
 
 export default function Page() {
     const [data, setData] = useState<DaysData>({days: []});
-    const [selectedDay, setSelectedDay] = useState<DayData | null>(null)
+    const [selectedDay, setSelectedDay] = useState<Day | null>(null)
     const [selectedBreak, setSelectedBreak] = useState<SelectedBreak>("")
     const [requestedDaysReload, requestDaysReload] = useState<boolean>(false)
     const date = new Date()
-    const [newDayDate, setNewDayDate] = useState<DayDate>({year: date.getFullYear(), month: date.getMonth(), day: date.getDate()})
+    const defaultDayDate = {year: date.getFullYear(), month: date.getMonth(), day: date.getDate()}
+    const [newDayDate, setNewDayDate] = useState<DayDate>({...defaultDayDate})
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const username = localStorage?.getItem("username") ?? ""
-                const password = localStorage?.getItem("password") ?? ""
-                const daysData = await get((await getEndpoints()).days, username, password)
-
+                const daysData = await get((await getEndpoints()).days)
                 const days: DaysData = daysData
                 if (daysData.error != undefined) {
                     console.log("Error while fetching days: " + daysData.error)
@@ -57,6 +48,7 @@ export default function Page() {
     }, [requestedDaysReload])
 
     const dateTimeFormat = "YYYY-MM-dd"
+    const router = useRouter()
 
     return (
         <main>
@@ -65,34 +57,29 @@ export default function Page() {
                     <div className="col-3">
                         <ul className="list-group">
                             <li className="list-group-item">
-                                <TuiDateTimePicker
-                                    key={`${newDayDate.year}-${newDayDate.month}-${newDayDate.day}`}
-                                    handleChange={async e => {
-                                        const newDate = moment(e, dateTimeFormat.toUpperCase()).toDate()
-                                        setNewDayDate({year: newDate.getFullYear(), month: newDate.getMonth(), day: newDate.getDate()})
-                                    }}
-                                    format={dateTimeFormat}
-                                    date={new Date(newDayDate.year, newDayDate.month, newDayDate.day)}
-                                    inputWidth="auto"
+                                <CreateNewDate
+                                    newDayDate={newDayDate}
+                                    setNewDayDate={setNewDayDate}
+                                    dateTimeFormat={dateTimeFormat}
+                                    requestedDaysReload={requestedDaysReload}
+                                    requestDaysReload={requestDaysReload}
                                 />
-                                <button type="button" id="add-day" className="bg-primary" onClick={
-                                    async e => {
-                                        const username = localStorage?.getItem("username") ?? "";
-                                        const password = localStorage?.getItem("password") ?? "";
-                                        const body = {
-                                            year: newDayDate.year,
-                                            month: newDayDate.month,
-                                            day: newDayDate.day,
-                                        };
-                                        const response = await post((await getEndpoints()).addDay, body, username, password);
-                                        if (response.error === undefined) {
-                                            requestDaysReload(!requestedDaysReload);
-                                            return true
-                                        }
-                                        return false
-                                    }
-                                }>Add</button>
                             </li>
+                            {
+                                selectedDay && <li className="d-flex justify-content-end">
+                                    <button type="button" className="btn btn-primary" onClick={
+                                        e => {
+                                            let packagingParams = {
+                                                year: selectedDay?.date.year,
+                                                month: selectedDay?.date.month,
+                                                day: selectedDay?.date.day
+                                            }
+                                            let href = `/packaging?year=${selectedDay?.date.year}&month=${selectedDay?.date.month}&day=${selectedDay?.date.day}`
+                                            router.push(href)
+                                        }
+                                    }>Package</button>
+                                </li>
+                            }
                             {
                                 data.days.toReversed().map(
                                     (i) => {
@@ -108,14 +95,12 @@ export default function Page() {
                                                     <div className="col-2">
                                                         <img src="/images/bin_static_sm.png" className="img-fluid float-right" alt="" onClick={
                                                             async e => {
-                                                                const username = localStorage?.getItem("username") ?? "";
-                                                                const password = localStorage?.getItem("password") ?? "";
                                                                 const body = {
                                                                     year: selectedDay?.date.year,
                                                                     month:selectedDay?.date.month,
                                                                     day: selectedDay?.date.day,
                                                                 };
-                                                                const response = await post((await getEndpoints()).deleteDay, body, username, password);
+                                                                const response = await post((await getEndpoints()).deleteDay, body);
                                                                 if (response.error === undefined) {
                                                                     requestDaysReload(!requestedDaysReload);
                                                                     return true
@@ -132,11 +117,11 @@ export default function Page() {
                             }
                         </ul>
                     </div>
-                    <div className="col-2">
-                        <Day selectedDay={selectedDay} selectedBreak={selectedBreak} setSelectedBreak={setSelectedBreak} requestedDaysReload={requestedDaysReload} requestDaysReload={requestDaysReload}/>
+                    <div className="col-2" key={(selectedBreak ?? "") + (new Date()).getTime().toString()}>
+                        <DayComponent selectedDay={selectedDay} selectedBreak={selectedBreak} setSelectedBreak={setSelectedBreak} requestedDaysReload={requestedDaysReload} requestDaysReload={requestDaysReload}/>
                     </div>
                     <div className="col-7">
-                        <Break selectedDay={selectedDay} selectedBreak={selectedBreak} requestedDaysReload={requestedDaysReload} requestDaysReload={requestDaysReload}/>
+                        {selectedDay && <BreakComponent selectedDay={selectedDay} selectedBreak={selectedBreak} requestedDaysReload={requestedDaysReload} requestDaysReload={requestDaysReload}/>}
                     </div>
                 </div>
             </div>

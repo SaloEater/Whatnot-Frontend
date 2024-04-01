@@ -1,10 +1,13 @@
 'use client'
 
 import {cleanAuth, requestClientAuthClean} from "@/app/lib/auth_storage";
-import {useState} from "react";
 import {EnvVarResponse} from "@/pages/api/get-env-var";
 import {useRouter} from "next/navigation";
 
+interface Credentials {
+    username: string
+    password: string
+}
 
 export async function getEndpoints()  {
     return {
@@ -17,6 +20,10 @@ export async function getEndpoints()  {
         deleteDay: "/api/day/delete",
         setBreakStartDate: "/api/break/set_start_data",
         setBreakEndDate: "/api/break/set_end_data",
+        updateBreakEvent: "/api/break/update_event",
+        addBreakEvent: "/api/break/add_event",
+        deleteBreakEvent: "/api/break/delete_event",
+        moveBreakEvent: "/api/break/move_event"
     }
 }
 
@@ -26,10 +33,10 @@ async function useEnvVar(): Promise<string> {
     return data.value;
 }
 
-export async function post(endpoint: string, data: {}, username: string, password: string) {
+export async function post(endpoint: string, data: {}) {
     const host = await useEnvVar()
     let url = getUrl(host, endpoint)
-    let auth = getBasicAuth(username, password)
+    let auth = getBasicAuth()
     try {
         const response = await fetch(url, {
             method: "POST",
@@ -48,10 +55,10 @@ export async function post(endpoint: string, data: {}, username: string, passwor
     }
 }
 
-export async function get(endpoint: string, username: string, password: string) {
+export async function get(endpoint: string) {
     const host = await useEnvVar()
     let url = getUrl(host, endpoint)
-    let auth = getBasicAuth(username, password)
+    let auth = getBasicAuth()
     try {
         const response = await fetch(url, {
             method: "GET",
@@ -69,8 +76,16 @@ export async function get(endpoint: string, username: string, password: string) 
     }
 }
 
-function getBasicAuth(username: string, password: string) {
-    return "Basic " + btoa(username + ":" + password);
+function getCredentials(): Credentials {
+    return {
+        username: localStorage?.getItem("username") ?? "",
+        password: localStorage?.getItem("password") ?? ""
+    }
+}
+
+function getBasicAuth() {
+    const credentials = getCredentials()
+    return "Basic " + btoa(credentials.username + ":" + credentials.password);
 }
 
 function getUrl(host: string, endpoint: string) {
@@ -87,6 +102,18 @@ async function handleResponse(response: Response) {
     }
 
     var json = await resp
+    if (json === "") {
+        return {}
+    }
+    try {
+        var data = JSON.parse(json)
 
-    return JSON.parse(json)
+        if (data.error) {
+            console.log('An error occurred during request: ' + data.error)
+        }
+
+        return data
+    } catch (e: any) {
+        console.log('An error occurred during parsing response json "' + json + '": ' + e.toString())
+    }
 }
