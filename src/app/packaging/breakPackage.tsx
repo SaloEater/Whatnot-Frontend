@@ -2,6 +2,7 @@ import EventComponent from "@/app/packaging/eventPackage";
 import {Event} from "../entity/entities";
 import {useEffect, useState} from "react";
 import {CheckboxState} from "@/app/packaging/checkbox";
+import "./breakPackage.css"
 
 export function BreakPackage(props: {breakName: string, events: Event[], index: number, updateBreakState: (index: number, state: boolean) => void, currentState: boolean}) {
     const {breakName, events, index, updateBreakState, currentState} = props
@@ -23,39 +24,30 @@ export function BreakPackage(props: {breakName: string, events: Event[], index: 
     }
 
     function updateState(childIndex: number, state: boolean) {
-        _setCheckboxState((old) => {
-            let newState = old.cloneAndSet(childIndex, state)
-            updateBreakState(index, newState.allTrue())
-            return newState
-        })
+        let newState = checkboxState.cloneAndSet(childIndex, state)
+        updateBreakState(index, newState.allTrue())
+        _setCheckboxState(newState)
     }
 
-    function turnOnBreakAndChildren() {
-        updateBreakState(index, true)
+    function switchState() {
+        updateBreakState(index, !currentState)
     }
 
     return (
-        <div className="row">
-            <div className="col">
-                <div className="container-fluid">
-                    <div className="row">
-                        <div className={["col", getClassName()].join(' ')} onClick={turnOnBreakAndChildren}>{breakName}</div>
-                    </div>
-                    <div className="row">
-                        <div className="col d-flex flex-wrap gap-2">
-                            {
-                                events.map((event, childIndex) => {
-                                    return <EventComponent
-                                        event={event}
-                                        index={childIndex}
-                                        updateEventState={updateState}
-                                        currentState={checkboxState.get(childIndex)}
-                                    />
-                                })
-                            }
-                        </div>
-                    </div>
-                </div>
+        <div className="package-break">
+            <div className={getClassName()} onClick={switchState}>{`${breakName} [${events.length}]`}</div>
+            <div className="d-flex flex-wrap gap-2">
+                {
+                    events.map((event, childIndex) => {
+                        return <EventComponent
+                            key={childIndex}
+                            event={event}
+                            index={childIndex}
+                            updateEventState={updateState}
+                            currentState={checkboxState.get(childIndex)}
+                        />
+                    })
+                }
             </div>
         </div>
     )

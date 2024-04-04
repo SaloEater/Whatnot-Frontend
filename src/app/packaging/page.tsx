@@ -107,15 +107,23 @@ export default function SearchBar() {
         fetchData();
     }, [])
 
-    return <div className="d-flex flex-wrap gap-1">
-        {
-            Array.from(breakCustomers.entries()).map(
-                (customerInfo) => {
-                    let customer = customerInfo[0]
-                    let breaks = customerInfo[1]
-                    return <CustomerPackageComponent customer={customer} breaks={breaks}/>
-                }
-            )
-        }
+    return <div>
+        <div className="d-flex flex-wrap gap-4">
+            {
+                Array.from(breakCustomers.entries()).sort((i, j) => {
+                    let a = i[0].toLowerCase();
+                    let b = j[0].toLowerCase();
+                    if (a < b) return -1
+                    if (a > b) return 1
+                    return 0
+                }).map(
+                    (customerInfo, i) => {
+                        let customer = customerInfo[0]
+                        let breaks = customerInfo[1]
+                        return <CustomerPackageComponent key={i} customer={customer} breaks={breaks}/>
+                    }
+                )
+            }
+        </div>
     </div>
 }

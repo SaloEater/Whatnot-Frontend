@@ -1,5 +1,6 @@
 import {useState} from "react";
 import {Event} from "../entity/entities";
+import "./eventPackage.css"
 
 export default function EventComponent(props: {event: Event, index: number, updateEventState: (index: number, state: boolean) => void, currentState: boolean}) {
     const {event, index, updateEventState, currentState} = props
@@ -20,7 +21,7 @@ export default function EventComponent(props: {event: Event, index: number, upda
     }
 
     function getClassName() {
-        return currentState ? "item completed" : "item in-progress";
+        return 'package-event ' + (currentState ? "item completed" : "item in-progress");
     }
 
     return (

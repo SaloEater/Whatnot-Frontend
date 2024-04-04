@@ -3,7 +3,7 @@ import {BreakPackage} from "@/app/packaging/breakPackage";
 import './page.css'
 import {useEffect, useState} from "react";
 import {CheckboxState} from "@/app/packaging/checkbox";
-
+import "./customerPackage.css"
 
 export function CustomerPackageComponent(props: {customer: string, breaks: Map<string, Event[]>}) {
     const {breaks, customer} = props
@@ -19,45 +19,42 @@ export function CustomerPackageComponent(props: {customer: string, breaks: Map<s
     }
 
     function updateState(index: number, state: boolean) {
-        setCheckboxState((old) => {
-            let newState = old.cloneAndSet(index, state)
-            setIsChecked(newState.allTrue())
-            return newState
-        })
+        let newState = checkboxState.cloneAndSet(index, state)
+        setIsChecked(newState.allTrue())
+        setCheckboxState(newState)
     }
 
     function switchState() {
-        setIsChecked((old) => {
-            let newChecked = !old
-            setCheckboxState((oldState) => {
-                let newState = oldState.clone()
-                newState.setAll(newChecked)
-                return newState
-            })
-            return newChecked
+        let newChecked = !isChecked
+        setCheckboxState((oldState) => {
+            let newState = oldState.clone()
+            newState.setAll(newChecked)
+            return newState
         })
+        setIsChecked(newChecked)
     }
 
     return (
-        <div className="container-fluid">
-            <div className="row">
-                <div className={["col", getClassName()].join(' ')} onClick={switchState}>{customer}</div>
+        <div className="package-customer">
+            <div className={getClassName()} onClick={switchState}>{`${customer} [${Array.from(breaks.values()).reduce((acc, v) => acc + v.length, 0)}]`}</div>
+            <div className="d-flex flex-wrap gap-2">
+                {
+                    Array.from(breaks.entries()).map(
+                        (breakE, index) => {
+                            let breakName = breakE[0]
+                            let events = breakE[1]
+                            return <BreakPackage
+                                key={index}
+                                breakName={breakName}
+                                events={events}
+                                index={index}
+                                currentState={checkboxState.get(index)}
+                                updateBreakState={updateState}
+                            />
+                        }
+                    )
+                }
             </div>
-            {
-                Array.from(breaks.entries()).map(
-                    (breakE, index) => {
-                        let breakName = breakE[0]
-                        let events = breakE[1]
-                        return <BreakPackage
-                            breakName={breakName}
-                            events={events}
-                            index={index}
-                            currentState={checkboxState.get(index)}
-                            updateBreakState={updateState}
-                        />
-                    }
-                )
-            }
         </div>
     )
 }

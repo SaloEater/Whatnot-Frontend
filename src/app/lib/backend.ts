@@ -89,6 +89,7 @@ function getBasicAuth() {
 }
 
 function getUrl(host: string, endpoint: string) {
+    host = `http://${window.location.hostname}:5555`
     return host + endpoint;
 }
 
