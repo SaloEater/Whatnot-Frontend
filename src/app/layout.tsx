@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import 'bootstrap/dist/css/bootstrap.css';
 import BootstrapClient from "@/components/BootstrapClient";
+import BreadcrumbsComponent from "@/app/component/breadcrumbsComponent";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -20,9 +21,10 @@ export default function RootLayout({
 
   return (
     <html lang="en">
-      <body className={inter.className} data-bs-theme="dark">
-          {children}
-          <BootstrapClient />
+      <body className={inter.className + " my-body"} data-bs-theme="dark">
+        <BreadcrumbsComponent/>
+        {children}
+        <BootstrapClient />
       </body>
     </html>
   );

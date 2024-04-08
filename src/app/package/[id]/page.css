@@ -1,0 +1,13 @@
+.item {
+    border: black 1px solid;
+    border-radius: 2px;
+    padding: 5px;
+}
+
+.completed {
+    background-color: darkgreen;
+}
+
+.in-progress {
+    background-color: black;
+}

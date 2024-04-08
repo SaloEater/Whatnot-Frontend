@@ -1,0 +1,46 @@
+.dimmed-overlay {
+    background-color: rgba(0, 0, 0, 0.75); /* Semi-transparent black background */
+    border-radius: 35px;
+    z-index: 1000; /* Ensure the overlay is on top of other content */
+}
+
+.font-small {
+    font-size: 10px;
+}
+
+.image {
+    height: 100%;
+}
+
+.max-height {
+    height: 100%;
+    max-height: 100%;
+}
+
+.max-width {
+    width: 100%;
+    max-width: 100%;
+}
+
+.dynamic-text {
+    font-size: calc(1.1vh);
+}
+
+.container {
+    padding: 0;
+    margin: 0;
+}
+
+.row {
+    padding: 0;
+    margin: 0;
+}
+
+.col {
+    padding: 0;
+    margin: 0;
+}
+
+.height-with-image {
+    height: 100%;
+}

@@ -9,21 +9,22 @@ interface Credentials {
     password: string
 }
 
-export async function getEndpoints()  {
+export function getEndpoints()  {
     return {
-        days: "/api/days",
-        addDay: "/api/day/add",
-        getBreak: "/api/break",
-        addBreak: "/api/break/add",
-        changeOutcome: "/api/break/change_outcome",
-        deleteBreak: "/api/break/delete",
-        deleteDay: "/api/day/delete",
-        setBreakStartDate: "/api/break/set_start_data",
-        setBreakEndDate: "/api/break/set_end_data",
-        updateBreakEvent: "/api/break/update_event",
-        addBreakEvent: "/api/break/add_event",
-        deleteBreakEvent: "/api/break/delete_event",
-        moveBreakEvent: "/api/break/move_event"
+        days_get: "/api/days",
+        day_add: "/api/day/add",
+        day_delete: "/api/day/delete",
+        day_get: "/api/day",
+        break_get: "/api/break",
+        break_get_by_day: "/api/break/by_day",
+        break_add: "/api/break/add",
+        break_delete: "/api/break/delete",
+        break_update: "/api/break/update",
+        events_get_by_break: "/api/event/by_break",
+        event_update: "/api/event/update",
+        event_add: "/api/event/add",
+        event_delete: "/api/event/delete",
+        event_move: "/api/event/move",
     }
 }
 
@@ -113,8 +114,9 @@ async function handleResponse(response: Response) {
             console.log('An error occurred during request: ' + data.error)
         }
 
-        return data
+        return data.data
     } catch (e: any) {
         console.log('An error occurred during parsing response json "' + json + '": ' + e.toString())
+        throw e;
     }
 }

@@ -1,16 +1,18 @@
-export interface DayDate {
+export interface DayData {
     year: number
     month: number
     day: number
 }
 
 export interface Day {
-    date: DayDate
+    date: DayData
     breaks: string[]
 }
 
 export interface Event {
     id: string
+    index: number
+    break_id: number
 
     customer: string
     price: number
@@ -21,10 +23,33 @@ export interface Event {
 }
 
 export interface Break {
-    events: Event[]
+    id: number
+    day_id: number
     name: string
-    start_date: number
-    end_date: number
+    start_date: string
+    end_date: string
+    is_deleted: boolean
+}
+
+export interface GetDaysDay {
+    id: number
+    timestamp: number
+}
+
+export interface GetDaysResponse {
+    days: GetDaysDay[]
+}
+
+export interface GetBreaksByDayResponse {
+    breaks: Break[]
 }
 
 export type SelectedBreak = string
+
+export interface AddBreakResponse {
+    id: number
+}
+
+export interface GetEventsByBreakResponse {
+    events: Event[]
+}
