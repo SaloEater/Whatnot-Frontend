@@ -80,7 +80,7 @@ export default function Page() {
                         </div>
                     </li>
                     {
-                        days.toReversed().map(
+                        [...days].reverse().map(
                             (day: GetDaysDay, index: number, arr: GetDaysDay[]) => {
                                 return <li key={day.id} className="list-group-item text-white">
                                     <div className="container-fluid">
