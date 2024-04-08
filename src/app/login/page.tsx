@@ -29,10 +29,10 @@ export default function Page() {
         <div className="d-flex align-items-center justify-content-center">
             <form onSubmit={handleSubmitLogin}>
                 <div className="form-group">
-                    <input type="username" name="username" placeholder="Username" value="Username" required />
+                    <input type="username" name="username" placeholder="Username" required />
                 </div>
                 <div className="form-group">
-                    <input type="password" name="password" placeholder="Password" value="Password" required />
+                    <input type="password" name="password" placeholder="Password" required />
                 </div>
                 <button type="submit" className="btn btn-primary">Login</button>
             </form>
