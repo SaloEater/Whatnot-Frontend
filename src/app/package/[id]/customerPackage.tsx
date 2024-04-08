@@ -3,6 +3,7 @@ import {useEffect, useState} from "react";
 import "./customerPackage.css"
 import {CheckboxState} from "@/app/package/[id]/checkbox";
 import {BreakPackage} from "@/app/package/[id]/breakPackage";
+import {Event} from "@/app/entity/entities";
 
 export function CustomerPackageComponent(props: {customer: string, breaks: Map<string, Event[]>}) {
     const {breaks, customer} = props

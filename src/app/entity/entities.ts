@@ -10,7 +10,7 @@ export interface Day {
 }
 
 export interface Event {
-    id: string
+    id: number
     index: number
     break_id: number
 

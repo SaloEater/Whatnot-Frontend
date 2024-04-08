@@ -2,6 +2,7 @@ import {useEffect, useState} from "react";
 import "./breakPackage.css"
 import {CheckboxState} from "@/app/package/[id]/checkbox";
 import EventComponent from "@/app/package/[id]/eventPackage";
+import {Event} from "@/app/entity/entities";
 
 export function BreakPackage(props: {breakName: string, events: Event[], index: number, updateBreakState: (index: number, state: boolean) => void, currentState: boolean}) {
     const {breakName, events, index, updateBreakState, currentState} = props

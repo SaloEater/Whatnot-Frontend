@@ -34,11 +34,13 @@ export default function Page({params} : {params: {id: string}}) {
         }
 
         let date = (new Date()).toISOString()
-        let body = {
+        let body: Break = {
+            id: 0,
             day_id: dayId,
             name: newBreakName,
             start_date: date,
-            end_date: date
+            end_date: date,
+            is_deleted: false,
         }
 
         post(getEndpoints().break_add, body)
@@ -60,11 +62,12 @@ export default function Page({params} : {params: {id: string}}) {
                             console.log(`Team ${teamName} added`)
                         })
                 })
-                addBreak({id: response.id, ...body})
+                body.id = response.id
+                addBreak(body)
             })
     }
 
-    function addBreak(newBreak) {
+    function addBreak(newBreak: Break) {
         setBreaks((old) => {
             let newBreaks = [...old]
             newBreaks.push(newBreak)

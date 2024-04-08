@@ -8,7 +8,7 @@ import {DayData} from "@/app/entity/entities";
 import {useRouter} from "next/navigation";
 import {GetDaysDay, GetDaysResponse} from "@/app/entity/entities";
 
-export default function Page(timestamp: number) {
+export default function Page() {
     const [days, setDays] = useState<GetDaysDay[]>([]);
     const date = new Date()
     const defaultDayDate = {year: date.getFullYear(), month: date.getMonth(), day: date.getDate()}

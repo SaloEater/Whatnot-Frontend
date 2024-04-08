@@ -16,7 +16,7 @@ export default function ErrorLog() {
 
     return (
         <ErrorLogContext.Provider value={errors}>
-            <ErrorLogComponent/>
+            <ErrorLogComponent key='1'/>
         </ErrorLogContext.Provider>
     )
 }
@@ -27,8 +27,8 @@ function ErrorLogComponent() {
     return (
         <div className="position-absolute top-0 end-0 d-flex gap-1 flex-column">
             {
-                errors.map(i => {
-                    return <div className="bg-danger">
+                errors.map((i, j) => {
+                    return <div key={j} className="bg-danger">
                         {i.text}
                     </div>
                 })

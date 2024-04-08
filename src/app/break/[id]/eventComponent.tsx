@@ -39,6 +39,7 @@ export default function EventComponent({params}: {params: {
         save: saveCustomer,
         max_width: 100,
         placeholder: 'Enter nickname',
+        font_size: null,
     }
 
     function updatePrice(value: string) {
@@ -62,6 +63,7 @@ export default function EventComponent({params}: {params: {
         save: savePrice,
         max_width: 50,
         placeholder: 'Enter price',
+        font_size: null,
     }
 
     function hasIndex() {

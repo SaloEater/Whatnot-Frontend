@@ -28,14 +28,14 @@ export function getEndpoints()  {
     }
 }
 
-async function useEnvVar(): Promise<string> {
+async function getEnvVar(): Promise<string> {
     const response = await fetch('/api/get-env-var');
     const data = await response.json() as EnvVarResponse;
     return data.value;
 }
 
 export async function post(endpoint: string, data: {}) {
-    const host = await useEnvVar()
+    const host = await getEnvVar()
     let url = getUrl(host, endpoint)
     let auth = getBasicAuth()
     try {
@@ -57,7 +57,7 @@ export async function post(endpoint: string, data: {}) {
 }
 
 export async function get(endpoint: string) {
-    const host = await useEnvVar()
+    const host = await getEnvVar()
     let url = getUrl(host, endpoint)
     let auth = getBasicAuth()
     try {
@@ -90,14 +90,15 @@ function getBasicAuth() {
 }
 
 function getUrl(host: string, endpoint: string) {
-    host = `http://${window.location.hostname}:5555`
+    //host = `http://${window.location.hostname}:5555`
     return host + endpoint;
 }
 
 async function handleResponse(response: Response) {
     var resp = response.text()
     if (response.status == 401) {
-        const router = useRouter()
+        // eslint-disable-next-line
+        const router= useRouter()
         requestClientAuthClean()
         cleanAuth()
         router.push('/login')

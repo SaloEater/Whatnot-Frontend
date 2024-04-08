@@ -10,10 +10,6 @@ import {useRouter} from "next/navigation";
 import GiveawayComponent from "@/app/break/[id]/giveawayComponent";
 import TextInput from "@/app/common/textInput";
 
-export function getBreakIndex(selectedBreak: SelectedBreak) {
-    return parseInt(selectedBreak.split('.')[0].split('_')[1])
-}
-
 export default function Page({params} : {params: {id: string}}) {
     const breakId = parseInt(params.id)
     const [breakObject, setBreakObject] = useState<Break|null>(null);
@@ -21,6 +17,7 @@ export default function Page({params} : {params: {id: string}}) {
     const [events, setEvents] = useState<Event[]>([])
     const [giveaways, setGiveaways] = useState<Event[]>([])
     const [newGiveawayCustomer, setNewGiveawayCustomer] = useState("")
+    const [toDemo, setToDemo] = useState(false)
 
     useEffect(() => {
         const body = {
@@ -33,6 +30,10 @@ export default function Page({params} : {params: {id: string}}) {
                 refreshEvents()
             })
     }, [])
+
+    useEffect(() => {
+
+    }, [toDemo]);
 
     function refreshEvents() {
         let eventsBody = {
@@ -123,7 +124,7 @@ export default function Page({params} : {params: {id: string}}) {
     }
 
     function updateEvent(event: Event, index: number) {
-        let updateEventBody = {break_id: breakId, ...event}
+        let updateEventBody = {...event}
         post(getEndpoints().event_update, updateEventBody)
             .then(response => {
                 if (response.success) {
@@ -216,6 +217,8 @@ export default function Page({params} : {params: {id: string}}) {
             return
         }
         let event: Event = {
+            id: 0,
+            index: -1,
             break_id: breakId,
             customer: newGiveawayCustomer,
             price: 0,
@@ -325,6 +328,7 @@ export default function Page({params} : {params: {id: string}}) {
                                     save: saveNewGiveawayCustomer,
                                     max_width: 175,
                                     placeholder: 'Enter nickname',
+                                    font_size: null,
                                 }}/>
                     </div>
                 </div>

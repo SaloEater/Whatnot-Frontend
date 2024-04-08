@@ -8,10 +8,10 @@ export default function TextInput({params} : {
         placeholder: string
     }
 }) {
-    let style = {maxWidth: `${params.max_width}px`};
-    if (params.font_size) {
-        style.fontSize = `${params.font_size}px`
-    }
+    let style = {
+        maxWidth: `${params.max_width}px`,
+        fontSize: params.font_size ? `${params.font_size}px` : '16px',
+    };
     return (
         <input style={style} value={params.value} onChange={e => {
             params.update(e.target.value)

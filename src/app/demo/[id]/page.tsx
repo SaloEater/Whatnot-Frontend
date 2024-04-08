@@ -10,10 +10,6 @@ import './page.css'
 import EventComponent from "@/app/demo/[id]/eventComponent";
 import Image from "next/image";
 
-export function getBreakIndex(selectedBreak: SelectedBreak) {
-    return parseInt(selectedBreak.split('.')[0].split('_')[1])
-}
-
 export default function Page({params} : {params: {id: string}}) {
     const breakId = parseInt(params.id)
     const [events, setEvents] = useState<Event[]>([])
@@ -64,12 +60,6 @@ export default function Page({params} : {params: {id: string}}) {
         var elem = document.documentElement;
         if (elem.requestFullscreen) {
             elem.requestFullscreen();
-        } else if (elem.mozRequestFullScreen) { /* Firefox */
-            elem.mozRequestFullScreen();
-        } else if (elem.webkitRequestFullscreen) { /* Chrome, Safari and Opera */
-            elem.webkitRequestFullscreen();
-        } else if (elem.msRequestFullscreen) { /* IE/Edge */
-            elem.msRequestFullscreen();
         }
     }
 
