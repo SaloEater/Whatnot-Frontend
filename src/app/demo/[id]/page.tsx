@@ -18,6 +18,9 @@ export default function Page({params} : {params: {id: string}}) {
 
     useEffect(() => {
         refreshEvents()
+        setTimeout(() => {
+            refreshEvents()
+        }, 5000)
     }, []);
 
     function refreshEvents() {
@@ -62,10 +65,6 @@ export default function Page({params} : {params: {id: string}}) {
             elem.requestFullscreen();
         }
     }
-
-    setTimeout(() => {
-        refreshEvents()
-    }, 10000)
 
     return (
         <div className='p-1 main'>
