@@ -22,7 +22,7 @@ export default function BreadcrumbsComponent() {
         breadcrumbs.push(<BreakBreadcrumbs key='day' params={params}/>)
     }
 
-    const isDemo = pathname.indexOf('demo') !== -1
+    const isDemo = pathname.indexOf('demo') !== -1 || pathname.indexOf('obs') !== -1
 
     return (
         <div>

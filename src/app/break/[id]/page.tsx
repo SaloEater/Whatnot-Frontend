@@ -174,6 +174,10 @@ export default function Page({params} : {params: {id: string}}) {
         router.push(`/demo/${breakId}`)
     }
 
+    function redirectToOBS() {
+        router.push(`/obs/${breakId}`)
+    }
+
     function updateGiveaway(event: Event) {
         let updateEventBody = {...event}
         post(getEndpoints().event_update, updateEventBody)
@@ -282,6 +286,7 @@ export default function Page({params} : {params: {id: string}}) {
                         </div>
                         <div>
                             <button type='button' className='btn btn-primary' onClick={redirectToDemo}>Demo</button>
+                            <button type='button' className='btn btn-primary' onClick={redirectToOBS}>OBS</button>
                         </div>
                     </div>
                 </div>

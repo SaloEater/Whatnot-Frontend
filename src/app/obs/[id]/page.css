@@ -1,0 +1,78 @@
+body {
+    background-color: #30ff00;
+    height: 100vh;
+}
+
+.team-image {
+    width: 100%;
+}
+
+.flex-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.grid-container {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 10px;
+}
+
+.dimmed::before {
+    content: ''; /* Pseudo-elements require the 'content' property */
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    position: absolute;
+    background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent black */
+    pointer-events: none; /* Allows clicks to pass through to the image/link below */
+}
+
+.grid-middle-item {
+    grid-column: 4 / span 4; /* Start at column 2 and span 2 columns */
+    grid-row: 1 / span 2; /* Start at row 2 and span 2 rows */
+}
+
+.white-text {
+    color: white;
+}
+
+.grid-item {
+    position: relative;
+    background-image: url('/images/card_bg.svg');
+    box-shadow: 0 0 0 1px #000;
+    background-size: cover;
+    background-clip: border-box;
+}
+
+.teams-left-amount {
+    font-size: 100px;
+}
+
+.down-button {
+    position: static;
+    bottom: 0;
+    width: 250px;
+    height: 50px
+}
+
+.logo {
+    background-image: url('/images/stream_bg.png');
+    background-size: cover;
+}
+
+@keyframes itemAnimation {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
