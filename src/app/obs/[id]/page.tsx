@@ -32,6 +32,6 @@ export default function Page({params}: {params: {id: string}}) {
 
     return <main className='teams-container grid-container'>
         <div className="grid-middle-item logo"/>
-        {teamCards.map(e => <EventComponent key={e.team} event={e}/>)}
+        {teamCards.map(e => <EventComponent key={e.team} _event={e}/>)}
     </main>
 }

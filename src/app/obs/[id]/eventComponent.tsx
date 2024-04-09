@@ -5,7 +5,8 @@ import {GetEventsByBreakResponse, Event} from "@/app/entity/entities";
 import {filterOnlyTeams} from "@/app/common/event_filter";
 
 // @ts-ignore
-export default function EventComponent({event}) {
+export default function EventComponent({_event}) {
+    let event: Event = _event
     const oldEvent = useRef<Event>()
     const [isPicked, setIsPicked] = useState(false)
     const containerRef = useRef<HTMLDivElement>(null);
@@ -14,13 +15,16 @@ export default function EventComponent({event}) {
     useEffect(() => {
         if (oldEvent.current) {
             if (oldEvent.current?.customer == '' && event.customer != '') {
+                console.log(event.team, event.customer, 'picked')
                 setIsPicked(true)
             } else if (oldEvent.current?.customer != '' && event.customer == '') {
                 setIsPicked(false)
                 setIsDimmed(false)
-            } else if (event.customer != '') {
-                setIsDimmed(true)
+                console.log(event.team, event.customer, 'unpicked')
             }
+        } else if (event.customer != '') {
+            setIsDimmed(true)
+            console.log(event.team, event.customer, 'default picked')
         }
         oldEvent.current = event
     }, [event.customer]);
