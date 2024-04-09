@@ -20,7 +20,7 @@ export default function Page({params} : {params: {id: string}}) {
         refreshEvents()
         setTimeout(() => {
             refreshEvents()
-        }, 5000)
+        }, 10000)
     }, []);
 
     function refreshEvents() {
