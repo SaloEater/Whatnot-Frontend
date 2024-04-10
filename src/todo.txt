@@ -1,0 +1,5 @@
+1) add temporary placeholder for keeping price and customer
+    a) potential to fill team card from that place
+2) force team order change
+3) force giveaway order change
+4) add high bid to obs view [in progress]

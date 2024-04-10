@@ -1,0 +1,24 @@
+@font-face {
+    font-family: 'MyCustomFont';
+    src: url('/fonts/Bigboz.otf') format('opentype'), /* Modern Browsers */
+}
+
+/* Apply the fonts to specific elements */
+.bigboz-font {
+    font-family: 'MyCustomFont', sans-serif;
+}
+
+.hb-container {
+    height: 55%;
+}
+
+.hb-container > * {
+    height: 50%;
+    font-size: 4.5vw;
+    color: white;
+    text-shadow:
+            -2px -2px 0 black,
+            2px -2px 0 black,
+            -2px  2px 0 black,
+            2px  2px 0 black;
+}

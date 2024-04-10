@@ -6,9 +6,10 @@ import {getEndpoints, post} from "@/app/lib/backend";
 import {GetEventsByBreakResponse, Event} from "@/app/entity/entities";
 import {filterOnlyTeams} from "@/app/common/event_filter";
 import EventComponent from "@/app/obs/[id]/eventComponent";
+import HighBidComponent from "@/app/obs/[id]/highBidComponent";
 
 export default function Page({params}: {params: {id: string}}) {
-    const [teamCards, setTeamsCards] = useState<Event[]>([])
+    const [teamEvents, setTeamsCards] = useState<Event[]>([])
     let breakId = parseInt(params.id)
 
     function refreshEvents() {
@@ -31,7 +32,9 @@ export default function Page({params}: {params: {id: string}}) {
     }, []);
 
     return <main className='teams-container grid-container'>
-        <div className="grid-middle-item logo"/>
-        {teamCards.map(e => <EventComponent key={e.team} _event={e}/>)}
+        <div className="position-relative grid-middle-item logo">
+            <HighBidComponent _events={teamEvents}/>
+        </div>
+        {teamEvents.map(e => <EventComponent key={e.team} _event={e}/>)}
     </main>
 }

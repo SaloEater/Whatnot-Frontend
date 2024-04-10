@@ -9,6 +9,7 @@ import {useRouter} from "next/navigation";
 import './page.css'
 import EventComponent from "@/app/demo/[id]/eventComponent";
 import Image from "next/image";
+import {getEventWithHighestPrice} from "@/app/common/event_filter";
 
 export default function Page({params} : {params: {id: string}}) {
     const breakId = parseInt(params.id)
@@ -38,7 +39,7 @@ export default function Page({params} : {params: {id: string}}) {
                 let teamEvents = events.events.filter(e => !e.is_giveaway && !e.note)
                 setEvents(teamEvents)
                 setGiveaways(events.events.filter(e => e.is_giveaway))
-                setHighestBidEvent(teamEvents.reduce((acc, event) => acc ? (event.price > acc.price ? event : acc) : event))
+                setHighestBidEvent(getEventWithHighestPrice(teamEvents))
             })
     }
 
