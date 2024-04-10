@@ -46,17 +46,22 @@ export default function Page({params} : {params: {id: string}}) {
     let items = []
     if (events.length > 0) {
         let rowsAmount = 16
-        let colsAmount = 2
         for (let i = 0; i < rowsAmount; i++) {
-            for (let j = 0; j < colsAmount; j++) {
-                let index = i * colsAmount + j
-                let eventObject = events[index]
-                let eventParams = {
-                    event: eventObject
-                }
-                let colKey = `col-${i}-${j}`
-                items.push(<EventComponent key={colKey} params={eventParams}/>)
+            let index = i
+            let eventObject = events[index]
+            let eventParams = {
+                event: eventObject
             }
+            let colKey = `col-${index}`
+            items.push(<EventComponent key={colKey} params={eventParams}/>)
+
+            index = i + rowsAmount
+            eventObject = events[index]
+            eventParams = {
+                event: eventObject
+            }
+            colKey = `col-${i}-${index}`
+            items.push(<EventComponent key={colKey} params={eventParams}/>)
         }
     }
 
@@ -70,14 +75,14 @@ export default function Page({params} : {params: {id: string}}) {
     return (
         <div className='p-1 main'>
             <Image className='position-absolute top-0 start-0' src='/images/full_screen.png' alt={'fullscreen'} onClick={launchFullScreen} width='50' height='50'/>
-            <div className='max-height overflow-hidden d-flex justify-content-center my-flex gap-2'>
+            <div className='max-height overflow-hidden d-flex justify-content-center my-flex gap-2 teams-container'>
                 <div className='items-container'>
                     {items.length > 0 && items}
                 </div>
                 <div className='d-flex flex-column align-items-center justify-content-center gap-2'>
                     {
                         giveaways.length > 0 && <div className='dimmed-overlay p-2 d-flex flex-column align-items-center'>
-                            <div className='fs-2'>
+                            <div className='fs-2 text-gray'>
                                 Giveaway Winners:
                             </div>
                             {
@@ -87,7 +92,7 @@ export default function Page({params} : {params: {id: string}}) {
                     }
                     {
                         highestBidEvent && <div className='dimmed-overlay p-2 d-flex flex-column align-items-center max-width'>
-                            <div className='fs-2'>Highest bid:</div>
+                            <div className='fs-2 text-gray'>Highest bid:</div>
                             <div className='fs-3'>{highestBidEvent.customer}</div>
                             <div className='fs-3'>{highestBidEvent.price}$</div>
                         </div>

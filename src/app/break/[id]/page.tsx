@@ -9,6 +9,7 @@ import EventComponent from "@/app/break/[id]/eventComponent";
 import {useRouter} from "next/navigation";
 import GiveawayComponent from "@/app/break/[id]/giveawayComponent";
 import TextInput from "@/app/common/textInput";
+import EventPlaceholderComponent from "@/app/break/[id]/eventPlaceholderComponent";
 
 export default function Page({params} : {params: {id: string}}) {
     const breakId = parseInt(params.id)
@@ -18,6 +19,10 @@ export default function Page({params} : {params: {id: string}}) {
     const [giveaways, setGiveaways] = useState<Event[]>([])
     const [newGiveawayCustomer, setNewGiveawayCustomer] = useState("")
     const [toDemo, setToDemo] = useState(false)
+    let emptyEvent: Event = {
+        break_id: 0, customer: "", id: 0, index: 0, is_giveaway: false, note: "", price: 0, quantity: 0, team: ""
+    }
+    const [eventPlaceholder, setEventPlaceholder] = useState<Event>({...emptyEvent})
 
     useEffect(() => {
         const body = {
@@ -243,6 +248,32 @@ export default function Page({params} : {params: {id: string}}) {
             })
     }
 
+    function updateEventPlaceholder(newEvent: Event) {
+        setEventPlaceholder((old) => {
+            let newE = {...old}
+            newE.price = newEvent.price
+            newE.customer = newEvent.customer
+            return newE
+        })
+    }
+
+    function resetEventPlaceholder() {
+        setEventPlaceholder({...emptyEvent})
+    }
+
+    function moveEvent(event: Event, newIndex: number) {
+        let body = {
+            id: event.id,
+            new_index: newIndex,
+        }
+        post(getEndpoints().event_move, body)
+            .then(response => {
+                if (response.success) {
+                    refreshEvents()
+                }
+            })
+    }
+
     return (
         <div>
             {
@@ -307,6 +338,14 @@ export default function Page({params} : {params: {id: string}}) {
                                             updateEvent: updateEvent,
                                             index: index,
                                             resetEvent: resetEvent,
+                                            getEventPlaceholder: () => {
+                                                let newE = {...eventPlaceholder}
+                                                let reset = {...emptyEvent}
+                                                console.log(reset)
+                                                setEventPlaceholder(reset)
+                                                return newE
+                                            },
+                                            moveEvent: moveEvent,
                                         }
                                         return <EventComponent key={eventObject.id} params={params}/>
                                     }
@@ -327,14 +366,20 @@ export default function Page({params} : {params: {id: string}}) {
                                 })
                             }
                         </ul>
-                                <TextInput params={{
-                                    value: newGiveawayCustomer,
-                                    update: updateNewGiveawayCustomer,
-                                    save: saveNewGiveawayCustomer,
-                                    max_width: 175,
-                                    placeholder: 'Enter nickname',
-                                    font_size: null,
-                                }}/>
+                            <TextInput params={{
+                                value: newGiveawayCustomer,
+                                update: updateNewGiveawayCustomer,
+                                save: saveNewGiveawayCustomer,
+                                max_width: 175,
+                                placeholder: 'Enter nickname',
+                                font_size: null,
+                            }}/>
+                            Future event:
+                            <EventPlaceholderComponent params={{
+                                event: eventPlaceholder,
+                                updateEventPlaceholder: updateEventPlaceholder,
+                                resetEventPlaceholder: resetEventPlaceholder,
+                            }}/>
                     </div>
                 </div>
             </div>

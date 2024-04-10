@@ -1,11 +1,11 @@
 @font-face {
-    font-family: 'MyCustomFont';
-    src: url('/fonts/Bigboz.otf') format('opentype'), /* Modern Browsers */
+    font-family: 'Bigboz-Web';
+    src: url('/fonts/Bigboz.otf') format('opentype'),
 }
 
 /* Apply the fonts to specific elements */
 .bigboz-font {
-    font-family: 'MyCustomFont', sans-serif;
+    font-family: 'Bigboz-Web', Bigboz, sans-serif;
 }
 
 .hb-container {
