@@ -3,6 +3,7 @@ import "./breakPackage.css"
 import {CheckboxState} from "@/app/package/[id]/checkbox";
 import EventComponent from "@/app/package/[id]/eventPackage";
 import {Event} from "@/app/entity/entities";
+import {sortByTeamName} from "@/app/common/event_filter";
 
 export function BreakPackage(props: {breakName: string, events: Event[], index: number, updateBreakState: (index: number, state: boolean) => void, currentState: boolean}) {
     const {breakName, events, index, updateBreakState, currentState} = props
@@ -38,7 +39,7 @@ export function BreakPackage(props: {breakName: string, events: Event[], index: 
             <div className={getClassName()} onClick={switchState}>{`${breakName} [${events.length}]`}</div>
             <div className="d-flex flex-wrap gap-2">
                 {
-                    events.map((event, childIndex) => {
+                    sortByTeamName(events).map((event, childIndex) => {
                         return <EventComponent
                             key={childIndex}
                             event={event}

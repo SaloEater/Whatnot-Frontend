@@ -23,3 +23,11 @@ export function sortByIndex(events: Event[]) {
         return 0
     })
 }
+
+export function sortByTeamName(events: Event[]) {
+    return events.sort((a, b) => {
+        if (a.team > b.team) return 1
+        if (a.team < b.team) return -1
+        return 0
+    })
+}
