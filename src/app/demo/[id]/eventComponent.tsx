@@ -13,7 +13,7 @@ export default function EventComponent(
         return `/images/teams/${team}.webp`;
     }
 
-    return <div className='p-1 max-height d-flex dimmed-overlay max-width align-items-center gap-2'>
+    return <div className='p-1 max-height d-flex dimmed-overlay max-width align-items-center gap-2 dimmed-overlay customer-border'>
         <img className='image' src={getTeamImageSrc(params.event.team)} alt={params.event.team}/>
         <div className='customer-text'>{params.event.customer}</div>
     </div>

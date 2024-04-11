@@ -1,5 +1,5 @@
 .dimmed-overlay {
-    background-color: rgba(0, 0, 0, 0.75); /* Semi-transparent black background */
+    /*background-color: rgba(0, 0, 0, 0.75); !* Semi-transparent black background *!*/
     border-radius: 35px;
     z-index: 1000; /* Ensure the overlay is on top of other content */
 }
@@ -47,4 +47,16 @@
 
 .customer-text {
     font-size: 1.25em;
+    color: black
+}
+
+.dimmed-overlay {
+    background-color: rgba(0, 0, 0, 0);
+    z-index: 1000; /* Ensure the overlay is on top of other content */
+}
+
+.customer-border {
+    border: 1px black dashed;
+    border-radius: 10px;
+    padding: 3px;
 }

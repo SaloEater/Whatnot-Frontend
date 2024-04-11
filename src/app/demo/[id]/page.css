@@ -13,18 +13,39 @@ body {
     height: 100%;
 }
 
-.items-container {
+.demo-container {
     display: grid;
     grid-template-columns: repeat(2, 0.75fr);
-    grid-template-rows: repeat(16, calc(100%/16));
+    grid-template-rows: repeat(16, calc((100% - 105px)/16));
+    background-color: white;
+    border-radius: 60px;
+    padding: 20px;
+    gap: 7px;
+    border: black solid 2px;
 }
 
 .dimmed-overlay {
-    background-color: rgba(0, 0, 0, 0.75); /* Semi-transparent black background */
-    border-radius: 35px;
+    /*background-color: rgba(0, 0, 0, 0.75); !* Semi-transparent black background *!*/
     z-index: 1000; /* Ensure the overlay is on top of other content */
 }
 
+.white-overlay {
+    background-color: #ffffff;
+    border: black solid 2px;
+}
+
+.round-overlay {
+    border-radius: 40px;
+    padding: 10px;
+}
+
 .text-gray {
-    color: #939393;
+    color: black;
+}
+
+.giveaway-winner {
+    border: black dashed 2px;
+    border-radius: 10px;
+    padding: 5px;
+    margin-bottom: 5px;
 }
