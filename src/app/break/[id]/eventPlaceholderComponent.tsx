@@ -72,16 +72,16 @@ export default function EventPlaceholderComponent({params}: {params: {
         <div className='position-relative border border-1 border-primary rounded rounded-3'>
             <div className='d-flex flex-column justify-content-center align-items-center p-1'>
                 <div className='d-flex gap-2 flex-column'>
-                    <TextInput params={priceInputParams}/>
+                    <div className='d-flex justify-content-evenly'>
+                        <div className='w-75'><TextInput params={priceInputParams}/></div>
+                        <img onClick={_ => {
+                            setNewCustomer('')
+                            setNewPrice(0)
+                            params.resetEventPlaceholder(params.event)
+                        }} className='bg-secondary p-1 w-15p' alt='Delete' src="/images/bin_static_sm.png"/>
+                    </div>
                     <TextInput params={customerInputParams}/>
                 </div>
-            </div>
-            <div className='position-absolute top-0 start-0' onClick={_ => {
-                setNewCustomer('')
-                setNewPrice(0)
-                params.resetEventPlaceholder(params.event)
-            }}>
-                <Image className='bg-secondary p-1' alt='Delete' src="/images/bin_static_sm.png" width='30' height='30'/>
             </div>
         </div>
     )

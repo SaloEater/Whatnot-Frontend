@@ -12,7 +12,7 @@
 }
 
 .popup {
-    background-color: white;
+    background-color: black;
     padding: 20px;
     border-radius: 5px;
     box-shadow: 0 0 10px rgba(0, 0, 0, 1);
@@ -33,6 +33,23 @@
     margin: 0;
 }
 
-.item-list li:hover {
-    background-color: #f0f0f0;
+.item-available:hover {
+    background-color: #757575;
+}
+
+.popup-item {
+    border: 1px white dashed;
+    border-radius: 10px;
+    padding: 5px;
+}
+
+.popup-item-order {
+    border: 1px white dashed;
+    border-radius: 10px;
+    padding: 5px;
+    margin-right: 10px;
+}
+
+.item-taken {
+    background-color: #286525;
 }

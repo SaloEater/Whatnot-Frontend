@@ -1,9 +1,11 @@
 import {Event} from "@/app/entity/entities";
 import Image from "next/image";
 import TextInput from "@/app/common/textInput";
-import {useState} from "react";
+import {useEffect, useState} from "react";
 import {getEndpoints, post} from "@/app/lib/backend";
 import OrderChangingComponent from "@/app/break/[id]/orderChangingComponent";
+import './eventComponent.css'
+import SwapComponent from "@/app/break/[id]/swapComponent";
 
 export default function EventComponent({params}: {params: {
     event: Event,
@@ -13,10 +15,18 @@ export default function EventComponent({params}: {params: {
     resetEvent: (event: Event, index: number) => void,
     getEventPlaceholder: () => Event,
     moveEvent: (event: Event, newIndex: number) => void,
+    isPlaceholderEmpty: () => boolean,
+    swapCustomerAndPrice: (a: Event, b: Event) => void,
     }}) {
     const [newCustomer, setNewCustomer] = useState(params.event.customer)
     const [newPrice, setNewPrice] = useState(params.event.price)
     const [showOverlay, setShowOverlay] = useState(false)
+    const [showSwap, setShowSwap] = useState(false)
+
+    useEffect(() => {
+        setNewPrice(params.event.price)
+        setNewCustomer(params.event.customer)
+    }, [params.event.customer, params.event.price]);
 
     function getTeamImageSrc(team: string) {
         return `/images/teams/${team}.webp`;
@@ -90,22 +100,51 @@ export default function EventComponent({params}: {params: {
         }
     }
 
+    function showSwapInterface() {
+        if (hasIndex()) {
+            setShowSwap(true)
+        }
+    }
+
+    function moveTeamAfter(event: Event|null) {
+        let nextIndex = 1
+        if (event) {
+            if (event.index > params.event.index) {
+                nextIndex = event.index
+            } else {
+                nextIndex = event.index + 1
+            }
+        }
+        params.moveEvent(params.event, nextIndex)
+    }
+
+    function swapWithTeam(event: Event) {
+        params.swapCustomerAndPrice(params.event, event)
+    }
+
+    let borderColor = 'border-primary'
+    if (hasIndex()) {
+        borderColor = 'border-green'
+    }
+
+    let splitted = params.event.team.split(' ')
+    let firstPart = splitted.length > 2 ? `${splitted[0]} ${splitted[1]}` : splitted[0]
+    let secondPart = splitted.length > 2 ? `${splitted[2]}` : splitted[1]
+
     return (
-        <div className='position-relative border border-1 border-primary rounded rounded-3'>
+        <div className={`position-relative border border-1 rounded rounded-3 ${borderColor}`}>
             {
                 showOverlay && <OrderChangingComponent params={{
                     onClose: () => setShowOverlay(false),
-                    moveTeamAfter: (event: Event|null) => {
-                        let nextIndex = 1
-                        if (event) {
-                            if (event.index > params.event.index) {
-                                nextIndex = event.index
-                            } else {
-                                nextIndex = event.index + 1
-                            }
-                        }
-                        params.moveEvent(params.event, nextIndex)
-                    },
+                    moveTeamAfter: moveTeamAfter,
+                    events: params.events,
+                    callingEvent: params.event,
+                }}/>
+            }
+            {
+                showSwap && <SwapComponent params={{
+                    onClose: () => setShowSwap(false),
+                    swapWithTeam: swapWithTeam,
                     events: params.events,
                     callingEvent: params.event,
                 }}/>
@@ -113,7 +152,8 @@ export default function EventComponent({params}: {params: {
             <div style={{opacity: hasIndex() ? 0.5 : 1}}>
                 <div className='d-flex flex-column justify-content-center align-items-center p-1'>
                     <Image src={getTeamImageSrc(params.event.team)} alt={params.event.team} height="75" width="75"/>
-                    {params.event.team}
+                    <div>{firstPart}</div>
+                    <div>{secondPart}</div>
                     <div className='d-flex gap-2 flex-column'>
                         <div className='d-flex gap-1'>
                             <strong className='fs-4 text-white' onClick={showOrderChangingInterface}>{hasIndex() ? `#${params.event.index}` : '-'}</strong>
@@ -131,9 +171,16 @@ export default function EventComponent({params}: {params: {
                 }}>
                     <Image className='bg-secondary p-1' alt='Delete' src="/images/bin_static_sm.png" width='30' height='30'/>
                 </div>
-                <div onClick={_ => applyPlaceholder()}>
-                    <Image className='bg-secondary p-1' alt='Delete' src="/images/copy.png" width='30' height='30'/>
-                </div>
+                {
+                    !params.isPlaceholderEmpty() && <div onClick={_ => applyPlaceholder()}>
+                        <Image className='bg-secondary p-1' alt='Delete' src="/images/copy.png" width='30' height='30'/>
+                    </div>
+                }
+                {
+                    <div onClick={showSwapInterface}>
+                        <Image className='bg-secondary p-1' alt='Delete' src="/images/swap.png" width='30' height='30'/>
+                    </div>
+                }
             </div>
         </div>
     )

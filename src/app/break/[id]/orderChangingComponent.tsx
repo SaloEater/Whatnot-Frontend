@@ -18,15 +18,15 @@ export default function OrderChangingComponent({params}: {params: {
     return <div className="popup-overlay">
         <div className="popup">
             <button className="close-button" onClick={params.onClose}>Close</button>
-            <ul className="item-list">
+            <ul className="item-list d-flex flex-wrap gap-3">
                 {
                     params.callingEvent.index != 1 && <li key='first'>
                         <button onClick={() => handleItemClick(null)} className="btn btn-primary">Move here</button>
                     </li>
                 }
                 {sortByIndex(filterOnlyTakenTeams(params.events)).map((event: Event, j, arr) => (
-                   <li key={event.id} className={(event.id == params.callingEvent.id ? 'bg-info' : '')} >
-                       <div>{`${event.index}) "${event.team}" by "${event.customer}"`}</div>
+                   <li key={event.id} >
+                       <span className={'popup-item popup-item-order ' + (event.id == params.callingEvent.id ? 'item-taken' : 'item-available')}> {`${event.index}) "${event.team}" by "${event.customer}"`}</span>
                        {
                            !((j + 1 < arr.length && arr[j+1].id == params.callingEvent.id) || event.id == params.callingEvent.id) && <button onClick={() => handleItemClick(event)} className="btn btn-primary">Move here</button>
                        }

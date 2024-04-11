@@ -1,3 +1,5 @@
+import './textInput.css'
+
 export default function TextInput({params} : {
     params: {
         value: string,
@@ -9,11 +11,11 @@ export default function TextInput({params} : {
     }
 }) {
     let style = {
-        maxWidth: `${params.max_width}px`,
+        //maxWidth: `${params.max_width}px`,
         fontSize: params.font_size ? `${params.font_size}px` : '16px',
     };
     return (
-        <input style={style} value={params.value} onChange={e => {
+        <input className='text-input' style={style} value={params.value} onChange={e => {
             params.update(e.target.value)
         }} placeholder={params.placeholder} onKeyUp={e => {
             if (e.key === 'Enter') {

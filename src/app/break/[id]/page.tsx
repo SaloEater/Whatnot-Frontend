@@ -10,6 +10,7 @@ import {useRouter} from "next/navigation";
 import GiveawayComponent from "@/app/break/[id]/giveawayComponent";
 import TextInput from "@/app/common/textInput";
 import EventPlaceholderComponent from "@/app/break/[id]/eventPlaceholderComponent";
+import './page.css'
 
 export default function Page({params} : {params: {id: string}}) {
     const breakId = parseInt(params.id)
@@ -46,13 +47,15 @@ export default function Page({params} : {params: {id: string}}) {
         };
         post(getEndpoints().events_get_by_break, eventsBody)
             .then((events: {events: Event[]}) => {
-                events.events.sort((a, b) => {
+                const updatedEvents = [...events.events];
+                updatedEvents.sort((a, b) => {
                     if (a.team > b.team) return 1
                     if (a.team < b.team) return -1
                     return 0
                 })
-                setEvents(events.events.filter(e => !e.is_giveaway))
-                setGiveaways(events.events.filter(e => e.is_giveaway))
+                console.log('refreshed and set events', updatedEvents)
+                setEvents(updatedEvents.filter(e => !e.is_giveaway))
+                setGiveaways(updatedEvents.filter(e => e.is_giveaway))
             })
     }
 
@@ -274,6 +277,33 @@ export default function Page({params} : {params: {id: string}}) {
             })
     }
 
+    function getEventPlaceholder() {
+        let newE = {...eventPlaceholder}
+        let reset = {...emptyEvent}
+        console.log(reset)
+        setEventPlaceholder(reset)
+        return newE
+    }
+
+    function isPlaceholderEmpty() {
+        return eventPlaceholder.customer == ''
+    }
+
+    function swapCustomerAndPrice(a: Event, b: Event) {
+        let oldTeamACustomer = a.customer
+        let oldTeamAPrice = a.price
+        a.customer = b.customer
+        a.price = b.price
+        b.customer = oldTeamACustomer
+        b.price = oldTeamAPrice
+        let updateA = post(getEndpoints().event_update, {...a})
+        let updateB = post(getEndpoints().event_update, {...b})
+        Promise.all([updateA, updateB]).then(() => {
+            console.log('refreshing')
+            refreshEvents()
+        })
+    }
+
     return (
         <div>
             {
@@ -322,14 +352,14 @@ export default function Page({params} : {params: {id: string}}) {
                     </div>
                 </div>
             }
-            <div className='container'>
+            <div className='container no-l-p'>
                 <div className='row'>
                     {
-                        breakObject && <div className='col-10'>
+                        breakObject && <div className='col'>
                             <div className='fs-1'>
                                 Teams:
                             </div>
-                            <div className="d-flex flex-wrap gap-4">
+                            <div className="d-flex flex-wrap gap-4 events-container">
                                 {events.map(
                                     (eventObject, index, arr) => {
                                         let params = {
@@ -338,14 +368,10 @@ export default function Page({params} : {params: {id: string}}) {
                                             updateEvent: updateEvent,
                                             index: index,
                                             resetEvent: resetEvent,
-                                            getEventPlaceholder: () => {
-                                                let newE = {...eventPlaceholder}
-                                                let reset = {...emptyEvent}
-                                                console.log(reset)
-                                                setEventPlaceholder(reset)
-                                                return newE
-                                            },
+                                            getEventPlaceholder: getEventPlaceholder,
                                             moveEvent: moveEvent,
+                                            isPlaceholderEmpty: isPlaceholderEmpty,
+                                            swapCustomerAndPrice: swapCustomerAndPrice,
                                         }
                                         return <EventComponent key={eventObject.id} params={params}/>
                                     }
@@ -355,7 +381,7 @@ export default function Page({params} : {params: {id: string}}) {
                     }
                     <div className='col-2 justify-content-center'>
                         <div className='fs-1'>Giveaways:</div>
-                        <ul className="list-group">
+                        <ul className="list-group gap-1">
                             {
                                 giveaways.map((giveaway, index) => {
                                     return <GiveawayComponent key={giveaway.id} params={{
@@ -366,20 +392,22 @@ export default function Page({params} : {params: {id: string}}) {
                                 })
                             }
                         </ul>
+                        <div className='w-75 m-2'>
                             <TextInput params={{
                                 value: newGiveawayCustomer,
                                 update: updateNewGiveawayCustomer,
                                 save: saveNewGiveawayCustomer,
-                                max_width: 175,
                                 placeholder: 'Enter nickname',
                                 font_size: null,
+                                max_width: 175,
                             }}/>
-                            Future event:
-                            <EventPlaceholderComponent params={{
-                                event: eventPlaceholder,
-                                updateEventPlaceholder: updateEventPlaceholder,
-                                resetEventPlaceholder: resetEventPlaceholder,
-                            }}/>
+                        </div>
+                        Future event:
+                        <EventPlaceholderComponent params={{
+                            event: eventPlaceholder,
+                            updateEventPlaceholder: updateEventPlaceholder,
+                            resetEventPlaceholder: resetEventPlaceholder,
+                        }}/>
                     </div>
                 </div>
             </div>
