@@ -132,7 +132,7 @@ export default function EventComponent({params}: {params: {
     let secondPart = splitted.length > 2 ? `${splitted[2]}` : splitted[1]
 
     return (
-        <div className={`position-relative border border-1 rounded rounded-3 ${borderColor}`}>
+        <div className={`w-15 position-relative border border-1 rounded rounded-3 ${borderColor}`}>
             {
                 showOverlay && <OrderChangingComponent params={{
                     onClose: () => setShowOverlay(false),
@@ -156,7 +156,7 @@ export default function EventComponent({params}: {params: {
                     <div>{secondPart}</div>
                     <div className='d-flex gap-2 flex-column'>
                         <div className='d-flex gap-1'>
-                            <strong className='fs-4 text-white' onClick={showOrderChangingInterface}>{hasIndex() ? `#${params.event.index}` : '-'}</strong>
+                            <strong className='fs-4 text-white cursor-pointer' onClick={showOrderChangingInterface}>{hasIndex() ? `#${params.event.index}` : '-'}</strong>
                             <TextInput params={priceInputParams}/>
                         </div>
                         <TextInput params={customerInputParams}/>
@@ -169,7 +169,7 @@ export default function EventComponent({params}: {params: {
                     setNewPrice(0)
                     params.resetEvent(params.event, params.index)
                 }}>
-                    <Image className='bg-secondary p-1' alt='Delete' src="/images/bin_static_sm.png" width='30' height='30'/>
+                    <Image className='bg-secondary p-1 rounded rounded-3' alt='Delete' src="/images/bin_static_sm.png" width='30' height='30'/>
                 </div>
                 {
                     !params.isPlaceholderEmpty() && <div onClick={_ => applyPlaceholder()}>
@@ -178,7 +178,7 @@ export default function EventComponent({params}: {params: {
                 }
                 {
                     <div onClick={showSwapInterface}>
-                        <Image className='bg-secondary p-1' alt='Delete' src="/images/swap.png" width='30' height='30'/>
+                        <Image className='bg-secondary p-1 rounded rounded-3' alt='Delete' src="/images/swap.png" width='30' height='30'/>
                     </div>
                 }
             </div>

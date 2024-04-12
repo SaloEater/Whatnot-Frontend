@@ -11,6 +11,7 @@ import GiveawayComponent from "@/app/break/[id]/giveawayComponent";
 import TextInput from "@/app/common/textInput";
 import EventPlaceholderComponent from "@/app/break/[id]/eventPlaceholderComponent";
 import './page.css'
+import TeamsListComponent from "@/app/break/[id]/teamsListComponent";
 
 export default function Page({params} : {params: {id: string}}) {
     const breakId = parseInt(params.id)
@@ -352,63 +353,67 @@ export default function Page({params} : {params: {id: string}}) {
                     </div>
                 </div>
             }
-            <div className='container no-l-p'>
-                <div className='row'>
-                    {
-                        breakObject && <div className='col'>
-                            <div className='fs-1'>
-                                Teams:
-                            </div>
-                            <div className="d-flex flex-wrap gap-4 events-container">
-                                {events.map(
-                                    (eventObject, index, arr) => {
-                                        let params = {
-                                            event: eventObject,
-                                            events: arr,
-                                            updateEvent: updateEvent,
-                                            index: index,
-                                            resetEvent: resetEvent,
-                                            getEventPlaceholder: getEventPlaceholder,
-                                            moveEvent: moveEvent,
-                                            isPlaceholderEmpty: isPlaceholderEmpty,
-                                            swapCustomerAndPrice: swapCustomerAndPrice,
-                                        }
-                                        return <EventComponent key={eventObject.id} params={params}/>
+            <div className='w-95 d-flex m-2 justify-content-evenly'>
+                {
+                    breakObject && <div className='w-75'>
+                        <div className='fs-1'>
+                            Teams:
+                        </div>
+                        <div className="d-flex flex-wrap gap-4 events-container justify-content-center">
+                            {events.map(
+                                (eventObject, index, arr) => {
+                                    let params = {
+                                        event: eventObject,
+                                        events: arr,
+                                        updateEvent: updateEvent,
+                                        index: index,
+                                        resetEvent: resetEvent,
+                                        getEventPlaceholder: getEventPlaceholder,
+                                        moveEvent: moveEvent,
+                                        isPlaceholderEmpty: isPlaceholderEmpty,
+                                        swapCustomerAndPrice: swapCustomerAndPrice,
                                     }
-                                )}
+                                    return <EventComponent key={eventObject.id} params={params}/>
+                                }
+                            )}
+                        </div>
+                    </div>
+                }
+                <div className='w-15 justify-content-center'>
+                    <div className='border border-primary rounded rounded-3 border-1 d-flex flex-column align-items-center'>
+                        <div>Giveaways:</div>
+                        <div>
+                            <ul className="list-group gap-1">
+                                {
+                                    giveaways.map((giveaway, index) => {
+                                        return <GiveawayComponent key={giveaway.id} params={{
+                                            event: giveaway,
+                                            updateEvent: updateGiveaway,
+                                            resetEvent: deleteGiveaway,
+                                        }}/>
+                                    })
+                                }
+                            </ul>
+                            <div className='w-75 m-2'>
+                                <TextInput params={{
+                                    value: newGiveawayCustomer,
+                                    update: updateNewGiveawayCustomer,
+                                    save: saveNewGiveawayCustomer,
+                                    placeholder: 'Enter nickname',
+                                    font_size: null,
+                                    max_width: 175,
+                                }}/>
                             </div>
                         </div>
-                    }
-                    <div className='col-2 justify-content-center'>
-                        <div className='fs-1'>Giveaways:</div>
-                        <ul className="list-group gap-1">
-                            {
-                                giveaways.map((giveaway, index) => {
-                                    return <GiveawayComponent key={giveaway.id} params={{
-                                        event: giveaway,
-                                        updateEvent: updateGiveaway,
-                                        resetEvent: deleteGiveaway,
-                                    }}/>
-                                })
-                            }
-                        </ul>
-                        <div className='w-75 m-2'>
-                            <TextInput params={{
-                                value: newGiveawayCustomer,
-                                update: updateNewGiveawayCustomer,
-                                save: saveNewGiveawayCustomer,
-                                placeholder: 'Enter nickname',
-                                font_size: null,
-                                max_width: 175,
-                            }}/>
-                        </div>
-                        Future event:
-                        <EventPlaceholderComponent params={{
-                            event: eventPlaceholder,
-                            updateEventPlaceholder: updateEventPlaceholder,
-                            resetEventPlaceholder: resetEventPlaceholder,
-                        }}/>
                     </div>
+                    <EventPlaceholderComponent params={{
+                        event: eventPlaceholder,
+                        updateEventPlaceholder: updateEventPlaceholder,
+                        resetEventPlaceholder: resetEventPlaceholder,
+                    }}/>
+                </div>
+                <div className='w-10'>
+                    <TeamsListComponent params={{events: events}} />
                 </div>
             </div>
         </div>
