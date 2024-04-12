@@ -22,6 +22,7 @@ export function getEndpoints()  {
         break_update: "/api/break/update",
         events_get_by_break: "/api/event/by_break",
         event_update: "/api/event/update",
+        event_update_all: "/api/event/update_all",
         event_add: "/api/event/add",
         event_delete: "/api/event/delete",
         event_move: "/api/event/move",

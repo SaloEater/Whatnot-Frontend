@@ -17,3 +17,8 @@
 .cursor-pointer {
     cursor: pointer;
 }
+
+.h-75v {
+    max-height: 75vh;
+    overflow-y: auto;
+}

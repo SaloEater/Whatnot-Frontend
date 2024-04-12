@@ -22,9 +22,9 @@ export default function TeamsListComponent({params}: {params: {
         <span className='text-primary cursor-pointer' onClick={changeSortDir}>{sortAsc ? 'asc' : 'desc'}</span>
             <ul className='list-group gap-2'>
                 {
-                    eventsSorted.map(e => <div className='d-flex gap-1'>
+                    eventsSorted.map(e => <div key={e.id} className='d-flex gap-1'>
                         {`${e.index})`}
-                        <div className='item-teams-order'>{`${e.team}`}</div>
+                        <div className='border-dashed'>{`${e.team}`}</div>
                     </div>)
                 }
             </ul>

@@ -1,33 +1,119 @@
 // @ts-ignore
-import {useState} from "react";
+import {useEffect, useState} from "react";
 import {Event} from "@/app/entity/entities";
 import {filterOnlyTakenTeams, sortByIndex, sortByTeamName} from "@/app/common/event_filter";
-import './orderChangingComponent.css'
+import './swapComponent.css'
 
 export default function SwapComponent({params}: {params: {
-    onClose: () => void,
-    swapWithTeam: (event: Event) => void,
+    swapTeams: (a: Event[], b: Event[]) => void,
     events: Event[],
-    callingEvent: Event,
+    onClose: () => void,
 }}) {
-    const handleItemClick = (item: Event) => {
-        params.swapWithTeam(item); // Callback function to handle item click
-        params.onClose(); // Close the popup after selecting an item
-    };
+    const [sourceTeams, setSourceTeams] = useState<Event[]>([])
+    const [targetTeams, setTargetTeams] = useState<Event[]>([])
 
-    return <div className="popup-overlay">
-        <div className="popup">
-            <button className="close-button" onClick={params.onClose}>Close</button>
-            <ul className="item-list d-flex flex-wrap gap-3">
-                {sortByTeamName(filterOnlyTakenTeams(params.events)).map((event: Event, j, arr) => (
-                   <li key={event.id} className={'popup-item ' + (event.id == params.callingEvent.id ? 'item-taken' : 'item-available')} >
-                       {`"${event.team}" by "${event.customer}"`}
-                       {
-                           event.id != params.callingEvent.id && <button onClick={() => handleItemClick(event)} className="btn btn-primary">Swap</button>
-                       }
-                   </li>
-                 ))}
-            </ul>
+    useEffect(() => {
+        setSourceTeams([])
+        setTargetTeams([])
+    }, [params.events]);
+
+    let sortedTeams = sortByTeamName(filterOnlyTakenTeams(params.events))
+    let sourceTeamsAll = sourceTeams.length > 0 ? sortedTeams.filter((e) => e.customer == sourceTeams[0].customer) : sortedTeams
+    let targetTeamsAll = targetTeams.length > 0 ? sortedTeams.filter((e) => e.customer == targetTeams[0].customer) : (sourceTeams.length > 0 ? sortedTeams.filter((e) => e.customer != sourceTeams[0].customer) : sortedTeams)
+
+    function isSourceTeam(event: Event) {
+        return sourceTeams.find((e) => e.id === event.id) != undefined
+    }
+
+    function isTargetTeam(event: Event) {
+        return targetTeams.find((e) => e.id === event.id) != undefined
+    }
+
+    function switchSourceTeam(event: Event) {
+        let index = sourceTeams.findIndex((e) => e.id == event.id)
+        let isExist = index != -1
+        if (isExist) {
+            setSourceTeams((old) => {
+                let newTeams = [...old]
+                newTeams.splice(index, 1)
+                return newTeams
+            })
+        } else {
+            setSourceTeams((old) => {
+                let newTeams = [...old]
+                newTeams.push(event)
+                return newTeams
+            })
+        }
+    }
+
+    function switchTargetTeam(event: Event) {
+        let index = targetTeams.findIndex((e) => e.id == event.id)
+        let isExist = index != -1
+        if (isExist) {
+            setTargetTeams((old) => {
+                let newTeams = [...old]
+                newTeams.splice(index, 1)
+                return newTeams
+            })
+        } else {
+            setTargetTeams((old) => {
+                let newTeams = [...old]
+                newTeams.push(event)
+                return newTeams
+            })
+        }
+    }
+
+    function swapTeams() {
+        if (sourceTeams.length > 0 && targetTeams.length > 0) {
+            params.swapTeams(sourceTeams, targetTeams)
+            params.onClose()
+        }
+    }
+
+    return <div className="swap-popup-overlay" onClick={params.onClose}>
+        <div className="swap-popup">
+            <button className="swap-close-button" onClick={params.onClose}>Close</button>
+            <div>
+                <div className='d-flex justify-content-between'>
+                    <div className="h-75v w-50">
+                        {
+                            sourceTeamsAll.map((event: Event, j, arr) => {
+                                let itemStyle = isSourceTeam(event) ? 'swap-item-taken' : 'swap-item-available'
+                                return (
+                                    <div key={event.id} className='swap-popup-item d-flex justify-content-center gap-1' onClick={
+                                        e => switchSourceTeam(event)
+                                    }>
+                                        <div className={'border-dashed w-75 ' + itemStyle}>{`${event.team}`}</div>
+                                        <div className='w-25'>{`by "${event.customer}"`}</div>
+                                    </div>
+                                )
+                            })
+                        }
+                    </div>
+                    <div className="h-75v w-50">
+                        {
+                            targetTeamsAll.map((event: Event, j, arr) => {
+                                let itemStyle = isTargetTeam(event) ? 'swap-item-taken' : 'swap-item-available'
+                                return (
+                                    <div key={event.id} className='swap-popup-item d-flex justify-content-center gap-1' onClick={
+                                        e => switchTargetTeam(event)
+                                    }>
+                                        <div className={'border-dashed w-75 ' + itemStyle}>{`${event.team}`}</div>
+                                        <div className='w-25'>{`by "${event.customer}"`}</div>
+                                    </div>
+                                )
+                            })
+                        }
+                    </div>
+                </div>
+                {
+                    sourceTeams.length> 0 && targetTeams.length > 0 && <div className='d-flex justify-content-center'>
+                        <button className='btn btn-primary' onClick={swapTeams}>Swap</button>
+                    </div>
+                }
+            </div>
         </div>
     </div>
 }

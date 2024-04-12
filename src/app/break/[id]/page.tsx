@@ -12,6 +12,8 @@ import TextInput from "@/app/common/textInput";
 import EventPlaceholderComponent from "@/app/break/[id]/eventPlaceholderComponent";
 import './page.css'
 import TeamsListComponent from "@/app/break/[id]/teamsListComponent";
+import ToolsComponent from "@/app/break/[id]/toolsComponent";
+import {sortByTeamName} from "@/app/common/event_filter";
 
 export default function Page({params} : {params: {id: string}}) {
     const breakId = parseInt(params.id)
@@ -54,7 +56,6 @@ export default function Page({params} : {params: {id: string}}) {
                     if (a.team < b.team) return -1
                     return 0
                 })
-                console.log('refreshed and set events', updatedEvents)
                 setEvents(updatedEvents.filter(e => !e.is_giveaway))
                 setGiveaways(updatedEvents.filter(e => e.is_giveaway))
             })
@@ -114,9 +115,10 @@ export default function Page({params} : {params: {id: string}}) {
         setNewBreakObject(newBreak)
     }
 
-    function setEvent(event: Event, index: number) {
+    function setEvent(event: Event) {
         setEvents((old) => {
             let newEvents = [...old]
+            let index = newEvents.findIndex(e => e.id == event.id)
             newEvents[index] = event
             return newEvents
         })
@@ -132,7 +134,19 @@ export default function Page({params} : {params: {id: string}}) {
         return maxTakenIndex + 1
     }
 
-    function updateEvent(event: Event, index: number) {
+    function updateEvent(event: Event) {
+        let oldEvent = events.find(e => e.id == event.id)
+        if (!oldEvent || (
+            event.customer == oldEvent.customer &&
+            event.price == oldEvent.price &&
+            event.team == oldEvent.team &&
+            event.break_id == oldEvent.break_id &&
+            event.is_giveaway == oldEvent.is_giveaway &&
+            event.quantity == oldEvent.quantity &&
+            event.note == oldEvent.note
+        )) {
+            return
+        }
         let updateEventBody = {...event}
         post(getEndpoints().event_update, updateEventBody)
             .then(response => {
@@ -142,8 +156,12 @@ export default function Page({params} : {params: {id: string}}) {
                         new_index: getNextIndex(event)
                     }
 
-                    let oldEvent = events[index]
-                    setEvent(event, index)
+                    let oldEvent = events.find(e => e.id == event.id)
+                    if (!oldEvent) {
+                        return
+                    }
+
+                    setEvent(event)
 
                     if (oldEvent.customer != '') {
                         return
@@ -151,14 +169,14 @@ export default function Page({params} : {params: {id: string}}) {
                     post(getEndpoints().event_move, moveBody)
                         .then(_ => {
                             event.index = moveBody.new_index
-                            setEvent(event, index)
+                            setEvent(event)
                         })
                 }
 
             })
     }
 
-    function resetEvent(event: Event, index: number) {
+    function resetEvent(event: Event) {
         let updateEventBody = {...event}
         updateEventBody.customer = ''
         post(getEndpoints().event_update, updateEventBody)
@@ -281,7 +299,6 @@ export default function Page({params} : {params: {id: string}}) {
     function getEventPlaceholder() {
         let newE = {...eventPlaceholder}
         let reset = {...emptyEvent}
-        console.log(reset)
         setEventPlaceholder(reset)
         return newE
     }
@@ -290,17 +307,25 @@ export default function Page({params} : {params: {id: string}}) {
         return eventPlaceholder.customer == ''
     }
 
-    function swapCustomerAndPrice(a: Event, b: Event) {
-        let oldTeamACustomer = a.customer
-        let oldTeamAPrice = a.price
-        a.customer = b.customer
-        a.price = b.price
-        b.customer = oldTeamACustomer
-        b.price = oldTeamAPrice
-        let updateA = post(getEndpoints().event_update, {...a})
-        let updateB = post(getEndpoints().event_update, {...b})
-        Promise.all([updateA, updateB]).then(() => {
-            console.log('refreshing')
+    function swapTeams(a: Event[], b: Event[]) {
+        let aCustomer = a[0].customer
+        let bCustomer = b[0].customer
+        let aUpdated = a.map(e => {
+            let newE = {...e}
+            newE.customer = bCustomer
+            return newE
+        })
+        let bUpdated = b.map(e => {
+            let newE = {...e}
+            newE.customer = aCustomer
+            return newE
+        })
+
+
+        let body = {
+            events: [...aUpdated, ...bUpdated]
+        }
+        post(getEndpoints().event_update_all, body).then(() => {
             refreshEvents()
         })
     }
@@ -360,20 +385,17 @@ export default function Page({params} : {params: {id: string}}) {
                             Teams:
                         </div>
                         <div className="d-flex flex-wrap gap-4 events-container justify-content-center">
-                            {events.map(
+                            {sortByTeamName(events).map(
                                 (eventObject, index, arr) => {
-                                    let params = {
-                                        event: eventObject,
+                                    return <EventComponent key={eventObject.id} params={{
+                                        event: {...eventObject},
                                         events: arr,
                                         updateEvent: updateEvent,
-                                        index: index,
                                         resetEvent: resetEvent,
                                         getEventPlaceholder: getEventPlaceholder,
                                         moveEvent: moveEvent,
                                         isPlaceholderEmpty: isPlaceholderEmpty,
-                                        swapCustomerAndPrice: swapCustomerAndPrice,
-                                    }
-                                    return <EventComponent key={eventObject.id} params={params}/>
+                                    }}/>
                                 }
                             )}
                         </div>
@@ -411,6 +433,7 @@ export default function Page({params} : {params: {id: string}}) {
                         updateEventPlaceholder: updateEventPlaceholder,
                         resetEventPlaceholder: resetEventPlaceholder,
                     }}/>
+                    <ToolsComponent params={{events: events, swapTeams: swapTeams}}/>
                 </div>
                 <div className='w-10'>
                     <TeamsListComponent params={{events: events}} />

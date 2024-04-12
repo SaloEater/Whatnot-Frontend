@@ -10,18 +10,15 @@ import SwapComponent from "@/app/break/[id]/swapComponent";
 export default function EventComponent({params}: {params: {
     event: Event,
     events: Event[],
-    updateEvent: (event: Event, index: number) => void,
-    index: number,
-    resetEvent: (event: Event, index: number) => void,
+    updateEvent: (event: Event) => void,
+    resetEvent: (event: Event) => void,
     getEventPlaceholder: () => Event,
     moveEvent: (event: Event, newIndex: number) => void,
     isPlaceholderEmpty: () => boolean,
-    swapCustomerAndPrice: (a: Event, b: Event) => void,
-    }}) {
+}}) {
     const [newCustomer, setNewCustomer] = useState(params.event.customer)
     const [newPrice, setNewPrice] = useState(params.event.price)
     const [showOverlay, setShowOverlay] = useState(false)
-    const [showSwap, setShowSwap] = useState(false)
 
     useEffect(() => {
         setNewPrice(params.event.price)
@@ -42,9 +39,12 @@ export default function EventComponent({params}: {params: {
     }
 
     function saveCustomer() {
+        if (params.event.customer == newCustomer) {
+            return
+        }
         let newEvent = {...params.event}
         newEvent.customer = newCustomer
-        params.updateEvent(newEvent, params.index)
+        params.updateEvent(newEvent)
     }
 
     const customerInputParams = {
@@ -66,9 +66,12 @@ export default function EventComponent({params}: {params: {
     }
 
     function savePrice() {
+        if (params.event.price == newPrice) {
+            return
+        }
         let newEvent = {...params.event}
         newEvent.price = newPrice
-        params.updateEvent(newEvent, params.index)
+        params.updateEvent(newEvent)
     }
 
     const priceInputParams = {
@@ -91,18 +94,12 @@ export default function EventComponent({params}: {params: {
         newEvent.price = eventPlaceholder.price
         setNewCustomer(eventPlaceholder.customer)
         setNewPrice(eventPlaceholder.price)
-        params.updateEvent(newEvent, params.index)
+        params.updateEvent(newEvent)
     }
 
     function showOrderChangingInterface() {
         if (hasIndex()) {
             setShowOverlay(true)
-        }
-    }
-
-    function showSwapInterface() {
-        if (hasIndex()) {
-            setShowSwap(true)
         }
     }
 
@@ -116,10 +113,6 @@ export default function EventComponent({params}: {params: {
             }
         }
         params.moveEvent(params.event, nextIndex)
-    }
-
-    function swapWithTeam(event: Event) {
-        params.swapCustomerAndPrice(params.event, event)
     }
 
     let borderColor = 'border-primary'
@@ -137,14 +130,6 @@ export default function EventComponent({params}: {params: {
                 showOverlay && <OrderChangingComponent params={{
                     onClose: () => setShowOverlay(false),
                     moveTeamAfter: moveTeamAfter,
-                    events: params.events,
-                    callingEvent: params.event,
-                }}/>
-            }
-            {
-                showSwap && <SwapComponent params={{
-                    onClose: () => setShowSwap(false),
-                    swapWithTeam: swapWithTeam,
                     events: params.events,
                     callingEvent: params.event,
                 }}/>
@@ -167,18 +152,13 @@ export default function EventComponent({params}: {params: {
                 <div onClick={_ => {
                     setNewCustomer('')
                     setNewPrice(0)
-                    params.resetEvent(params.event, params.index)
+                    params.resetEvent(params.event)
                 }}>
                     <Image className='bg-secondary p-1 rounded rounded-3' alt='Delete' src="/images/bin_static_sm.png" width='30' height='30'/>
                 </div>
                 {
                     !params.isPlaceholderEmpty() && <div onClick={_ => applyPlaceholder()}>
                         <Image className='bg-secondary p-1' alt='Delete' src="/images/copy.png" width='30' height='30'/>
-                    </div>
-                }
-                {
-                    <div onClick={showSwapInterface}>
-                        <Image className='bg-secondary p-1 rounded rounded-3' alt='Delete' src="/images/swap.png" width='30' height='30'/>
                     </div>
                 }
             </div>
