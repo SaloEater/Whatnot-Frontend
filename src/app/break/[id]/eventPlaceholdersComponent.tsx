@@ -61,7 +61,7 @@ export default function EventPlaceholdersComponent({params}: {params: {
 
     return <div>
         {
-            events.map(e => <EventPlaceholderComponent params={
+            events.map(e => <EventPlaceholderComponent key={e.id} params={
                 {
                     event: e,
                     updateEventPlaceholder: updateEventPlaceholder,
