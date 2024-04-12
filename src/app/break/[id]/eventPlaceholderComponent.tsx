@@ -7,7 +7,10 @@ import {getEndpoints, post} from "@/app/lib/backend";
 export default function EventPlaceholderComponent({params}: {params: {
     event: Event,
     updateEventPlaceholder: (event: Event) => void,
-    resetEventPlaceholder: (event: Event) => void
+    resetEventPlaceholder: (event: Event) => void,
+    selectEventPlaceholder: (event: Event) => void,
+    deselectEventPlaceholder: () => void,
+    isSelected: boolean,
 }}) {
     const [newCustomer, setNewCustomer] = useState(params.event.customer)
     const [newPrice, setNewPrice] = useState(params.event.price)
@@ -26,6 +29,10 @@ export default function EventPlaceholderComponent({params}: {params: {
     }
 
     function saveCustomer() {
+        if (newCustomer == '') {
+            params.deselectEventPlaceholder()
+            return
+        }
         let newEvent = {...params.event}
         newEvent.customer = newCustomer
         params.updateEventPlaceholder(newEvent)
@@ -68,18 +75,33 @@ export default function EventPlaceholderComponent({params}: {params: {
         return params.event.customer != '';
     }
 
+    function isChanged() {
+        return params.event.customer != '';
+    }
+
+    function onCheck() {
+        if (params.isSelected) {
+            params.deselectEventPlaceholder()
+        } else if (isChanged()) {
+            params.selectEventPlaceholder(params.event)
+        }
+    }
+
+    function resetCurrent() {
+        setNewCustomer('')
+        setNewPrice(0)
+        params.resetEventPlaceholder(params.event)
+    }
+
     return (
         <div className='position-relative border border-1 border-primary rounded rounded-3'>
             <div className='d-flex flex-column justify-content-center align-items-center p-1'>
                 Future event:
                 <div className='d-flex gap-2 flex-column'>
                     <div className='d-flex justify-content-evenly align-items-center'>
-                        <div className='w-75'><TextInput params={priceInputParams}/></div>
-                        <img onClick={_ => {
-                            setNewCustomer('')
-                            setNewPrice(0)
-                            params.resetEventPlaceholder(params.event)
-                        }} className='bg-secondary p-1 w-15 rounded rounded-3' alt='Delete' src="/images/bin_static_sm.png"/>
+                        <img onClick={resetCurrent} className='bg-secondary p-1 w-15 rounded rounded-3' alt='Delete' src="/images/bin_static_sm.png"/>
+                        <div className='w-50'><TextInput params={priceInputParams}/></div>
+                        <label>Copy</label><input disabled={!isChanged()} type='checkbox' checked={params.isSelected} onChange={onCheck}/>
                     </div>
                     <TextInput params={customerInputParams}/>
                 </div>

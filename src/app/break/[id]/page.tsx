@@ -14,6 +14,7 @@ import './page.css'
 import TeamsListComponent from "@/app/break/[id]/teamsListComponent";
 import ToolsComponent from "@/app/break/[id]/toolsComponent";
 import {sortByTeamName} from "@/app/common/event_filter";
+import EventPlaceholdersComponent from "@/app/break/[id]/eventPlaceholdersComponent";
 
 export default function Page({params} : {params: {id: string}}) {
     const breakId = parseInt(params.id)
@@ -428,10 +429,11 @@ export default function Page({params} : {params: {id: string}}) {
                             </div>
                         </div>
                     </div>
-                    <EventPlaceholderComponent params={{
-                        event: eventPlaceholder,
-                        updateEventPlaceholder: updateEventPlaceholder,
-                        resetEventPlaceholder: resetEventPlaceholder,
+                    <EventPlaceholdersComponent params={{
+                        realEventPlaceholder: eventPlaceholder,
+                        updateRealEventPlaceholder: updateEventPlaceholder,
+                        resetRealEventPlaceholder: resetEventPlaceholder,
+                        length: 4
                     }}/>
                     <ToolsComponent params={{events: events, swapTeams: swapTeams}}/>
                 </div>
