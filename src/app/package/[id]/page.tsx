@@ -32,17 +32,19 @@ export default function Page({params} : {params: {id: string}}) {
                         }
                         let events: GetEventsByBreakResponse = await post(getEndpoints().events_get_by_break, eventBody)
                         for (let event of events.events) {
-                            if (!newBreakCustomers.has(event.customer)) {
-                                newBreakCustomers.set(event.customer, new Map<string, Event[]>())
+                            let customer = event.customer.trim();
+                            if (!newBreakCustomers.has(customer)) {
+                                newBreakCustomers.set(customer, new Map<string, Event[]>())
                             }
-                            let breakCustomer = newBreakCustomers.get(event.customer) as Map<string, Event[]>
-                            if (!breakCustomer.has(breakObject.name)) {
-                                breakCustomer.set(breakObject.name, [])
+                            let breakCustomer = newBreakCustomers.get(customer) as Map<string, Event[]>
+                            let breakName = breakObject.name.trim();
+                            if (!breakCustomer.has(breakName)) {
+                                breakCustomer.set(breakName, [])
                             }
-                            let existingEvents = breakCustomer.get(breakObject.name) as Event[]
+                            let existingEvents = breakCustomer.get(breakName) as Event[]
                             existingEvents.push(event)
-                            breakCustomer.set(breakObject.name, existingEvents)
-                            newBreakCustomers.set(event.customer, breakCustomer)
+                            breakCustomer.set(breakName, existingEvents)
+                            newBreakCustomers.set(customer, breakCustomer)
                         }
                     }
 
