@@ -26,7 +26,7 @@ export default function EventPlaceholdersComponent({params}: {params: {
     }, [params.length]);
 
     useEffect(() => {
-
+        updateEventPlaceholder(params.realEventPlaceholder)
     }, [params.realEventPlaceholder]);
 
     function updateEventPlaceholder(event: Event) {
@@ -34,7 +34,7 @@ export default function EventPlaceholdersComponent({params}: {params: {
             let newE = [...old]
             let index = newE.findIndex(e => e.id == event.id)
             newE[index].customer = event.customer
-            newE[index].team = event.team
+            newE[index].price = event.price
             return newE
         })
     }

@@ -17,8 +17,11 @@ export default function EventPlaceholderComponent({params}: {params: {
 
     useEffect(() => {
         setNewCustomer(params.event.customer)
+    }, [params.event.customer]);
+
+    useEffect(() => {
         setNewPrice(params.event.price)
-    }, [params.event]);
+    }, [params.event.price]);
 
     function getTeamImageSrc(team: string) {
         return `/images/teams/${team}.webp`;
@@ -29,22 +32,13 @@ export default function EventPlaceholderComponent({params}: {params: {
     }
 
     function saveCustomer() {
-        if (newCustomer == '') {
+        if (newCustomer == '' ) {
             params.deselectEventPlaceholder()
             return
         }
         let newEvent = {...params.event}
         newEvent.customer = newCustomer
         params.updateEventPlaceholder(newEvent)
-    }
-
-    const customerInputParams = {
-        value: newCustomer,
-        update: updateCustomer,
-        save: saveCustomer,
-        max_width: 100,
-        placeholder: 'Enter nickname',
-        font_size: null,
     }
 
     function updatePrice(value: string) {
@@ -60,19 +54,6 @@ export default function EventPlaceholderComponent({params}: {params: {
         let newEvent = {...params.event}
         newEvent.price = newPrice
         params.updateEventPlaceholder(newEvent)
-    }
-
-    const priceInputParams = {
-        value: `$${newPrice}`,
-        update: updatePrice,
-        save: savePrice,
-        max_width: 50,
-        placeholder: 'Enter price',
-        font_size: null,
-    }
-
-    function hasIndex() {
-        return params.event.customer != '';
     }
 
     function isChanged() {
@@ -91,6 +72,24 @@ export default function EventPlaceholderComponent({params}: {params: {
         setNewCustomer('')
         setNewPrice(0)
         params.resetEventPlaceholder(params.event)
+    }
+
+    const priceInputParams = {
+        value: `$${newPrice}`,
+        update: updatePrice,
+        save: savePrice,
+        max_width: 50,
+        placeholder: 'Enter price',
+        font_size: null,
+    }
+
+    const customerInputParams = {
+        value: newCustomer,
+        update: updateCustomer,
+        save: saveCustomer,
+        max_width: 100,
+        placeholder: 'Enter nickname',
+        font_size: null,
     }
 
     return (

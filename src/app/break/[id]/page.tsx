@@ -299,7 +299,9 @@ export default function Page({params} : {params: {id: string}}) {
 
     function getEventPlaceholder() {
         let newE = {...eventPlaceholder}
-        let reset = {...emptyEvent}
+        let reset = {...newE}
+        reset.customer = ''
+        reset.price = 0
         setEventPlaceholder(reset)
         return newE
     }
@@ -430,7 +432,7 @@ export default function Page({params} : {params: {id: string}}) {
                         </div>
                     </div>
                     <EventPlaceholdersComponent params={{
-                        realEventPlaceholder: eventPlaceholder,
+                        realEventPlaceholder: {...eventPlaceholder},
                         updateRealEventPlaceholder: updateEventPlaceholder,
                         resetRealEventPlaceholder: resetEventPlaceholder,
                         length: 4
