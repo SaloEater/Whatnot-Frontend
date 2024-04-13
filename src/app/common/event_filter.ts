@@ -31,3 +31,7 @@ export function sortByTeamName(events: Event[]) {
         return 0
     })
 }
+
+export function filterOnlyEmptyTeams(events: Event[]) {
+    return events.filter(e => e.customer == '')
+}
