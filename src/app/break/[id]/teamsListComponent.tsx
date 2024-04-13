@@ -16,6 +16,7 @@ export default function TeamsListComponent({params}: {params: {
     if (sortAsc) {
         eventsSorted.reverse()
     }
+    let emptyTeams = filterOnlyEmptyTeams(eventsSorted)
 
     return <div className='rounded rounded-3 border-primary border p-2'>
         <div className='d-flex flex-column align-items-center'>Teams order:</div>
@@ -28,9 +29,10 @@ export default function TeamsListComponent({params}: {params: {
                     </div>)
                 }
             </ul>
+            Left {emptyTeams.length}
             <ul className='list-group gap-2'>
                 {
-                    filterOnlyEmptyTeams(eventsSorted).map(e => <div key={e.id} className='d-flex gap-1'>
+                    emptyTeams.map(e => <div key={e.id} className='d-flex gap-1'>
                         -
                         <div className='border-dashed'>{`${e.team}`}</div>
                     </div>)
