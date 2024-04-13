@@ -72,7 +72,7 @@ export default function SwapComponent({params}: {params: {
         }
     }
 
-    return <div className="swap-popup-overlay" onClick={params.onClose}>
+    return <div className="swap-popup-overlay">
         <div className="swap-popup">
             <button className="swap-close-button" onClick={params.onClose}>Close</button>
             <div>
