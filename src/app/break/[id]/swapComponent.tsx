@@ -73,9 +73,8 @@ export default function SwapComponent({params}: {params: {
     }
 
     return <div className="swap-popup-overlay">
-        <div className="swap-popup">
-            <button className="swap-close-button" onClick={params.onClose}>Close</button>
-            <div>
+        <div className='d-flex align-items-start'>
+            <div className="swap-popup d-flex">
                 <div className='d-flex justify-content-between'>
                     <div className="h-75v w-50">
                         {
@@ -114,6 +113,7 @@ export default function SwapComponent({params}: {params: {
                     </div>
                 }
             </div>
+            <button className="swap-close-button" onClick={params.onClose}>Close</button>
         </div>
     </div>
 }

@@ -19,9 +19,6 @@
 }
 
 .swap-close-button {
-    position: absolute;
-    top: 10px;
-    right: 10px;
     background: none;
     border: none;
     cursor: pointer;
