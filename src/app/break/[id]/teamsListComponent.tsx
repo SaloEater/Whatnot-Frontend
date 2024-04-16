@@ -49,8 +49,8 @@ export default function TeamsListComponent({params}: {params: {
             Taken <strong>{32 - emptyTeams.length}</strong>
             <ul className='list-group gap-2 pb-5'>
                 {
-                    filterOnlyTakenTeams(eventsSorted).map((e, j, arr) => <div className='d-flex gap-1'>
-                        <div key={e.id} className='d-flex gap-1'>
+                    filterOnlyTakenTeams(eventsSorted).map((e, j, arr) => <div key={e.id} className='d-flex gap-1'>
+                        <div className='d-flex gap-1'>
                             {`${e.index})`}
                             <div className='border-dashed'>{`${e.team}`}</div>
                         </div>

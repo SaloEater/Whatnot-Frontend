@@ -16,7 +16,7 @@ import ToolsComponent from "@/app/break/[id]/toolsComponent";
 import {
     sortByIndexAscTeamAsc,
     sortByIndexDescTeamAsc,
-    sortByIndexTeam, sortByTeamAscIndexDesc,
+    sortByTeamAscIndexDesc,
     sortByTeamName
 } from "@/app/common/event_filter";
 import EventPlaceholdersComponent from "@/app/break/[id]/eventPlaceholdersComponent";

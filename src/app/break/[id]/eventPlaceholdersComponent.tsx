@@ -14,6 +14,7 @@ export default function EventPlaceholdersComponent({params}: {params: {
     let emptyEvent: Event = {
         break_id: 0, customer: "", id: 0, index: 0, is_giveaway: false, note: "", price: 0, quantity: 0, team: ""
     }
+    const [wasUnchecked, setWasUnchecked ] = useState(false)
 
     useEffect(() => {
         let emptyEvents: Event[] = []
@@ -26,8 +27,30 @@ export default function EventPlaceholdersComponent({params}: {params: {
     }, [params.length]);
 
     useEffect(() => {
-        updateEventPlaceholder(params.realEventPlaceholder)
+        if (wasUnchecked) {
+            setWasUnchecked(false)
+            setSelectedEvent(null)
+        } else {
+            updateSelectedEventPlaceholder(params.realEventPlaceholder)
+            if (params.realEventPlaceholder.customer == '') {
+                setSelectedEvent(null)
+            }
+        }
     }, [params.realEventPlaceholder]);
+
+    function updateSelectedEventPlaceholder(event: Event) {
+        setEvents((old) => {
+            if (!selectedEvent) {
+                return old
+            }
+
+            let newE = [...old]
+            let index = newE.findIndex(e => e.id == selectedEvent.id)
+            newE[index].customer = event.customer
+            newE[index].price = event.price
+            return newE
+        })
+    }
 
     function updateEventPlaceholder(event: Event) {
         setEvents((old) => {
@@ -50,7 +73,7 @@ export default function EventPlaceholdersComponent({params}: {params: {
     }
 
     function deselectEventPlaceholder() {
-        setSelectedEvent(null)
+        setWasUnchecked(true)
         params.resetRealEventPlaceholder()
     }
 
