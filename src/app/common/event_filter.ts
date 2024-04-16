@@ -24,6 +24,27 @@ export function sortByIndex(events: Event[]) {
     })
 }
 
+export function sortByIndexAscTeamAsc(events: Event[]) {
+    let customerSorted = sortByIndex(events.filter(i => i.customer != ''))
+    let teamSorted = sortByTeamName(events.filter(i => i.customer == ''))
+
+    return [...customerSorted, ...teamSorted]
+}
+
+export function sortByIndexDescTeamAsc(events: Event[]) {
+    let customerSorted = sortByIndex(events.filter(i => i.customer != '')).reverse()
+    let teamSorted = sortByTeamName(events.filter(i => i.customer == ''))
+
+    return [...customerSorted, ...teamSorted]
+}
+
+export function sortByTeamAscIndexDesc(events: Event[]) {
+    let teamSorted = sortByTeamName(events.filter(i => i.customer == ''))
+    let customerSorted = sortByIndex(events.filter(i => i.customer != '')).reverse()
+
+    return [...teamSorted, ...customerSorted]
+}
+
 export function sortByTeamName(events: Event[]) {
     return events.sort((a, b) => {
         if (a.team > b.team) return 1

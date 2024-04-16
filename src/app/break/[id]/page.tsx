@@ -13,8 +13,17 @@ import EventPlaceholderComponent from "@/app/break/[id]/eventPlaceholderComponen
 import './page.css'
 import TeamsListComponent from "@/app/break/[id]/teamsListComponent";
 import ToolsComponent from "@/app/break/[id]/toolsComponent";
-import {sortByTeamName} from "@/app/common/event_filter";
+import {
+    sortByIndexAscTeamAsc,
+    sortByIndexDescTeamAsc,
+    sortByIndexTeam, sortByTeamAscIndexDesc,
+    sortByTeamName
+} from "@/app/common/event_filter";
 import EventPlaceholdersComponent from "@/app/break/[id]/eventPlaceholdersComponent";
+
+const SortIndexAsc = 0
+const SortIndexDesc = 1
+const SortTeamFirst = 2
 
 export default function Page({params} : {params: {id: string}}) {
     const breakId = parseInt(params.id)
@@ -28,6 +37,7 @@ export default function Page({params} : {params: {id: string}}) {
         break_id: 0, customer: "", id: 0, index: 0, is_giveaway: false, note: "", price: 0, quantity: 0, team: ""
     }
     const [eventPlaceholder, setEventPlaceholder] = useState<Event>({...emptyEvent})
+    const [sortDir, setSortDir] = useState<number|null>(null)
 
     useEffect(() => {
         const body = {
@@ -333,6 +343,50 @@ export default function Page({params} : {params: {id: string}}) {
         })
     }
 
+    let eventsSorted = [...events]
+
+    if (sortDir == SortIndexAsc) {
+        eventsSorted = sortByIndexAscTeamAsc(eventsSorted)
+    } else if (sortDir == SortIndexDesc) {
+        eventsSorted = sortByIndexDescTeamAsc(eventsSorted)
+    } else if (sortDir == SortTeamFirst) {
+        eventsSorted = sortByTeamAscIndexDesc(eventsSorted)
+    } else {
+        eventsSorted = sortByTeamName(eventsSorted)
+    }
+
+    function getNextSortDirName() {
+        switch (sortDir) {
+            case null:
+                return 'Sort by Index Asc'
+            case SortIndexAsc:
+                return 'Sort by Index Desc'
+            case SortIndexDesc:
+                return 'Sort by Team First'
+            case SortTeamFirst:
+                return 'Sort by Team Alphabetical'
+        }
+    }
+
+    function setNextSortDir() {
+        let nextDir = null
+        switch (sortDir) {
+            case null:
+                nextDir = SortIndexAsc
+                break;
+            case SortIndexAsc:
+                nextDir = SortIndexDesc
+                break;
+            case SortIndexDesc:
+                nextDir = SortTeamFirst
+                break;
+            case SortTeamFirst:
+                nextDir = null
+                break;
+        }
+        setSortDir(nextDir)
+    }
+
     return (
         <div>
             {
@@ -384,11 +438,14 @@ export default function Page({params} : {params: {id: string}}) {
             <div className='w-95 d-flex m-2 justify-content-evenly'>
                 {
                     breakObject && <div className='w-75'>
-                        <div className='fs-1'>
-                            Teams:
+                        <div className='d-flex align-items-baseline justify-content-between w-90'>
+                            <div className='fs-1'>Teams:</div>
+                            <div onClick={setNextSortDir} className='text-primary cursor-pointer'>
+                                {getNextSortDirName()}
+                            </div>
                         </div>
                         <div className="d-flex flex-wrap gap-4 events-container justify-content-center">
-                            {sortByTeamName(events).map(
+                            {eventsSorted.map(
                                 (eventObject, index, arr) => {
                                     return <EventComponent key={eventObject.id} params={{
                                         event: {...eventObject},
@@ -440,7 +497,7 @@ export default function Page({params} : {params: {id: string}}) {
                     <ToolsComponent params={{events: events, swapTeams: swapTeams}}/>
                 </div>
                 <div className='w-10'>
-                    <TeamsListComponent params={{events: events}} />
+                    <TeamsListComponent params={{events: events, changeIndex: moveEvent}} />
                 </div>
             </div>
         </div>
