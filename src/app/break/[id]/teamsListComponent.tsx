@@ -49,14 +49,14 @@ export default function TeamsListComponent({params}: {params: {
             Taken <strong>{32 - emptyTeams.length}</strong>
             <ul className='list-group gap-2 pb-5'>
                 {
-                    filterOnlyTakenTeams(eventsSorted).map(e => <div className='d-flex gap-1'>
+                    filterOnlyTakenTeams(eventsSorted).map((e, j, arr) => <div className='d-flex gap-1'>
                         <div key={e.id} className='d-flex gap-1'>
                             {`${e.index})`}
                             <div className='border-dashed'>{`${e.team}`}</div>
                         </div>
                         <div className='d-flex gap-1'>
-                            <div className='text-primary cursor-pointer' onClick={_ => moveItemUp(e)}>↑</div>
-                            <div className='text-primary cursor-pointer' onClick={_ => moveItemDown(e)}>↓</div>
+                            {j > 0 && <div className='text-primary cursor-pointer' onClick={_ => moveItemUp(e)}>↑</div>}
+                            {j < arr.length - 1 && <div className='text-primary cursor-pointer' onClick={_ => moveItemDown(e)}>↓</div>}
                         </div>
                     </div>)
                 }
