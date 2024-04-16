@@ -18,7 +18,7 @@ export default function BreakBreadcrumbs({params} : {params: {breakId: number}})
     return (
         <div>
             {
-                dayId && <a className="nav-link active" href={`/day/${dayId}`}>Day {dayId}</a>
+                dayId && <a className="nav-link active" href={`/day/${dayId}`}>Stream {dayId}</a>
             }
         </div>
     )

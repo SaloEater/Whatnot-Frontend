@@ -28,7 +28,7 @@ export default function BreadcrumbsComponent() {
         <div>
             {
                 !isDemo && <nav className="navbar navbar-expand-lg navbar-light bg-dark ps-lg-4">
-                    <a key='days' className="navbar-brand" href="/days">Days</a>
+                    <a key='days' className="navbar-brand" href="/streams">Streams</a>
                     {breadcrumbs}
                 </nav>
             }
