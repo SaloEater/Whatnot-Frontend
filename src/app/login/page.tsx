@@ -22,7 +22,7 @@ export default function Page() {
 
         SetAuth(usernameValue, passwordValue)
 
-        router.push("/days")
+        router.push("/streams")
     }
 
     return (

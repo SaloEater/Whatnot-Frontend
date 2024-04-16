@@ -59,7 +59,7 @@ export default function Page({params} : {params: {id: string}}) {
         let eventsBody = {
             break_id: breakId
         };
-        post(getEndpoints().events_get_by_break, eventsBody)
+        post(getEndpoints().break_events, eventsBody)
             .then((events: {events: Event[]}) => {
                 const updatedEvents = [...events.events];
                 updatedEvents.sort((a, b) => {

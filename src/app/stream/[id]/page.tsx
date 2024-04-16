@@ -3,30 +3,24 @@
 import {useEffect, useState} from "react";
 import {Teams} from "@/app/common/teams";
 import {get, getEndpoints, post} from "@/app/lib/backend";
-import {Break, GetDaysResponse, AddBreakResponse} from "@/app/entity/entities";
+import {Break, GetStreamsResponse, AddBreakResponse} from "@/app/entity/entities";
 import {useRouter} from "next/navigation";
 
 export default function Page({params} : {params: {id: string}}) {
-    let dayId = parseInt(params.id)
+    let streamId = parseInt(params.id)
     const [breaks, setBreaks] = useState<Break[]>([])
     const [newBreakName, setNewBreakName] = useState("")
     let router = useRouter()
 
     useEffect(() => {
         let body = {
-            day_id: dayId
+            id: streamId
         }
-        post(getEndpoints().break_get_by_day, body)
+        post(getEndpoints().stream_breaks, body)
             .then((breaks: Break[]) => {
                 setBreaks(breaks)
             })
     }, []);
-
-    function initNewBreak(newBreakName: string) {
-        for (let team in Teams) {
-
-        }
-    }
 
     async function addNewBreak() {
         if (newBreakName === "") {
@@ -36,7 +30,7 @@ export default function Page({params} : {params: {id: string}}) {
         let date = (new Date()).toISOString()
         let body: Break = {
             id: 0,
-            day_id: dayId,
+            day_id: streamId,
             name: newBreakName,
             start_date: date,
             end_date: date,
@@ -45,7 +39,6 @@ export default function Page({params} : {params: {id: string}}) {
 
         post(getEndpoints().break_add, body)
             .then((response: AddBreakResponse) => {
-                initNewBreak(newBreakName)
                 setNewBreakName("")
                 Teams.forEach((teamName) => {
                     let eventAddBody = {
@@ -93,7 +86,7 @@ export default function Page({params} : {params: {id: string}}) {
                 <div className='pe-3'>
                     <button type="button" className="btn btn-primary" onClick={
                         e => {
-                            let href = `/package/${dayId}`
+                            let href = `/package/${streamId}`
                             router.push(href)
                         }
                     }>Package all</button>

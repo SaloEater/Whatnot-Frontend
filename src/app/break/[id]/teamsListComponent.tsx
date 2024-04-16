@@ -43,33 +43,39 @@ export default function TeamsListComponent({params}: {params: {
         }
     }
 
+    let takenTeamsLength = 32 - emptyTeams.length;
+    let emptyTeamsLength = emptyTeams.length;
     return <div className='rounded rounded-3 border-primary border p-2'>
         <div className='d-flex flex-column align-items-center'>Teams order:</div>
             <div className='text-primary cursor-pointer' onClick={changeSortDir}>{sortAsc ? 'Sort Asc' : 'Sort Desc'}</div>
-            Taken <strong>{32 - emptyTeams.length}</strong>
-            <ul className='list-group gap-2 pb-5'>
-                {
-                    filterOnlyTakenTeams(eventsSorted).map((e, j, arr) => <div key={e.id} className='d-flex gap-1'>
-                        <div className='d-flex gap-1'>
-                            {`${e.index})`}
+            {takenTeamsLength > 0 && <div>
+                Taken <strong>{takenTeamsLength}</strong>
+                <ul className='list-group gap-2 pb-5'>
+                    {
+                        filterOnlyTakenTeams(eventsSorted).map((e, j, arr) => <div key={e.id} className='d-flex gap-1'>
+                            <div className='d-flex gap-1'>
+                                {`${e.index})`}
+                                <div className='border-dashed'>{`${e.team}`}</div>
+                            </div>
+                            <div className='d-flex gap-1'>
+                                {j > 0 && <div className='text-primary cursor-pointer' onClick={_ => moveItemUp(e)}>↑</div>}
+                                {j < arr.length - 1 && <div className='text-primary cursor-pointer' onClick={_ => moveItemDown(e)}>↓</div>}
+                            </div>
+                        </div>)
+                    }
+                </ul>
+            </div>}
+            {emptyTeamsLength > 0 && <div>
+                Left <strong>{emptyTeamsLength}</strong>
+                <ul className='list-group gap-2'>
+                    {
+                        emptyTeams.map(e => <div key={e.id} className='d-flex gap-1'>
+                            -
                             <div className='border-dashed'>{`${e.team}`}</div>
-                        </div>
-                        <div className='d-flex gap-1'>
-                            {j > 0 && <div className='text-primary cursor-pointer' onClick={_ => moveItemUp(e)}>↑</div>}
-                            {j < arr.length - 1 && <div className='text-primary cursor-pointer' onClick={_ => moveItemDown(e)}>↓</div>}
-                        </div>
-                    </div>)
-                }
-            </ul>
-            Left <strong>{emptyTeams.length}</strong>
-            <ul className='list-group gap-2'>
-                {
-                    emptyTeams.map(e => <div key={e.id} className='d-flex gap-1'>
-                        -
-                        <div className='border-dashed'>{`${e.team}`}</div>
-                    </div>)
-                }
-            </ul>
+                        </div>)
+                    }
+                </ul>
+            </div>}
         <span className='text-primary cursor-pointer' onClick={changeSortDir}>{sortAsc ? 'Sort Asc' : 'Sort Desc'}</span>
     </div>
 }

@@ -16,7 +16,7 @@ export default function Page({params}: {params: {id: string}}) {
         let body = {
             break_id: breakId
         }
-        post(getEndpoints().events_get_by_break, body)
+        post(getEndpoints().break_events, body)
             .then((events: GetEventsByBreakResponse) => {
                 setTeamsCards(filterOnlyTeams(events.events).sort((a, b) => {
                     if (a.team > b.team) return 1

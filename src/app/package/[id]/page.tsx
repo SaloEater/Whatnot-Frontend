@@ -5,7 +5,7 @@ import React, {useEffect, useState} from "react";
 import {daysAreEqual} from "@/app/common/helpers";
 import {router} from "next/client";
 import "./page.css"
-import {Break, Day, GetDaysDay, GetDaysResponse, Event, GetEventsByBreakResponse} from "@/app/entity/entities";
+import {Break, Day, GetStreamsStream, GetStreamsResponse, Event, GetEventsByBreakResponse} from "@/app/entity/entities";
 import {get, getEndpoints, post} from "@/app/lib/backend";
 import {CustomerPackageComponent} from "@/app/package/[id]/customerPackage";
 
@@ -14,15 +14,15 @@ interface DaysData {
 }
 
 export default function Page({params} : {params: {id: string}}) {
-    let dayId = parseInt(params.id)
+    let streamId = parseInt(params.id)
     const [breakCustomers, setBreakCustomers] = useState(new Map<string, Map<string, Event[]>>())
 
     useEffect(() => {
         const fetchData = async () => {
             let body = {
-                day_id: dayId
+                id: streamId
             }
-            post(getEndpoints().break_get_by_day, body)
+            post(getEndpoints().stream_breaks, body)
                 .then(async (breaks: Break[]) => {
                     let newBreakCustomers = new Map<string, Map<string, Event[]>>()
 
@@ -30,7 +30,7 @@ export default function Page({params} : {params: {id: string}}) {
                         let eventBody = {
                             break_id: breakObject.id
                         }
-                        let events: GetEventsByBreakResponse = await post(getEndpoints().events_get_by_break, eventBody)
+                        let events: GetEventsByBreakResponse = await post(getEndpoints().break_events, eventBody)
                         for (let event of events.events) {
                             let customer = event.customer.trim();
                             if (!newBreakCustomers.has(customer)) {

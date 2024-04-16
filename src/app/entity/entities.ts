@@ -31,13 +31,14 @@ export interface Break {
     is_deleted: boolean
 }
 
-export interface GetDaysDay {
+export interface GetStreamsStream {
     id: number
-    timestamp: number
+    created_at: number
+    name: string
 }
 
-export interface GetDaysResponse {
-    days: GetDaysDay[]
+export interface GetStreamsResponse {
+    streams: GetStreamsStream[]
 }
 
 export interface GetBreaksByDayResponse {

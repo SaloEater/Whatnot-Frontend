@@ -29,7 +29,7 @@ export default function Page({params} : {params: {id: string}}) {
             break_id: breakId
         };
 
-        post(getEndpoints().events_get_by_break, eventsBody)
+        post(getEndpoints().break_events, eventsBody)
             .then((events: {events: Event[]}) => {
                 events.events.sort((a, b) => {
                     if (a.team > b.team) return 1

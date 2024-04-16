@@ -11,16 +11,16 @@ interface Credentials {
 
 export function getEndpoints()  {
     return {
-        days_get: "/api/days",
-        day_add: "/api/day/add",
-        day_delete: "/api/day/delete",
-        day_get: "/api/day",
+        stream_get_all: "/api/streams",
+        stream_add: "/api/stream/add",
+        stream_delete: "/api/stream/delete",
+        stream_get: "/api/stream",
+        stream_breaks: "/api/stream/breaks",
         break_get: "/api/break",
-        break_get_by_day: "/api/break/by_day",
         break_add: "/api/break/add",
         break_delete: "/api/break/delete",
         break_update: "/api/break/update",
-        events_get_by_break: "/api/event/by_break",
+        break_events: "/api/break/events",
         event_update: "/api/event/update",
         event_update_all: "/api/event/update_all",
         event_add: "/api/event/add",

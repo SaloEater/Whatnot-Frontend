@@ -7,7 +7,7 @@ export default function Page() {
     const router = useRouter()
 
     useEffect(() => {
-        router.push('/days')
+        router.push('/streams')
     }, []);
 
     return <div>
