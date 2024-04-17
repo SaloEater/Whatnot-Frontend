@@ -81,6 +81,8 @@ export default function EventPlaceholderComponent({params}: {params: {
         max_width: 50,
         placeholder: 'Enter price',
         font_size: null,
+        onClick: null,
+        onBlur: null,
     }
 
     const customerInputParams = {
@@ -90,6 +92,8 @@ export default function EventPlaceholderComponent({params}: {params: {
         max_width: 100,
         placeholder: 'Enter nickname',
         font_size: null,
+        onClick: null,
+        onBlur: null,
     }
 
     return (

@@ -22,6 +22,14 @@
     width: 50%;
 }
 
+.w-75p {
+    width: 75%;
+}
+
+.w-90p {
+    width: 90%;
+}
+
 .w-10p {
     width: 10%;
 }
@@ -40,5 +48,5 @@
 }
 
 .bg-green {
-    background-color: #126413;
+    background-color: #126413 !important;
 }

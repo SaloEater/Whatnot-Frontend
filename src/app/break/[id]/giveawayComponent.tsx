@@ -1,7 +1,7 @@
 import {Event} from "@/app/entity/entities";
 import Image from "next/image";
 import TextInput from "@/app/common/textInput";
-import {useState} from "react";
+import {useCallback, useState} from "react";
 import {getEndpoints, post} from "@/app/lib/backend";
 
 export default function GiveawayComponent({params}: {params: {
@@ -11,18 +11,18 @@ export default function GiveawayComponent({params}: {params: {
 }}) {
     const [newCustomer, setNewCustomer] = useState(params.event.customer)
 
-    function updateCustomer(value: string) {
+    const updateCustomer = useCallback((value: string) => {
         if (value == '') {
             value = params.event.customer
         }
         setNewCustomer(value)
-    }
+    }, [params.event.customer])
 
-    function saveCustomer() {
-        let newEvent = {...params.event}
+    const saveCustomer = useCallback(() => {
+        let newEvent = params.event
         newEvent.customer = newCustomer
         params.updateEvent(newEvent)
-    }
+    }, [params.event])
 
     const customerInputParams = {
         value: newCustomer,
@@ -31,6 +31,8 @@ export default function GiveawayComponent({params}: {params: {
         max_width: 150,
         font_size: 15,
         placeholder: 'Enter nickname',
+        onClick: null,
+        onBlur: null,
     }
 
     return (

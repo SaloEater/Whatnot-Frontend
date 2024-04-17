@@ -36,6 +36,9 @@ export default function SwapComponent({params}: {params: {
             setSourceTeams((old) => {
                 let newTeams = [...old]
                 newTeams.splice(index, 1)
+                if (newTeams.length == 0) {
+                    setTargetTeams([])
+                }
                 return newTeams
             })
         } else {
@@ -73,10 +76,10 @@ export default function SwapComponent({params}: {params: {
     }
 
     return <div className="swap-popup-overlay">
-        <div className='d-flex align-items-start'>
-            <div className="swap-popup d-flex">
-                <div className='d-flex justify-content-between'>
-                    <div className="h-75v w-50">
+        <div className='d-flex align-items-start w-75p'>
+            <div className="swap-popup d-flex w-100p">
+                <div className='d-flex justify-content-between w-90p'>
+                    <div className="h-75v w-50p">
                         {
                             sourceTeamsAll.map((event: Event, j, arr) => {
                                 let itemStyle = isSourceTeam(event) ? 'swap-item-taken' : 'swap-item-available'
@@ -91,9 +94,9 @@ export default function SwapComponent({params}: {params: {
                             })
                         }
                     </div>
-                    <div className="h-75v w-50">
+                    <div className="h-75v w-50p">
                         {
-                            targetTeamsAll.map((event: Event, j, arr) => {
+                            sourceTeams.length > 0 && targetTeamsAll.map((event: Event, j, arr) => {
                                 let itemStyle = isTargetTeam(event) ? 'swap-item-taken' : 'swap-item-available'
                                 return (
                                     <div key={event.id} className='swap-popup-item d-flex justify-content-center gap-1' onClick={
@@ -108,7 +111,7 @@ export default function SwapComponent({params}: {params: {
                     </div>
                 </div>
                 {
-                    sourceTeams.length> 0 && targetTeams.length > 0 && <div className='d-flex justify-content-center'>
+                    sourceTeams.length> 0 && targetTeams.length > 0 && <div>
                         <button className='btn btn-primary' onClick={swapTeams}>Swap</button>
                     </div>
                 }

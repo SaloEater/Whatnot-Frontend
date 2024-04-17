@@ -80,8 +80,13 @@ export default function Page({params} : {params: {id: string}}) {
         router.push(`/break/${id}`)
     }
 
+    function redirectToDemo() {
+        router.push(`/demo/${streamId}`)
+    }
+
     return (
         <main>
+            <button type='button' className='btn btn-primary' onClick={redirectToDemo}>Demo</button>
             <div className="d-flex justify-content-center">
                 <div className='pe-3'>
                     <button type="button" className="btn btn-primary" onClick={

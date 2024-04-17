@@ -5,7 +5,8 @@ import './eventComponent.css'
 export default function EventComponent(
     {params}: {
         params: {
-            event: Event
+            event: Event,
+            highlight_username: string
         }
     }
 ) {
@@ -13,8 +14,8 @@ export default function EventComponent(
         return `/images/teams/${team}.webp`;
     }
 
-    return <div className='p-1 max-height d-flex dimmed-overlay max-width align-items-center gap-2 dimmed-overlay customer-border'>
+    return <div className={`p-1 max-height d-flex dimmed-overlay max-width align-items-center gap-2 customer-border ${params.event.customer == params.highlight_username && params.highlight_username != '' ? 'bg-green' : ''}`}>
         <img className='image' src={getTeamImageSrc(params.event.team)} alt={params.event.team}/>
-        <div className='customer-text'>{params.event.customer}</div>
+        <div className={`customer-text ${params.event.customer == params.highlight_username && params.highlight_username != '' ? 'text-white' : ''}`}>{params.event.customer}</div>
     </div>
 }

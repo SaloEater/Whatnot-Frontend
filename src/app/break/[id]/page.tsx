@@ -209,10 +209,6 @@ export default function Page({params} : {params: {id: string}}) {
 
     let router = useRouter()
 
-    function redirectToDemo() {
-        router.push(`/demo/${breakId}`)
-    }
-
     function redirectToOBS() {
         router.push(`/obs/${breakId}`)
     }
@@ -430,7 +426,6 @@ export default function Page({params} : {params: {id: string}}) {
                             />
                         </div>
                         <div>
-                            <button type='button' className='btn btn-primary' onClick={redirectToDemo}>Demo</button>
                             <button type='button' className='btn btn-primary' onClick={redirectToOBS}>OBS</button>
                         </div>
                     </div>
@@ -485,6 +480,8 @@ export default function Page({params} : {params: {id: string}}) {
                                     placeholder: 'Enter nickname',
                                     font_size: null,
                                     max_width: 175,
+                                    onClick: null,
+                                    onBlur: null,
                                 }}/>
                             </div>
                         </div>

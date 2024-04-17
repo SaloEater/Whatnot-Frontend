@@ -18,6 +18,10 @@ export default function ToolsTabComponent({params}: {params: {
 }}) {
     const [selectedTabIndex, setSelectedTabIndex] = useState(0)
 
+    function getUsernames() {
+        return params.events.map(i => i.customer).filter((i, j, arr) => i != '' && arr.indexOf(i) === j);
+    }
+
     return <div>
         <div className='d-flex flex-wrap gap-1 w-100p'>
             {Tabs.map((tabName, j) => <div key={j} className={`p-2 border border-dashed  ${selectedTabIndex == j ? 'bg-primary' : ''}`} onClick={_ => {
@@ -27,6 +31,6 @@ export default function ToolsTabComponent({params}: {params: {
             </div>)}
         </div>
         {selectedTabIndex == TeamsListIndex && <TeamsListComponent params={{events: params.events, changeIndex: params.changeIndex}} />}
-        {selectedTabIndex == DemoIndex && <DemoSettingsComponent params={{streamId: params.streamId, breakId: params.breakId}} />}
+        {selectedTabIndex == DemoIndex && <DemoSettingsComponent params={{streamId: params.streamId, breakId: params.breakId, usernames: getUsernames()}} />}
     </div>
 }

@@ -1,10 +1,10 @@
 'use client'
 
-import {createRef, Dispatch, SetStateAction, useEffect, useRef, useState} from "react";
+import {createRef, Dispatch, SetStateAction, useCallback, useEffect, useRef, useState} from "react";
 import {getEndpoints, post} from "@/app/lib/backend";
 import {TuiDateTimePicker} from "nextjs-tui-date-picker";
 import moment, {max} from "moment";
-import {Day, Break, Event, SelectedBreak} from "@/app/entity/entities";
+import {Day, Break, Event, SelectedBreak, Demo} from "@/app/entity/entities";
 import {useRouter} from "next/navigation";
 import './page.css'
 import EventComponent from "@/app/demo/[id]/eventComponent";
@@ -12,21 +12,45 @@ import Image from "next/image";
 import {getEventWithHighestPrice} from "@/app/common/event_filter";
 
 export default function Page({params} : {params: {id: string}}) {
-    const breakId = parseInt(params.id)
+    const streamId = parseInt(params.id)
+    const [demo, setDemo] = useState<Demo|null>(null)
     const [events, setEvents] = useState<Event[]>([])
     const [giveaways, setGiveaways] = useState<Event[]>([])
     const [highestBidEvent, setHighestBidEvent] = useState<Event|null>(null)
 
+    const refreshDemo = useCallback(() => {
+        let eventsBody = {
+            stream_id: streamId
+        };
+
+        post(getEndpoints().stream_demo, eventsBody)
+            .then((response: Demo) => {
+                setDemo(response)
+            })
+    }, [params.id])
+
     useEffect(() => {
         refreshEvents()
-        setTimeout(() => {
+    }, [demo]);
+
+    useEffect(() => {
+        refreshDemo()
+
+        setInterval(() => {
             refreshEvents()
-        }, 10000)
+        }, 5000)
+        setInterval(() => {
+            refreshDemo()
+        }, 1500)
     }, []);
 
     function refreshEvents() {
+        if (!demo) {
+            return
+        }
+
         let eventsBody = {
-            break_id: breakId
+            break_id: demo.break_id
         };
 
         post(getEndpoints().break_events, eventsBody)
@@ -44,13 +68,14 @@ export default function Page({params} : {params: {id: string}}) {
     }
 
     let items = []
-    if (events.length > 0) {
+    if (events.length > 0 && demo) {
         let rowsAmount = 16
         for (let i = 0; i < rowsAmount; i++) {
             let index = i
             let eventObject = events[index]
             let eventParams = {
-                event: eventObject
+                event: eventObject,
+                highlight_username: demo.highlight_username
             }
             let colKey = `col-${index}`
             items.push(<EventComponent key={colKey} params={eventParams}/>)
@@ -58,7 +83,8 @@ export default function Page({params} : {params: {id: string}}) {
             index = i + rowsAmount
             eventObject = events[index]
             eventParams = {
-                event: eventObject
+                event: eventObject,
+                highlight_username: demo.highlight_username
             }
             colKey = `col-${i}-${index}`
             items.push(<EventComponent key={colKey} params={eventParams}/>)
@@ -87,7 +113,7 @@ export default function Page({params} : {params: {id: string}}) {
                                     Giveaway Winners:
                                 </div>
                                 {
-                                    giveaways.map((e, j) => <div className='fs-4 text-black giveaway-winner' key={e.id}>{e.customer}</div>)
+                                    giveaways.map((e, j) => <div className={`fs-4 text-black giveaway-winner`} key={e.id}>{e.customer}</div>)
                                 }
                             </div>
                         }
