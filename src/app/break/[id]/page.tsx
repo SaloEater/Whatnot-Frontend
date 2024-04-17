@@ -20,6 +20,7 @@ import {
     sortByTeamName
 } from "@/app/common/event_filter";
 import EventPlaceholdersComponent from "@/app/break/[id]/eventPlaceholdersComponent";
+import ToolsTabs from "@/app/break/[id]/toolsTabComponent";
 
 const SortIndexAsc = 0
 const SortIndexDesc = 1
@@ -496,8 +497,8 @@ export default function Page({params} : {params: {id: string}}) {
                     }}/>
                     <ToolsComponent params={{events: events, swapTeams: swapTeams}}/>
                 </div>
-                <div className='w-10'>
-                    <TeamsListComponent params={{events: events, changeIndex: moveEvent}} />
+                <div className='w-20p'>
+                    {breakObject && <ToolsTabs params={{events: events, changeIndex: moveEvent, streamId: breakObject.day_id, breakId: breakId}}/>}
                 </div>
             </div>
         </div>

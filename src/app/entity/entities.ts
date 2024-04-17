@@ -54,3 +54,9 @@ export interface AddBreakResponse {
 export interface GetEventsByBreakResponse {
     events: Event[]
 }
+
+export interface Demo {
+    id: number
+    highlight_username: string
+    break_id: number
+}

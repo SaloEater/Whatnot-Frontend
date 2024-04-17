@@ -26,6 +26,9 @@ export function getEndpoints()  {
         event_add: "/api/event/add",
         event_delete: "/api/event/delete",
         event_move: "/api/event/move",
+        stream_demo: "/api/stream/demo",
+        demo_update: "/api/demo/update"
+
     }
 }
 

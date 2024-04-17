@@ -23,11 +23,10 @@ export default function Page() {
     const dateTimeFormat = "YYYY-MM-dd"
     const router = useRouter()
 
-    function removeStream(index: number) {
+    function removeStream(stream: GetStreamsStream) {
         setStreams((oldStreams) => {
             let newStreams = [...oldStreams]
-            newStreams.splice(index, 1)
-            return newStreams
+            return newStreams.filter(i => i.id != stream.id)
         })
     }
 
@@ -91,7 +90,7 @@ export default function Page() {
                                                         };
                                                         const response = await post((await getEndpoints()).stream_delete, body);
                                                         if (response.success) {
-                                                            removeStream(arr.length - index - 1)
+                                                            removeStream(stream)
                                                         }
                                                     }
                                                 }/>
