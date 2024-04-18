@@ -3,9 +3,9 @@ import {useEffect, useState} from "react";
 import "./customerPackage.css"
 import {CheckboxState} from "@/app/package/[id]/checkbox";
 import {BreakPackage} from "@/app/package/[id]/breakPackage";
-import {Event} from "@/app/entity/entities";
+import {Event, PackageEvent} from "@/app/entity/entities";
 
-export function CustomerPackageComponent(props: {customer: string, breaks: Map<string, Event[]>}) {
+export function CustomerPackageComponent(props: {customer: string, breaks: Map<string, PackageEvent[]>}) {
     const {breaks, customer} = props
     const [checkboxState, setCheckboxState] = useState(new CheckboxState(0))
     const [isChecked, setIsChecked] = useState(false)
@@ -34,9 +34,16 @@ export function CustomerPackageComponent(props: {customer: string, breaks: Map<s
         setIsChecked(newChecked)
     }
 
+    let highBidEventAmount = Array.from(breaks.values()).reduce((acc, v) => acc + v.filter(i => i.is_high_bid).length, 0)
+    let eventsAmount = Array.from(breaks.values()).reduce((acc, v) => acc + v.length, 0)
+
     return (
         <div className="package-customer">
-            <div className={getClassName()} onClick={switchState}>{`${customer} [${Array.from(breaks.values()).reduce((acc, v) => acc + v.length, 0)}]`}</div>
+            <div className={getClassName()} onClick={switchState}>
+                {customer}
+                {highBidEventAmount == 0 && <span className='text-secondary'>{`[${eventsAmount}]`}</span>}
+                {highBidEventAmount > 0 && <span className='text-secondary'>{`[${eventsAmount - 1} + ${highBidEventAmount}]`}</span>}
+            </div>
             <div className="d-flex flex-wrap gap-2">
                 {
                     Array.from(breaks.entries()).map(

@@ -2,3 +2,7 @@
     border-radius: 1px;
     border: orange 1px solid;
 }
+
+.high-bid {
+    background-color: rgba(139,193,255,0.5);
+}

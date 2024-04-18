@@ -37,8 +37,8 @@ export default function GiveawayComponent({params}: {params: {
 
     return (
         <div className='border-1 rounded rounded-3 d-flex align-items-center justify-content-evenly'>
-            <div className='w-75'><TextInput params={customerInputParams}/></div>
-            <img className='bg-secondary w-15 p-1 rounded rounded-3' alt='Delete' src="/images/bin_static_sm.png" onClick={_ => {
+            <div className='w-75p'><TextInput params={customerInputParams}/></div>
+            <img className='bg-secondary w-15p p-1 rounded rounded-3' alt='Delete' src="/images/bin_static_sm.png" onClick={_ => {
                 setNewCustomer('')
                 params.resetEvent(params.event)
             }}/>

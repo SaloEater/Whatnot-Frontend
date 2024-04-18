@@ -1,9 +1,9 @@
 import {useState} from "react";
 import "./eventPackage.css"
-import {Event} from "@/app/entity/entities";
+import {Event, PackageEvent} from "@/app/entity/entities";
 
 
-export default function EventComponent(props: {event: Event, index: number, updateEventState: (index: number, state: boolean) => void, currentState: boolean}) {
+export default function EventComponent(props: {event: PackageEvent, index: number, updateEventState: (index: number, state: boolean) => void, currentState: boolean}) {
     const {event, index, updateEventState, currentState} = props
 
     let textValue
@@ -22,7 +22,7 @@ export default function EventComponent(props: {event: Event, index: number, upda
     }
 
     function getClassName() {
-        return 'package-event ' + (currentState ? "item completed" : "item in-progress");
+        return `package-event item ${currentState ? "completed" : "in-progress"} ${event.is_high_bid && !currentState ? 'high-bid' : ''}`;
     }
 
     return (

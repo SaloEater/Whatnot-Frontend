@@ -87,7 +87,7 @@ export default function SwapComponent({params}: {params: {
                                     <div key={event.id} className='swap-popup-item d-flex justify-content-center gap-1' onClick={
                                         e => switchSourceTeam(event)
                                     }>
-                                        <div className={'border-dashed w-75 ' + itemStyle}>{`${event.team}`}</div>
+                                        <div className={'border-dashed w-75p ' + itemStyle}>{`${event.team}`}</div>
                                         <div className='w-25'>{`by "${event.customer}"`}</div>
                                     </div>
                                 )
@@ -102,7 +102,7 @@ export default function SwapComponent({params}: {params: {
                                     <div key={event.id} className='swap-popup-item d-flex justify-content-center gap-1' onClick={
                                         e => switchTargetTeam(event)
                                     }>
-                                        <div className={'border-dashed w-75 ' + itemStyle}>{`${event.team}`}</div>
+                                        <div className={'border-dashed w-75p ' + itemStyle}>{`${event.team}`}</div>
                                         <div className='w-25'>{`by "${event.customer}"`}</div>
                                     </div>
                                 )

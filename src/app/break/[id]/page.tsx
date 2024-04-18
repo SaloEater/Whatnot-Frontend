@@ -7,6 +7,7 @@ import React, {useEffect, useState} from "react";
 import {Break} from "@/app/entity/entities";
 import {getEndpoints, post} from "@/app/lib/backend";
 import {useRouter} from "next/navigation";
+import {Teams} from "@/app/common/teams";
 
 export default function Page({params} : {params: {id: string}}) {
     const breakId = parseInt(params.id)
@@ -32,8 +33,9 @@ export default function Page({params} : {params: {id: string}}) {
             name: newBreak.name,
             start_date: newBreak.start_date,
             end_date: newBreak.end_date,
+            high_bid_team: newBreak.high_bid_team,
         }
-        post(getEndpoints().break_update, body)
+        return post(getEndpoints().break_update, body)
             .then(response => {
                 if (response.success) {
                     setBreakObject(newBreak)
@@ -88,10 +90,19 @@ export default function Page({params} : {params: {id: string}}) {
         router.push(`/obs/${breakObject.id}`)
     }
 
+    function updateHighBidTeam(team: string) {
+        if (!breakObject) {
+            return
+        }
+        let newO = {...breakObject}
+        newO.high_bid_team = team
+        setNewBreakObject(newO)
+    }
+
     return <div>
         {
             breakObject && <div>
-                <div className="d-flex align-items-center">
+                <div className="d-flex align-items-end gap-2">
                     <div>
                         <div>
                             Name
@@ -128,8 +139,19 @@ export default function Page({params} : {params: {id: string}}) {
                             inputWidth="auto"
                         />
                     </div>
+                    <button type='button' className='btn btn-primary' onClick={redirectToOBS}>OBS</button>
                     <div>
-                        <button type='button' className='btn btn-primary' onClick={redirectToOBS}>OBS</button>
+                        <div>High Bid Team:</div>
+                        <div className="dropdown">
+                            <button className="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton1" data-bs-auto-close="inside" data-bs-toggle="dropdown" aria-expanded="false">
+                                {breakObject.high_bid_team == '' ? 'Select' : breakObject.high_bid_team}
+                            </button>
+                            <ul className="dropdown-menu cursor-pointer" aria-labelledby="dropdownMenuButton1">
+                                {
+                                    Teams.map(i => <li onClick={_ => updateHighBidTeam(i)} className={`dropdown-item ${breakObject.high_bid_team == i ? 'active' : ''}`}>{i}</li>)
+                                }
+                            </ul>
+                        </div>
                     </div>
                 </div>
                 <BreakComponent breakObject={breakObject}/>

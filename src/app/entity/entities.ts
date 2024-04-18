@@ -22,6 +22,10 @@ export interface Event {
     quantity: number
 }
 
+export interface PackageEvent extends Event {
+    is_high_bid: boolean
+}
+
 export interface Break {
     id: number
     day_id: number
@@ -29,6 +33,7 @@ export interface Break {
     start_date: string
     end_date: string
     is_deleted: boolean
+    high_bid_team: string
 }
 
 export interface GetStreamsStream {
