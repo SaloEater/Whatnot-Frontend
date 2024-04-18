@@ -132,8 +132,8 @@ export default function Page({params} : {params: {id: string}}) {
                         <button type='button' className='btn btn-primary' onClick={redirectToOBS}>OBS</button>
                     </div>
                 </div>
+                <BreakComponent breakObject={breakObject}/>
             </div>
         }
-        {breakObject && <BreakComponent id={params.id} breakObject={breakObject}/>}
     </div>
 }

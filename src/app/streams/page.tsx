@@ -110,7 +110,7 @@ export default function Page() {
                 {/*            <StreamComponent selectedStream={selectedStream} selectedBreak={selectedBreak} setSelectedBreak={setSelectedBreak} requestedStreamsReload={requestedStreamsReload} requestStreamsReload={requestStreamsReload}/>*/}
                 {/*        </div>*/}
                 {/*        <div className="col-7">*/}
-                {/*            {selectedStream && <Page selectedStream={selectedStream} selectedBreak={selectedBreak} requestedStreamsReload={requestedStreamsReload} requestStreamsReload={requestStreamsReload}/>}*/}
+                {/*            {selectedStream && <BreakComponent selectedStream={selectedStream} selectedBreak={selectedBreak} requestedStreamsReload={requestedStreamsReload} requestStreamsReload={requestStreamsReload}/>}*/}
                 {/*        </div>*/}
                 {/*    </div>*/}
                 {/*</div>*/}

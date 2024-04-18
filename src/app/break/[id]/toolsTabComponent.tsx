@@ -1,7 +1,8 @@
 import TeamsListComponent from "@/app/break/[id]/teamsListComponent";
 import {Event} from "@/app/entity/entities";
-import {useState} from "react";
+import {FC, useState} from "react";
 import DemoSettingsComponent from "@/app/break/[id]/demoSettingsComponent";
+import {arrayUnique} from "@/app/common/helpers";
 
 const Tabs = [
     'Teams List',
@@ -10,16 +11,18 @@ const Tabs = [
 const TeamsListIndex = 0;
 const DemoIndex = 1;
 
-export default function ToolsTabComponent({params}: {params: {
+interface ToolsTabProps {
     events: Event[],
     changeIndex: (event: Event, newIndex: number) => void,
     breakId: number,
-    streamId: number,
-}}) {
+    streamId: number
+}
+
+export const ToolsTabComponent: FC<ToolsTabProps> = (props) => {
     const [selectedTabIndex, setSelectedTabIndex] = useState(0)
 
     function getUsernames() {
-        return params.events.map(i => i.customer).filter((i, j, arr) => i != '' && arr.indexOf(i) === j);
+        return arrayUnique(props.events.map(i => i.customer));
     }
 
     return <div>
@@ -30,7 +33,7 @@ export default function ToolsTabComponent({params}: {params: {
                 <strong>{tabName}</strong>
             </div>)}
         </div>
-        {selectedTabIndex == TeamsListIndex && <TeamsListComponent params={{events: params.events, changeIndex: params.changeIndex}} />}
-        {selectedTabIndex == DemoIndex && <DemoSettingsComponent params={{streamId: params.streamId, breakId: params.breakId, usernames: getUsernames()}} />}
+        {selectedTabIndex == TeamsListIndex && <TeamsListComponent params={{events: props.events, changeIndex: props.changeIndex}} />}
+        {selectedTabIndex == DemoIndex && <DemoSettingsComponent params={{streamId: props.streamId, breakId: props.breakId, usernames: getUsernames()}} />}
     </div>
 }

@@ -4,8 +4,8 @@ import React, {createRef, Dispatch, SetStateAction, useEffect, useRef, useState}
 import {getEndpoints, post} from "@/app/lib/backend";
 import {TuiDateTimePicker} from "nextjs-tui-date-picker";
 import moment, {max} from "moment";
-import {Day, Break, Event, SelectedBreak} from "@/app/entity/entities";
-import EventComponent from "@/app/break/[id]/eventComponent";
+import {Day, Break, Event, SelectedBreak, GetStreamUsernamesResponse} from "@/app/entity/entities";
+import {EventComponent} from "@/app/break/[id]/eventComponent";
 import {useRouter} from "next/navigation";
 import GiveawayComponent from "@/app/break/[id]/giveawayComponent";
 import TextInput from "@/app/common/textInput";
@@ -20,19 +20,18 @@ import {
     sortByTeamName
 } from "@/app/common/event_filter";
 import EventPlaceholdersComponent from "@/app/break/[id]/eventPlaceholdersComponent";
-import ToolsTabs from "@/app/break/[id]/toolsTabComponent";
+import {ToolsTabComponent} from "@/app/break/[id]/toolsTabComponent";
+import {arrayUnique, sortStringsAlphabetically} from "@/app/common/helpers";
 
 const SortIndexAsc = 0
 const SortIndexDesc = 1
 const SortTeamFirst = 2
 
 interface BreakComponentProps {
-    id: string
     breakObject: Break
 }
 
 export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
-    const breakId = parseInt(params.id)
     const [events, setEvents] = useState<Event[]>([])
     const [giveaways, setGiveaways] = useState<Event[]>([])
     const [newGiveawayCustomer, setNewGiveawayCustomer] = useState("")
@@ -42,18 +41,26 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
     }
     const [eventPlaceholder, setEventPlaceholder] = useState<Event>({...emptyEvent})
     const [sortDir, setSortDir] = useState<number|null>(null)
+    const [usernames, setUsernames] = useState<string[]>([])
+
+    function getUsernames() {
+        let body = {
+            id: params.breakObject.day_id
+        }
+        post(getEndpoints().stream_usernames, body)
+            .then((i: GetStreamUsernamesResponse) => {
+                setUsernames(sortStringsAlphabetically(arrayUnique(i.usernames.filter(j => j != '').map(i => i.trim()))))
+            })
+    }
 
     useEffect(() => {
         refreshEvents()
+        getUsernames()
     }, [])
-
-    useEffect(() => {
-
-    }, [toDemo]);
 
     function refreshEvents() {
         let eventsBody = {
-            break_id: breakId
+            break_id: params.breakObject.id
         };
         post(getEndpoints().break_events, eventsBody)
             .then((events: {events: Event[]}) => {
@@ -193,7 +200,7 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
         let event: Event = {
             id: 0,
             index: -1,
-            break_id: breakId,
+            break_id: params.breakObject.id,
             customer: newGiveawayCustomer,
             price: 0,
             team: '',
@@ -319,73 +326,83 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
         setSortDir(nextDir)
     }
 
-    return (
-        <div>
-            <div className='w-95 d-flex m-2 justify-content-evenly'>
-                <div className='w-75'>
-                    <div className='d-flex align-items-baseline justify-content-between w-90'>
-                        <div className='fs-1'>Teams:</div>
-                        <div onClick={setNextSortDir} className='text-primary cursor-pointer'>
-                            {getNextSortDirName()}
-                        </div>
-                    </div>
-                    <div className="d-flex flex-wrap gap-4 events-container justify-content-center">
-                        {eventsSorted.map(
-                            (eventObject, index, arr) => {
-                                return <EventComponent key={eventObject.id} params={{
-                                    event: {...eventObject},
-                                    events: arr,
-                                    updateEvent: updateEvent,
-                                    resetEvent: resetEvent,
-                                    getEventPlaceholder: getEventPlaceholder,
-                                    moveEvent: moveEvent,
-                                    isPlaceholderEmpty: isPlaceholderEmpty,
-                                }}/>
-                            }
-                        )}
+    function addUsername(username: string) {
+        setUsernames((old) => {
+            if (old.indexOf(username) !== -1) {
+                return old
+            }
+            let newU = [...old]
+            newU.push(username)
+            sortStringsAlphabetically(newU)
+            return newU
+        })
+    }
+
+    return <div className='d-flex m-2 justify-content-evenly'>
+            <div className='w-75p'>
+                <div className='d-flex align-items-baseline justify-content-between'>
+                    <div className='fs-1'>Teams:</div>
+                    <div onClick={setNextSortDir} className='text-primary cursor-pointer'>
+                        {getNextSortDirName()}
                     </div>
                 </div>
-                <div className='w-15 justify-content-center'>
-                    <div className='border border-primary rounded rounded-3 border-1 d-flex flex-column align-items-center'>
-                        <div>Giveaways:</div>
-                        <div>
-                            <ul className="list-group gap-1">
-                                {
-                                    giveaways.map((giveaway, index) => {
-                                        return <GiveawayComponent key={giveaway.id} params={{
-                                            event: giveaway,
-                                            updateEvent: updateGiveaway,
-                                            resetEvent: deleteGiveaway,
-                                        }}/>
-                                    })
-                                }
-                            </ul>
-                            <div className='w-75 m-2'>
-                                <TextInput params={{
-                                    value: newGiveawayCustomer,
-                                    update: updateNewGiveawayCustomer,
-                                    save: saveNewGiveawayCustomer,
-                                    placeholder: 'Enter nickname',
-                                    font_size: null,
-                                    max_width: 175,
-                                    onClick: null,
-                                    onBlur: null,
-                                }}/>
-                            </div>
-                        </div>
-                    </div>
-                    <EventPlaceholdersComponent params={{
-                        realEventPlaceholder: {...eventPlaceholder},
-                        updateRealEventPlaceholder: updateEventPlaceholder,
-                        resetRealEventPlaceholder: resetEventPlaceholder,
-                        length: 4
-                    }}/>
-                    <ToolsComponent params={{events: events, swapTeams: swapTeams}}/>
-                </div>
-                <div className='w-20p'>
-                    <ToolsTabs params={{events: events, changeIndex: moveEvent, streamId: params.breakObject.day_id, breakId: breakId}}/>
+                <div className="d-flex flex-wrap gap-4 events-container justify-content-center">
+                    {eventsSorted.map(
+                        (eventObject, index, arr) => {
+                            return <EventComponent key={eventObject.id}
+                                event={{...eventObject}}
+                                events={arr}
+                                updateEvent={updateEvent}
+                                resetEvent={resetEvent}
+                                getEventPlaceholder={getEventPlaceholder}
+                                moveEvent={moveEvent}
+                                isPlaceholderEmpty={isPlaceholderEmpty}
+                                usernames={usernames}
+                                addUsername={addUsername}
+                            />
+                        }
+                    )}
                 </div>
             </div>
-        </div>
-    )
+            <div className='w-15p justify-content-center'>
+                <div className='border border-primary rounded rounded-3 border-1 d-flex flex-column align-items-center'>
+                    <div>Giveaways:</div>
+                    <div>
+                        <ul className="list-group gap-1">
+                            {
+                                giveaways.map((giveaway, index) => {
+                                    return <GiveawayComponent key={giveaway.id} params={{
+                                        event: giveaway,
+                                        updateEvent: updateGiveaway,
+                                        resetEvent: deleteGiveaway,
+                                    }}/>
+                                })
+                            }
+                        </ul>
+                        <div className='w-75p m-2'>
+                            <TextInput params={{
+                                value: newGiveawayCustomer,
+                                update: updateNewGiveawayCustomer,
+                                save: saveNewGiveawayCustomer,
+                                placeholder: 'Enter nickname',
+                                font_size: null,
+                                max_width: 175,
+                                onClick: null,
+                                onBlur: null,
+                            }}/>
+                        </div>
+                    </div>
+                </div>
+                <EventPlaceholdersComponent params={{
+                    realEventPlaceholder: {...eventPlaceholder},
+                    updateRealEventPlaceholder: updateEventPlaceholder,
+                    resetRealEventPlaceholder: resetEventPlaceholder,
+                    length: 4
+                }}/>
+                <ToolsComponent params={{events: events, swapTeams: swapTeams}}/>
+            </div>
+            <div className='w-15p'>
+                <ToolsTabComponent events={events} changeIndex={moveEvent} streamId={params.breakObject.day_id} breakId={params.breakObject.id}/>
+            </div>
+    </div>
 }

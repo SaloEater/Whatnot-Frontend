@@ -4,7 +4,7 @@ export default function TextInput({params} : {
     params: {
         value: string,
         update: (value: string) => void,
-        save: () => void,
+        save: (value: string|null) => void,
         max_width: number,
         font_size: number|null,
         placeholder: string,
@@ -22,12 +22,13 @@ export default function TextInput({params} : {
         }} placeholder={params.placeholder} onKeyUp={e => {
             if (e.key === 'Enter') {
                 console.log('enter key up')
-                params.save()
+                params.save(null)
             }
         }} onBlur={_ => {
-            params.save()
             if (params.onBlur != null) {
                 params.onBlur()
+            } else {
+                params.save(null)
             }
         }}/>
     )

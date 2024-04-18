@@ -1,13 +1,14 @@
 import {Event} from "@/app/entity/entities";
 import Image from "next/image";
 import TextInput from "@/app/common/textInput";
-import {useEffect, useState} from "react";
+import {FC, useEffect, useState} from "react";
 import {getEndpoints, post} from "@/app/lib/backend";
 import OrderChangingComponent from "@/app/break/[id]/orderChangingComponent";
 import './eventComponent.css'
 import SwapComponent from "@/app/break/[id]/swapComponent";
+import {TextInputWithSuggestions} from "@/app/common/textInputWithSuggestions";
 
-export default function EventComponent({params}: {params: {
+interface EventProps {
     event: Event,
     events: Event[],
     updateEvent: (event: Event) => void,
@@ -15,15 +16,19 @@ export default function EventComponent({params}: {params: {
     getEventPlaceholder: () => Event,
     moveEvent: (event: Event, newIndex: number) => void,
     isPlaceholderEmpty: () => boolean,
-}}) {
-    const [newCustomer, setNewCustomer] = useState(params.event.customer)
-    const [newPrice, setNewPrice] = useState(params.event.price)
+    usernames: string[],
+    addUsername: (username: string) => void
+}
+
+export const EventComponent: FC<EventProps> = (props) => {
+    const [newCustomer, setNewCustomer] = useState(props.event.customer)
+    const [newPrice, setNewPrice] = useState(props.event.price)
     const [showOverlay, setShowOverlay] = useState(false)
 
     useEffect(() => {
-        setNewPrice(params.event.price)
-        setNewCustomer(params.event.customer)
-    }, [params.event.customer, params.event.price]);
+        setNewPrice(props.event.price)
+        setNewCustomer(props.event.customer)
+    }, [props.event.customer, props.event.price]);
 
     function getTeamImageSrc(team: string) {
         return `/images/teams/${team}.webp`;
@@ -35,27 +40,19 @@ export default function EventComponent({params}: {params: {
         } else {
             value = value.replace('?', '')
         }
-        setNewCustomer(value)
+        setNewCustomer(value.trim())
     }
 
-    function saveCustomer() {
-        if (params.event.customer == newCustomer) {
+    function saveCustomer(forceValue: string|null = null) {
+        let newCustomerActual = forceValue != null ? forceValue : newCustomer
+        if (props.event.customer == newCustomerActual) {
             return
         }
-        let newEvent = {...params.event}
-        newEvent.customer = newCustomer
-        params.updateEvent(newEvent)
-    }
-
-    const customerInputParams = {
-        value: newCustomer,
-        update: updateCustomer,
-        save: saveCustomer,
-        max_width: 100,
-        placeholder: 'Enter nickname',
-        font_size: null,
-        onClick: null,
-        onBlur: null,
+        let newEvent = {...props.event}
+        newEvent.customer = newCustomerActual
+        setNewCustomer(newCustomerActual)
+        props.addUsername(newCustomer)
+        props.updateEvent(newEvent)
     }
 
     function updatePrice(value: string) {
@@ -68,12 +65,12 @@ export default function EventComponent({params}: {params: {
     }
 
     function savePrice() {
-        if (params.event.price == newPrice) {
+        if (props.event.price == newPrice) {
             return
         }
-        let newEvent = {...params.event}
+        let newEvent = {...props.event}
         newEvent.price = newPrice
-        params.updateEvent(newEvent)
+        props.updateEvent(newEvent)
     }
 
     const priceInputParams = {
@@ -88,17 +85,17 @@ export default function EventComponent({params}: {params: {
     }
 
     function hasIndex() {
-        return params.event.customer != '';
+        return props.event.customer != '';
     }
 
     function applyPlaceholder() {
-        let eventPlaceholder = params.getEventPlaceholder()
-        let newEvent = {...params.event}
+        let eventPlaceholder = props.getEventPlaceholder()
+        let newEvent = {...props.event}
         newEvent.customer = eventPlaceholder.customer
         newEvent.price = eventPlaceholder.price
         setNewCustomer(eventPlaceholder.customer)
         setNewPrice(eventPlaceholder.price)
-        params.updateEvent(newEvent)
+        props.updateEvent(newEvent)
     }
 
     function showOrderChangingInterface() {
@@ -110,13 +107,13 @@ export default function EventComponent({params}: {params: {
     function moveTeamAfter(event: Event|null) {
         let nextIndex = 1
         if (event) {
-            if (event.index > params.event.index) {
+            if (event.index > props.event.index) {
                 nextIndex = event.index
             } else {
                 nextIndex = event.index + 1
             }
         }
-        params.moveEvent(params.event, nextIndex)
+        props.moveEvent(props.event, nextIndex)
     }
 
     let borderColor = 'border-primary'
@@ -124,31 +121,42 @@ export default function EventComponent({params}: {params: {
         borderColor = 'border-green'
     }
 
-    let splitted = params.event.team.split(' ')
+    let splitted = props.event.team.split(' ')
     let firstPart = splitted.length > 2 ? `${splitted[0]} ${splitted[1]}` : splitted[0]
     let secondPart = splitted.length > 2 ? `${splitted[2]}` : splitted[1]
 
     return (
-        <div className={`w-15 position-relative border border-1 rounded rounded-3 ${borderColor}`}>
+        <div className={`w-125p position-relative border border-1 rounded rounded-3 ${borderColor}`}>
             {
                 showOverlay && <OrderChangingComponent params={{
                     onClose: () => setShowOverlay(false),
                     moveTeamAfter: moveTeamAfter,
-                    events: params.events,
-                    callingEvent: params.event,
+                    events: props.events,
+                    callingEvent: props.event,
                 }}/>
             }
             <div style={{opacity: hasIndex() ? 0.5 : 1}}>
-                <div className='d-flex flex-column justify-content-center align-items-center p-1'>
-                    <Image src={getTeamImageSrc(params.event.team)} alt={params.event.team} height="75" width="75"/>
+                <div className='w-100p d-flex flex-column justify-content-center align-items-center p-1'>
+                    <Image src={getTeamImageSrc(props.event.team)} alt={props.event.team} height="75" width="75"/>
                     <div>{firstPart}</div>
                     <div>{secondPart}</div>
-                    <div className='d-flex gap-2 flex-column'>
+                    <div className='w-100p d-flex gap-2 flex-column hidden'>
                         <div className='d-flex gap-1'>
-                            <strong className='fs-4 text-white cursor-pointer' onClick={showOrderChangingInterface}>{hasIndex() ? `#${params.event.index}` : '-'}</strong>
+                            <strong className='fs-4 text-white cursor-pointer' onClick={showOrderChangingInterface}>{hasIndex() ? `#${props.event.index}` : '-'}</strong>
                             <TextInput params={priceInputParams}/>
                         </div>
-                        <TextInput params={customerInputParams}/>
+                        <TextInputWithSuggestions
+                            value={newCustomer}
+                            update={updateCustomer}
+                            save={saveCustomer}
+                            max_width={100}
+                            placeholder={'Enter nickname'}
+                            font_size={null}
+                            onClick={null}
+                            onBlur={null}
+                            suggestions={props.usernames}
+                            alwaysOn={false}
+                        />
                     </div>
                 </div>
             </div>
@@ -156,12 +164,12 @@ export default function EventComponent({params}: {params: {
                 <div onClick={_ => {
                     setNewCustomer('')
                     setNewPrice(0)
-                    params.resetEvent(params.event)
+                    props.resetEvent(props.event)
                 }}>
                     <Image className='bg-secondary p-1 rounded rounded-3' alt='Delete' src="/images/bin_static_sm.png" width='30' height='30'/>
                 </div>
                 {
-                    !params.isPlaceholderEmpty() && <div onClick={_ => applyPlaceholder()}>
+                    !props.isPlaceholderEmpty() && <div onClick={_ => applyPlaceholder()}>
                         <Image className='bg-secondary p-1' alt='Delete' src="/images/copy.png" width='30' height='30'/>
                     </div>
                 }

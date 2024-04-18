@@ -60,3 +60,7 @@ export interface Demo {
     highlight_username: string
     break_id: number
 }
+
+export interface GetStreamUsernamesResponse {
+    usernames: string[]
+}

@@ -102,8 +102,8 @@ export default function EventPlaceholderComponent({params}: {params: {
                 Future event:
                 <div className='d-flex gap-2 flex-column'>
                     <div className='d-flex justify-content-evenly align-items-center'>
-                        <img onClick={resetCurrent} className='bg-secondary p-1 w-15 rounded rounded-3' alt='Delete' src="/images/bin_static_sm.png"/>
-                        <div className='w-50'><TextInput params={priceInputParams}/></div>
+                        <img onClick={resetCurrent} className='bg-secondary p-1 w-15p rounded rounded-3' alt='Delete' src="/images/bin_static_sm.png"/>
+                        <div className='w-50p'><TextInput params={priceInputParams}/></div>
                         <label>Copy</label><input disabled={!isChanged()} type='checkbox' checked={params.isSelected} onChange={onCheck}/>
                     </div>
                     <TextInput params={customerInputParams}/>
