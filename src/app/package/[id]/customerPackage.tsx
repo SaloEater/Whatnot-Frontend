@@ -61,7 +61,7 @@ export function CustomerPackageComponent(props: {customer: string, breaks: Map<s
                 </span>
                 {missingEvents < 0 ? <span className='bg-danger'>{`Extra ${missingEvents * -1} events`}</span> : ''}
                 {missingEvents > 0 ? <span className='bg-danger'>{`Missing ${missingEvents} events`}</span> : ''}
-                {missingEvents == 0 ? <span className='bg-green'> Correct</span>: ''}
+                {props.amountMap && missingEvents == 0 ? <span className='bg-green'> Correct</span>: ''}
             </div>
             <div className="d-flex flex-wrap gap-2">
                 {
