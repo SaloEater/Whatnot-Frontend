@@ -11,18 +11,18 @@ export default function GiveawayComponent({params}: {params: {
 }}) {
     const [newCustomer, setNewCustomer] = useState(params.event.customer)
 
-    const updateCustomer = useCallback((value: string) => {
+    const updateCustomer = (value: string) => {
         if (value == '') {
             value = params.event.customer
         }
         setNewCustomer(value)
-    }, [params.event.customer])
+    }
 
-    const saveCustomer = useCallback(() => {
+    const saveCustomer = () => {
         let newEvent = params.event
         newEvent.customer = newCustomer
         params.updateEvent(newEvent)
-    }, [params.event])
+    }
 
     const customerInputParams = {
         value: newCustomer,

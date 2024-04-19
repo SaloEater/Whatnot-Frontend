@@ -5,7 +5,11 @@ import {CheckboxState} from "@/app/package/[id]/checkbox";
 import {BreakPackage} from "@/app/package/[id]/breakPackage";
 import {Event, PackageEvent} from "@/app/entity/entities";
 
-export function CustomerPackageComponent(props: {customer: string, breaks: Map<string, PackageEvent[]>}) {
+export interface IIndexable {
+    [key: string]: number;
+}
+
+export function CustomerPackageComponent(props: {customer: string, breaks: Map<string, PackageEvent[]>, amountMap: any}) {
     const {breaks, customer} = props
     const [checkboxState, setCheckboxState] = useState(new CheckboxState(0))
     const [isChecked, setIsChecked] = useState(false)
@@ -36,13 +40,28 @@ export function CustomerPackageComponent(props: {customer: string, breaks: Map<s
 
     let highBidEventAmount = Array.from(breaks.values()).reduce((acc, v) => acc + v.filter(i => i.is_high_bid).length, 0)
     let eventsAmount = Array.from(breaks.values()).reduce((acc, v) => acc + v.length, 0)
+    let missingEvents =  0
+    let actualAmount = 0
+    if (props.amountMap) {
+        actualAmount = (props.amountMap as IIndexable)[props.customer]
+        missingEvents = actualAmount - (eventsAmount - highBidEventAmount)
+    }
 
     return (
         <div className="package-customer">
             <div className={getClassName()} onClick={switchState}>
                 {customer}
-                {highBidEventAmount == 0 && <span className='text-secondary'>{`[${eventsAmount}]`}</span>}
-                {highBidEventAmount > 0 && <span className='text-secondary'>{`[${eventsAmount - 1} + ${highBidEventAmount}]`}</span>}
+                <span className='text-secondary'>
+                    [
+                        {highBidEventAmount == 0 && <span>{`${eventsAmount}`}</span>}
+                        {highBidEventAmount > 0 && <span>{`${eventsAmount - highBidEventAmount}`}</span>}
+                        {props.amountMap && <span className='text-primary'>{actualAmount}</span>}
+                        {highBidEventAmount > 0 && <span>{`+ ${highBidEventAmount}`}</span>}
+                    ]
+                </span>
+                {missingEvents < 0 ? <span className='bg-danger'>{`Extra ${missingEvents * -1} events`}</span> : ''}
+                {missingEvents > 0 ? <span className='bg-danger'>{`Missing ${missingEvents} events`}</span> : ''}
+                {missingEvents == 0 ? <span className='bg-green'> Correct</span>: ''}
             </div>
             <div className="d-flex flex-wrap gap-2">
                 {

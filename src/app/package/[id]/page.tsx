@@ -15,7 +15,8 @@ import {
     PackageEvent
 } from "@/app/entity/entities";
 import {get, getEndpoints, post} from "@/app/lib/backend";
-import {CustomerPackageComponent} from "@/app/package/[id]/customerPackage";
+import {CustomerPackageComponent, IIndexable} from "@/app/package/[id]/customerPackage";
+import TextInput from "@/app/common/textInput";
 
 interface DaysData {
     days: Day[]
@@ -25,6 +26,9 @@ export default function Page({params} : {params: {id: string}}) {
     let streamId = parseInt(params.id)
     const [breakCustomers, setBreakCustomers] = useState(new Map<string, Map<string, PackageEvent[]>>())
     const [eventsCount, setEventsCount] = useState(0)
+    const [highBidTeamCount, setHighBidTeamCount] = useState(0)
+    const [amountMap, setAmountMap] = useState<any|null>(null)
+    const [amountMapRaw, setAmountMapRaw] = useState('')
 
     useEffect(() => {
         const fetchData = async () => {
@@ -36,9 +40,13 @@ export default function Page({params} : {params: {id: string}}) {
                     let newBreakCustomers = new Map<string, Map<string, PackageEvent[]>>()
 
                     let eventsCountCounter = 0
+                    let highBidTeamCounter = 0
                     for (let breakObject of breaks) {
                         let eventBody = {
                             break_id: breakObject.id
+                        }
+                        if (breakObject.high_bid_team != '') {
+                            highBidTeamCounter++
                         }
                         let events: GetEventsByBreakResponse = await post(getEndpoints().break_events, eventBody)
                         for (let event of events.events) {
@@ -59,7 +67,7 @@ export default function Page({params} : {params: {id: string}}) {
                         }
                         eventsCountCounter += events.events.length
                     }
-
+                    setHighBidTeamCount(highBidTeamCounter)
                     setBreakCustomers(newBreakCustomers)
                     setEventsCount(eventsCountCounter)
                 })
@@ -68,9 +76,72 @@ export default function Page({params} : {params: {id: string}}) {
         fetchData();
     }, [])
 
+    function parseAmountMap() {
+        if (amountMapRaw == '') {
+            return
+        }
+        let raw = JSON.parse(amountMapRaw)
+        setAmountMap(raw)
+    }
+
+    let amount = 0
+    let amountDiff = 0
+    let missingCustomers: string[] = []
+    let nonExistingCustomers: string[] = []
+    if (amountMap) {
+        for (const [key, value] of Object.entries(amountMap)) {
+            amount += (value as number)
+            if (!breakCustomers.has(key)) {
+                missingCustomers.push(key)
+            }
+        }
+
+        Array.from(breakCustomers.keys()).forEach(i => {
+            if ((amountMap as IIndexable)[i] == undefined) {
+                nonExistingCustomers.push(i)
+            }
+        })
+
+        amountDiff = amount - (eventsCount - highBidTeamCount)
+    }
+
     return <div>
-        <div className='fs-1'>
-            Events: {eventsCount}
+        <div >
+            <div className='fs-1'>
+                Events:
+                {eventsCount}
+                {amountMap && <span className='text-primary'> {amount} </span>}
+                {amountMap && amountDiff > 0 ? <span className='text-danger'>Missing {amountDiff} events</span> : ''}
+                {amountMap && amountDiff < 0 ? <span className='text-danger'>Extra {amountDiff * -1} events</span> : ''}
+                {amountMap && amountDiff == 0 ? <span className='bg-green'>Correct</span> : ''}
+            </div>
+            <div className='w-25p'>
+                <TextInput params={{
+                    value: amountMapRaw,
+                    update: setAmountMapRaw,
+                    save: parseAmountMap,
+                    max_width: 150,
+                    font_size: null,
+                    placeholder: 'Enter amount data',
+                    onClick: null,
+                    onBlur: null,
+                }}/>
+            </div>{
+            missingCustomers.length > 0 && <div className='bg-danger'>
+                    Missing these customers:
+                    {missingCustomers.map(i => <div>
+                        {i} [{(amountMap as IIndexable)[i]}]
+                    </div>)}
+                </div>
+            }
+            {
+                nonExistingCustomers.length > 0 && <div className='bg-danger'>
+                    These customers not exist:
+                    {nonExistingCustomers.map(i => <div>
+                        {i}
+                    </div>)}
+                </div>
+            }
         </div>
         <div className="d-flex flex-wrap gap-4">
             {
@@ -84,7 +155,7 @@ export default function Page({params} : {params: {id: string}}) {
                     (customerInfo, i) => {
                         let customer = customerInfo[0]
                         let breaks = customerInfo[1]
-                        return <CustomerPackageComponent key={i} customer={customer} breaks={breaks}/>
+                        return <CustomerPackageComponent key={i} customer={customer} breaks={breaks} amountMap={amountMap}/>
                     }
                 )
             }
