@@ -129,7 +129,7 @@ export default function Page({params} : {params: {id: string}}) {
             </div>{
             missingCustomers.length > 0 && <div className='bg-danger'>
                     Missing these customers:
-                    {missingCustomers.map(i => <div>
+                    {missingCustomers.map(i => <div key={i}>
                         {i} [{(amountMap as IIndexable)[i]}]
                     </div>)}
                 </div>
@@ -137,7 +137,7 @@ export default function Page({params} : {params: {id: string}}) {
             {
                 nonExistingCustomers.length > 0 && <div className='bg-danger'>
                     These customers not exist:
-                    {nonExistingCustomers.map(i => <div>
+                    {nonExistingCustomers.map(i => <div key={i}>
                         {i}
                     </div>)}
                 </div>
