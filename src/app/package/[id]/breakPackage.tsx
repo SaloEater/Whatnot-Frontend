@@ -46,9 +46,9 @@ export function BreakPackage(props: {breakName: string, events: PackageEvent[], 
             <div className="d-flex flex-wrap gap-2">
                 {
                     sortByTeamName(events).map((event, childIndex) => {
-                        // @ts-ignore
                         return <EventComponent
                             key={childIndex}
+                            // @ts-ignore
                             event={event}
                             index={childIndex}
                             updateEventState={updateState}

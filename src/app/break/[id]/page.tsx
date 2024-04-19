@@ -148,7 +148,7 @@ export default function Page({params} : {params: {id: string}}) {
                             </button>
                             <ul className="dropdown-menu cursor-pointer" aria-labelledby="dropdownMenuButton1">
                                 {
-                                    Teams.map(i => <li onClick={_ => updateHighBidTeam(i)} className={`dropdown-item ${breakObject.high_bid_team == i ? 'active' : ''}`}>{i}</li>)
+                                    Teams.map(i => <li key={i} onClick={_ => updateHighBidTeam(i)} className={`dropdown-item ${breakObject.high_bid_team == i ? 'active' : ''}`}>{i}</li>)
                                 }
                             </ul>
                         </div>

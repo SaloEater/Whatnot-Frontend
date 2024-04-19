@@ -35,6 +35,7 @@ export default function Page({params} : {params: {id: string}}) {
             start_date: date,
             end_date: date,
             is_deleted: false,
+            high_bid_team: '',
         }
 
         post(getEndpoints().break_add, body)
