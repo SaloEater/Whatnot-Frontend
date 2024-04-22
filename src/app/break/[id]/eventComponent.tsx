@@ -17,7 +17,8 @@ interface EventProps {
     moveEvent: (event: Event, newIndex: number) => void,
     isPlaceholderEmpty: () => boolean,
     usernames: string[],
-    addUsername: (username: string) => void
+    addUsername: (username: string) => void,
+    isHighBid: boolean
 }
 
 export const EventComponent: FC<EventProps> = (props) => {
@@ -126,7 +127,7 @@ export const EventComponent: FC<EventProps> = (props) => {
     let secondPart = splitted.length > 2 ? `${splitted[2]}` : splitted[1]
 
     return (
-        <div className={`w-125p position-relative border border-1 rounded rounded-3 ${borderColor}`}>
+        <div className={`w-125p position-relative border border-1 rounded rounded-3 ${borderColor}`} >
             {
                 showOverlay && <OrderChangingComponent params={{
                     onClose: () => setShowOverlay(false),

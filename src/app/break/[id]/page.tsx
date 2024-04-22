@@ -80,16 +80,6 @@ export default function Page({params} : {params: {id: string}}) {
         setNewBreakObject(newBreak)
     }
 
-    let router = useRouter()
-
-    function redirectToOBS() {
-        if (!breakObject) {
-            return
-        }
-
-        router.push(`/obs/${breakObject.id}`)
-    }
-
     function updateHighBidTeam(team: string) {
         if (!breakObject) {
             return
@@ -139,7 +129,6 @@ export default function Page({params} : {params: {id: string}}) {
                             inputWidth="auto"
                         />
                     </div>
-                    <button type='button' className='btn btn-primary' onClick={redirectToOBS}>OBS</button>
                     <div>
                         <div>High Bid Team:</div>
                         <div className="dropdown">

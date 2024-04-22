@@ -1,20 +1,80 @@
 'use client'
 
 import './page.css'
-import {useEffect, useState} from "react";
+import {useCallback, useEffect, useRef, useState} from "react";
 import {getEndpoints, post} from "@/app/lib/backend";
-import {GetEventsByBreakResponse, Event, NoCustomer} from "@/app/entity/entities";
+import {GetEventsByBreakResponse, Event, NoCustomer, Demo, NoDemoBreak, Break} from "@/app/entity/entities";
 import {filterOnlyTeams} from "@/app/common/event_filter";
 import {EventComponent} from "@/app/obs/[id]/eventComponent";
 import HighBidComponent from "@/app/obs/[id]/highBidComponent";
+import {HighBidTeamComponent} from "@/app/obs/[id]/highBidTeamComponent";
 
 export default function Page({params}: {params: {id: string}}) {
     const [teamEvents, setTeamsCards] = useState<Event[]>([])
-    let breakId = parseInt(params.id)
+    const [breakObject, setBreakObject] = useState<Break|null>(null);
+    const [demo, setDemo] = useState<Demo|null>(null)
+    const demoRef = useRef<Demo|null>(null)
+    const streamId = parseInt(params.id)
+    const [highBidTeam, setHighBidTeam] = useState('')
+
+    function refreshDemo (){
+        let eventsBody = {
+            stream_id: streamId
+        };
+
+        post(getEndpoints().stream_demo, eventsBody)
+            .then((response: Demo) => {
+                if (!demo || response.id != demo.id) {
+                    setDemo(response)
+                }
+            })
+    }
+
+    useEffect(() => {
+        setHighBidTeam(breakObject?.high_bid_team ?? '')
+    }, [breakObject]);
+
+    function refreshBreak() {
+        let demoO = demoRef.current
+        if (!demoO) {
+            return
+        }
+
+        const body = {
+            id: demoO.break_id
+        }
+        post(getEndpoints().break_get, body)
+            .then((breakData: Break) => {
+                setBreakObject(breakData)
+        })
+    }
+
+    useEffect(() => {
+        refreshEvents()
+        demoRef.current = demo
+    }, [demo]);
+
+    useEffect(() => {
+        refreshDemo()
+
+        setInterval(() => {
+            refreshEvents()
+        }, 5000)
+        setInterval(() => {
+            refreshDemo()
+        }, 20000)
+        setInterval(() => {
+            refreshBreak()
+        }, 30000)
+    }, []);
 
     function refreshEvents() {
+        if (!demoRef.current || demoRef.current.break_id == NoDemoBreak) {
+            return
+        }
+
         let body = {
-            break_id: breakId
+            break_id: demoRef.current.break_id
         }
         post(getEndpoints().break_events, body)
             .then((events: GetEventsByBreakResponse) => {
@@ -96,8 +156,15 @@ export default function Page({params}: {params: {id: string}}) {
     }
 
     return <main className='teams-container grid-container overflow-hidden'>
-        <div className="position-relative grid-middle-item logo">
-            <HighBidComponent _events={teamEvents}/>
+        <div className="position-relative grid-middle-item logo h-100p">
+            <div className='bigboz-font big-font-size d-flex flex-column align-items-center justify-content-center'>
+                <div>MOUNT OLYMPUS</div>
+                <div>BREAKS</div>
+            </div>
+            <div className='d-flex flex-column'>
+                <HighBidComponent _events={teamEvents}/>
+                {demo && <HighBidTeamComponent highBigTeam={highBidTeam}/>}
+            </div>
         </div>
         {teamEvents.map(e => <EventComponent key={e.team} event={e} initEvent={initEvent} resetEvent={resetEvent}/>)}
     </main>

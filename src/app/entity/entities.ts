@@ -71,3 +71,4 @@ export interface GetStreamUsernamesResponse {
 }
 
 export const NoCustomer = '?'
+export const NoDemoBreak = 0

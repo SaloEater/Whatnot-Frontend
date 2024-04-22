@@ -391,6 +391,7 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
                                 isPlaceholderEmpty={isPlaceholderEmpty}
                                 usernames={usernames}
                                 addUsername={addUsername}
+                                isHighBid={eventObject.team == params.breakObject.high_bid_team}
                             />
                         }
                     )}

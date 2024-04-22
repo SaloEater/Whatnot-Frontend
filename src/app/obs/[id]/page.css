@@ -61,8 +61,19 @@ body {
 }
 
 .logo {
-    background-image: url('/images/stream_bg.png');
+    background-image: url('/images/stream_bg_empty.png');
     background-size: cover;
+}
+
+.big-font-size {
+    line-height: 4.5vw;
+    font-size: 4.5vw;
+    color: white;
+    text-shadow:
+            -2px -2px 0 black,
+            2px -2px 0 black,
+            -2px  2px 0 black,
+            2px  2px 0 black;
 }
 
 @keyframes itemAnimation {

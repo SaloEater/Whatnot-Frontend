@@ -1,6 +1,6 @@
 'use client'
 
-import {useEffect, useState} from "react";
+import React, {useEffect, useState} from "react";
 import {Teams} from "@/app/common/teams";
 import {get, getEndpoints, post} from "@/app/lib/backend";
 import {Break, GetStreamsResponse, AddBreakResponse} from "@/app/entity/entities";
@@ -85,9 +85,14 @@ export default function Page({params} : {params: {id: string}}) {
         router.push(`/demo/${streamId}`)
     }
 
+    function redirectToOBS() {
+        router.push(`/demo/${streamId}`)
+    }
+
     return (
         <main>
             <button type='button' className='btn btn-primary' onClick={redirectToDemo}>Demo</button>
+            <button type='button' className='btn btn-primary' onClick={redirectToOBS}>OBS</button>
             <div className="d-flex justify-content-center">
                 <div className='pe-3'>
                     <button type="button" className="btn btn-primary" onClick={

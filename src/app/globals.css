@@ -46,6 +46,10 @@
     cursor: pointer;
 }
 
+.h-100p {
+    height: 100%;
+}
+
 .h-75v {
     max-height: 75vh;
     overflow-y: auto;
@@ -53,4 +57,13 @@
 
 .bg-green {
     background-color: #126413 !important;
+}
+
+@font-face {
+    font-family: 'Bigboz-Web';
+    src: url('/fonts/Bigboz.otf') format('opentype'),
+}
+
+.bigboz-font {
+    font-family: 'Bigboz-Web', Bigboz, sans-serif;
 }
