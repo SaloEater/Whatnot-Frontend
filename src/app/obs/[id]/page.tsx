@@ -95,7 +95,7 @@ export default function Page({params}: {params: {id: string}}) {
             })
     }
 
-    return <main className='teams-container grid-container'>
+    return <main className='teams-container grid-container overflow-hidden'>
         <div className="position-relative grid-middle-item logo">
             <HighBidComponent _events={teamEvents}/>
         </div>
