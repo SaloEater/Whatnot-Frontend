@@ -4,7 +4,7 @@ import React, {createRef, Dispatch, SetStateAction, useEffect, useRef, useState}
 import {getEndpoints, post} from "@/app/lib/backend";
 import {TuiDateTimePicker} from "nextjs-tui-date-picker";
 import moment, {max} from "moment";
-import {Day, Break, Event, SelectedBreak, GetStreamUsernamesResponse} from "@/app/entity/entities";
+import {Day, Break, Event, SelectedBreak, GetStreamUsernamesResponse, NoCustomer} from "@/app/entity/entities";
 import {EventComponent} from "@/app/break/[id]/eventComponent";
 import {useRouter} from "next/navigation";
 import GiveawayComponent from "@/app/break/[id]/giveawayComponent";
@@ -104,6 +104,15 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
                 })
                 setEvents(updatedEvents.filter(e => !e.is_giveaway))
                 setGiveaways(updatedEvents.filter(e => e.is_giveaway))
+                setUsernames((old) => {
+                    let newU = [...old]
+                    updatedEvents.filter(i => i.customer != '' && i.customer != NoCustomer).forEach(i => {
+                        if (newU.indexOf(i.customer) === -1) {
+                            newU.push(i.customer)
+                        }
+                    })
+                    return newU
+                })
             })
     }
 

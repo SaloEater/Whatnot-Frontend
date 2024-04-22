@@ -3,6 +3,7 @@ import {Event} from "@/app/entity/entities";
 import {FC, useState} from "react";
 import DemoSettingsComponent from "@/app/break/[id]/demoSettingsComponent";
 import {arrayUnique} from "@/app/common/helpers";
+import {onlyWithUsernames} from "@/app/common/event_filter";
 
 const Tabs = [
     'Teams List',
@@ -22,7 +23,7 @@ export const ToolsTabComponent: FC<ToolsTabProps> = (props) => {
     const [selectedTabIndex, setSelectedTabIndex] = useState(0)
 
     function getUsernames() {
-        return arrayUnique(props.events.map(i => i.customer));
+        return arrayUnique(onlyWithUsernames(props.events).map(i => i.customer));
     }
 
     return <div>

@@ -1,4 +1,4 @@
-import {Event} from "@/app/entity/entities";
+import {Event, NoCustomer} from "@/app/entity/entities";
 
 export function filterOnlyTeams(events: Event[]) {
     return events.filter(e => !e.is_giveaway && !e.note)
@@ -55,4 +55,8 @@ export function sortByTeamName(events: Event[]) {
 
 export function filterOnlyEmptyTeams(events: Event[]) {
     return events.filter(e => e.customer == '')
+}
+
+export function onlyWithUsernames(arr: Event[]) {
+    return arr.filter(i => i.customer != '' && i.customer != NoCustomer);
 }
