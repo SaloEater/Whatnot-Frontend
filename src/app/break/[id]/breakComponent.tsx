@@ -35,6 +35,7 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
     const [events, setEvents] = useState<Event[]>([])
     const [giveaways, setGiveaways] = useState<Event[]>([])
     const [newGiveawayCustomer, setNewGiveawayCustomer] = useState("")
+    const eventsRef = useRef(events)
     const [toDemo, setToDemo] = useState(false)
     let emptyEvent: Event = {
         break_id: 0, customer: "", id: 0, index: 0, is_giveaway: false, note: "", price: 0, quantity: 0, team: ""
@@ -42,6 +43,7 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
     const [eventPlaceholder, setEventPlaceholder] = useState<Event>({...emptyEvent})
     const [sortDir, setSortDir] = useState<number|null>(null)
     const [usernames, setUsernames] = useState<string[]>([])
+    const [newEvent, setNewEvent] = useState<Event|null>(null)
 
     function getUsernames() {
         let body = {
@@ -56,15 +58,45 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
     useEffect(() => {
         refreshEvents()
         getUsernames()
+        setInterval(() => {
+            refreshEvents()
+        }, 5000)
     }, [])
+
+    useEffect(() => {
+        if (newEvent && !isPlaceholderEmpty()) {
+            newEvent.customer = eventPlaceholder.customer
+            newEvent.price = eventPlaceholder.price
+            console.log(`set ${newEvent.team}`)
+            setNewEvent(null)
+            updateEvent(newEvent)
+            resetEventPlaceholder()
+        }
+    }, [newEvent]);
+
+    useEffect(() => {
+        eventsRef.current = events
+    }, [events]);
 
     function refreshEvents() {
         let eventsBody = {
             break_id: params.breakObject.id
         };
         post(getEndpoints().break_events, eventsBody)
-            .then((events: {events: Event[]}) => {
-                const updatedEvents = [...events.events];
+            .then((breakEvents: {events: Event[]}) => {
+                let currentEvents = eventsRef.current
+                if (currentEvents.length > 0){
+                    let newEvents = breakEvents.events.filter(i => {
+                        let event = currentEvents.find(j => j.id == i.id)
+                        return (event?.customer ?? '') != i.customer
+                    })
+                    let newEvent = newEvents.length > 0 ? newEvents[0] : null
+
+                    setNewEvent(newEvent ? {...newEvent} : null)
+                    console.log(`new event is ${newEvent?.team ?? 'none'}`)
+                }
+
+                const updatedEvents = [...breakEvents.events];
                 updatedEvents.sort((a, b) => {
                     if (a.team > b.team) return 1
                     if (a.team < b.team) return -1
@@ -107,8 +139,7 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
         )) {
             return
         }
-        let updateEventBody = {...event}
-        post(getEndpoints().event_update, updateEventBody)
+        post(getEndpoints().event_update, event)
             .then(response => {
                 if (response.success) {
                     let moveBody = {
@@ -139,6 +170,7 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
     function resetEvent(event: Event) {
         let updateEventBody = {...event}
         updateEventBody.customer = ''
+        updateEventBody.price = 0
         post(getEndpoints().event_update, updateEventBody)
             .then(response => {
                 if (response.success) {

@@ -69,3 +69,5 @@ export interface Demo {
 export interface GetStreamUsernamesResponse {
     usernames: string[]
 }
+
+export const NoCustomer = '?'

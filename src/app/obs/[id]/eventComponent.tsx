@@ -1,12 +1,17 @@
 import './page.css'
-import {useEffect, useRef, useState} from "react";
+import {FC, useEffect, useRef, useState} from "react";
 import {getEndpoints, post} from "@/app/lib/backend";
 import {GetEventsByBreakResponse, Event} from "@/app/entity/entities";
 import {filterOnlyTeams} from "@/app/common/event_filter";
 
+interface OBSEventProps {
+    event: Event,
+    initEvent: (event: Event) => void,
+    resetEvent: (event: Event) => void;
+}
+
 // @ts-ignore
-export default function EventComponent({_event}) {
-    let event: Event = _event
+export const EventComponent: FC<OBSEventProps> = (props) => {
     const oldEvent = useRef<Event>()
     const [isPicked, setIsPicked] = useState(false)
     const containerRef = useRef<HTMLDivElement>(null);
@@ -14,20 +19,20 @@ export default function EventComponent({_event}) {
 
     useEffect(() => {
         if (oldEvent.current) {
-            if (oldEvent.current?.customer == '' && event.customer != '') {
-                console.log(event.team, event.customer, 'picked')
+            if (oldEvent.current?.customer == '' && props.event.customer != '') {
+                console.log(props.event.team, props.event.customer, 'picked')
                 setIsPicked(true)
-            } else if (oldEvent.current?.customer != '' && event.customer == '') {
+            } else if (oldEvent.current?.customer != '' && props.event.customer == '') {
                 setIsPicked(false)
                 setIsDimmed(false)
-                console.log(event.team, event.customer, 'unpicked')
+                console.log(props.event.team, props.event.customer, 'unpicked')
             }
-        } else if (event.customer != '') {
+        } else if (props.event.customer != '') {
             setIsDimmed(true)
-            console.log(event.team, event.customer, 'default picked')
+            console.log(props.event.team, props.event.customer, 'default picked')
         }
-        oldEvent.current = event
-    }, [event.customer]);
+        oldEvent.current = props.event
+    }, [props.event.customer]);
 
     useEffect(() => {
         let container = containerRef.current
@@ -59,7 +64,15 @@ export default function EventComponent({_event}) {
         return `/images/teams/${team}.webp`;
     }
 
+    function activate() {
+        if (!props.event.customer) {
+            props.initEvent(props.event)
+        } else {
+            props.resetEvent(props.event)
+        }
+    }
+
     return <div ref={containerRef} className={'grid-item ' + (isDimmed ? 'dimmed' : '')}>
-        <img className='team-image' src={getTeamImageSrc(event.team)}/>
+        <img className='team-image' src={getTeamImageSrc(props.event.team)} onClick={activate}/>
     </div>
 }
