@@ -11,6 +11,7 @@ export default function EventPlaceholderComponent({params}: {params: {
     selectEventPlaceholder: (event: Event) => void,
     deselectEventPlaceholder: () => void,
     isSelected: boolean,
+    isAuto: boolean
 }}) {
     const [newCustomer, setNewCustomer] = useState(params.event.customer)
     const [newPrice, setNewPrice] = useState(params.event.price)
@@ -100,7 +101,7 @@ export default function EventPlaceholderComponent({params}: {params: {
         <div className='position-relative border border-1 border-primary rounded rounded-3'>
             <div className='d-flex flex-column justify-content-center align-items-center p-1'>
                 Future event:
-                <div className='d-flex gap-2 flex-column'>
+                <div className='d-flex gap-2 flex-column' id={params.isAuto ? 'auto' : ''}>
                     <div className='d-flex justify-content-evenly align-items-center'>
                         <img onClick={resetCurrent} className='bg-secondary p-1 w-15p rounded rounded-3' alt='Delete' src="/images/bin_static_sm.png"/>
                         <div className='w-50p'><TextInput params={priceInputParams}/></div>

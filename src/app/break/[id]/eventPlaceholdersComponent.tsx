@@ -84,14 +84,15 @@ export default function EventPlaceholdersComponent({params}: {params: {
 
     return <div>
         {
-            events.map(e => <EventPlaceholderComponent key={e.id} params={
+            events.map((e, j) => <EventPlaceholderComponent key={e.id} params={
                 {
                     event: e,
                     updateEventPlaceholder: updateEventPlaceholder,
                     resetEventPlaceholder: resetEventPlaceholder,
                     selectEventPlaceholder: selectEventPlaceholder,
                     deselectEventPlaceholder: deselectEventPlaceholder,
-                    isSelected: e.id == (selectedEvent?.id ?? -1)
+                    isSelected: e.id == (selectedEvent?.id ?? -1),
+                    isAuto: j == events.length - 1,
                 }
             }/>)
         }

@@ -84,29 +84,35 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
         };
         post(getEndpoints().break_events, eventsBody)
             .then((breakEvents: {events: Event[]}) => {
-                let currentEvents = eventsRef.current
-                if (currentEvents.length > 0){
-                    let newEvents = breakEvents.events.filter(i => {
-                        let event = currentEvents.find(j => j.id == i.id)
-                        return (event?.customer ?? '') != i.customer
-                    })
-                    let newEvent = newEvents.length > 0 ? newEvents[0] : null
-
-                    setNewEvent(newEvent ? {...newEvent} : null)
-                    console.log(`new event is ${newEvent?.team ?? 'none'}`)
-                }
-
                 const updatedEvents = [...breakEvents.events];
-                updatedEvents.sort((a, b) => {
+                const teamEvents = updatedEvents.filter(e => !e.is_giveaway)
+                const giveawayEvents = updatedEvents.filter(e => e.is_giveaway)
+                teamEvents.sort((a, b) => {
                     if (a.team > b.team) return 1
                     if (a.team < b.team) return -1
                     return 0
                 })
-                setEvents(updatedEvents.filter(e => !e.is_giveaway))
-                setGiveaways(updatedEvents.filter(e => e.is_giveaway))
+                giveawayEvents.sort((a, b) => {
+                    if (a.index > b.index) return 1
+                    if (a.index < b.index) return -1
+                    return 0
+                })
+
+                let currentEvents = eventsRef.current
+                if (currentEvents.length > 0){
+                    let newEvents = teamEvents.filter(i => {
+                        let event = currentEvents.find(j => j.id == i.id)
+                        return (event?.customer ?? NoCustomer) != i.customer
+                    })
+                    let newEvent = newEvents.length > 0 ? newEvents[0] : null
+
+                    setNewEvent(newEvent ? {...newEvent} : null)
+                }
+                setEvents(teamEvents)
+                setGiveaways(giveawayEvents)
                 setUsernames((old) => {
                     let newU = [...old]
-                    updatedEvents.filter(i => i.customer != '' && i.customer != NoCustomer).forEach(i => {
+                    teamEvents.filter(i => i.customer != '' && i.customer != NoCustomer).forEach(i => {
                         if (newU.indexOf(i.customer) === -1) {
                             newU.push(i.customer)
                         }
@@ -421,7 +427,7 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
                                 })
                             }
                         </ul>
-                        <div className='w-75p m-2'>
+                        <div className='w-75p m-2' id='giveaway'>
                             <TextInput params={{
                                 value: newGiveawayCustomer,
                                 update: updateNewGiveawayCustomer,
