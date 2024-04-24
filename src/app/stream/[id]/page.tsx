@@ -86,7 +86,7 @@ export default function Page({params} : {params: {id: string}}) {
     }
 
     function redirectToOBS() {
-        router.push(`/demo/${streamId}`)
+        router.push(`/obs/${streamId}`)
     }
 
     return (

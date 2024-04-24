@@ -12,10 +12,10 @@ export default function SwapComponent({params}: {params: {
     const [sourceTeams, setSourceTeams] = useState<Event[]>([])
     const [targetTeams, setTargetTeams] = useState<Event[]>([])
 
-    useEffect(() => {
-        setSourceTeams([])
-        setTargetTeams([])
-    }, [params.events]);
+    // useEffect(() => {
+    //     setSourceTeams([])
+    //     setTargetTeams([])
+    // }, [params.events]);
 
     let sortedTeams = sortByTeamName(filterOnlyTakenTeams(params.events))
     let sourceTeamsAll = sourceTeams.length > 0 ? sortedTeams.filter((e) => e.customer == sourceTeams[0].customer) : sortedTeams
