@@ -1,4 +1,4 @@
-import {Event, GiveawayTypePack, GiveawayTypeSlab} from "@/app/entity/entities";
+import {Event, GiveawayTypeNone, GiveawayTypePack, GiveawayTypeSlab} from "@/app/entity/entities";
 import Image from "next/image";
 import TextInput from "@/app/common/textInput";
 import {useCallback, useEffect, useState} from "react";
@@ -44,6 +44,9 @@ export default function GiveawayComponent({params}: {params: {
     }
 
     function switchType(type: number) {
+        if (type == params.event.giveaway_type) {
+            type = GiveawayTypeNone
+        }
         setIsPack(type == GiveawayTypePack)
         setIsSlab(type == GiveawayTypeSlab)
         let newEvent = params.event
