@@ -11,7 +11,7 @@ import {
     SelectedBreak,
     GetStreamUsernamesResponse,
     NoCustomer,
-    GiveawayTypeNone
+    GiveawayTypeNone, GiveawayTypeSlab
 } from "@/app/entity/entities";
 import {EventComponent} from "@/app/break/[id]/eventComponent";
 import {useRouter} from "next/navigation";
@@ -425,6 +425,12 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
                 <div className='border border-primary rounded rounded-3 border-1 d-flex flex-column align-items-center'>
                     <div>Giveaways:</div>
                     <div>
+                        <div>
+                            Slab: <span>{giveaways.reduce((acc, i) => i.giveaway_type == GiveawayTypeSlab ? acc + 1 : acc, 0)}</span>
+                        </div>
+                        <div>
+                            Pack: <span>{giveaways.reduce((acc, i) => i.giveaway_type != GiveawayTypeSlab ? acc + 1 : acc, 0)}</span>
+                        </div>
                         <ul className="list-group gap-1">
                             {
                                 giveaways.map((giveaway, index) => {
