@@ -17,6 +17,7 @@ export default function Page({params} : {params: {id: string}}) {
     const [events, setEvents] = useState<Event[]>([])
     const [giveaways, setGiveaways] = useState<Event[]>([])
     const [highestBidEvent, setHighestBidEvent] = useState<Event|null>(null)
+    const demoRef = useRef<Demo|null>(null)
 
     const refreshDemo = useCallback(() => {
         let eventsBody = {
@@ -31,6 +32,7 @@ export default function Page({params} : {params: {id: string}}) {
 
     useEffect(() => {
         refreshEvents()
+        demoRef.current = demo
     }, [demo]);
 
     useEffect(() => {
@@ -44,12 +46,18 @@ export default function Page({params} : {params: {id: string}}) {
         }, 1500)
     }, []);
 
+    function demoIsSet() {
+        let demo = demoRef.current
+        return demo && demo.break_id;
+    }
+
     function refreshEvents() {
-        if (!demo) {
+        if (!demoIsSet()) {
             return
         }
+        let demo = demoRef.current
 
-        let eventsBody = {
+        let eventsBody = { //@ts-ignore
             break_id: demo.break_id
         };
 
@@ -105,31 +113,37 @@ export default function Page({params} : {params: {id: string}}) {
     return (
         <div className='main'>
             <div className='w-100 h-100 dimmed-bg p-1'>
-                <Image className='position-absolute top-0 start-0 bg-img' src='/images/full_screen.png' alt={'fullscreen'} onClick={launchFullScreen} width='50' height='50'/>
-                <div className='max-height overflow-hidden d-flex justify-content-center my-flex gap-2 teams-container'>
-                    <div className='demo-container white-overlay'>
-                        {items.length > 0 && items}
-                    </div>
-                    <div className='d-flex flex-column align-items-center justify-content-center gap-2'>
-                        {
-                            giveaways.length > 0 && <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center'>
-                                <div className='fs-2 text-black'>
-                                    Giveaway Winners:
-                                </div>
+                {
+                     demoIsSet() ? <div className='w-100 h-100'>
+                        <Image className='position-absolute top-0 start-0 bg-img' src='/images/full_screen.png' alt={'fullscreen'} onClick={launchFullScreen} width='50' height='50'/>
+                        <div className='max-height overflow-hidden d-flex justify-content-center my-flex gap-2 teams-container'>
+                            <div className='demo-container white-overlay'>
+                                {items.length > 0 && items}
+                            </div>
+                            <div className='d-flex flex-column align-items-center justify-content-center gap-2'>
                                 {
-                                    giveaways.map((e, j) => <div className={`fs-4 text-black giveaway-winner`} key={e.id}>{e.customer}</div>)
+                                    giveaways.length > 0 && <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center'>
+                                        <div className='fs-2 text-black'>
+                                            Giveaway Winners:
+                                        </div>
+                                        {
+                                            giveaways.map((e, j) => <div className={`fs-4 text-black giveaway-winner`} key={e.id}>{e.customer}</div>)
+                                        }
+                                    </div>
+                                }
+                                {
+                                    highestBidEvent && <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center max-width'>
+                                        <div className='fs-2 text-black'>Highest bid:</div>
+                                        <div className='fs-3 text-black giveaway-winner'>{highestBidEvent.customer}</div>
+                                        <div className='fs-3 text-black giveaway-winner'>{highestBidEvent.price}$</div>
+                                    </div>
                                 }
                             </div>
-                        }
-                        {
-                            highestBidEvent && <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center max-width'>
-                                <div className='fs-2 text-black'>Highest bid:</div>
-                                <div className='fs-3 text-black giveaway-winner'>{highestBidEvent.customer}</div>
-                                <div className='fs-3 text-black giveaway-winner'>{highestBidEvent.price}$</div>
-                            </div>
-                        }
-                    </div>
-                </div>
+                        </div>
+                     </div> : <div>
+                         Demo is not set
+                     </div>
+                }
             </div>
         </div>
     )
