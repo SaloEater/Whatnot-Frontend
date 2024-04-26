@@ -20,6 +20,7 @@ export interface Event {
     is_giveaway: boolean
     note: string
     quantity: number
+    giveaway_type: number
 }
 
 export interface PackageEvent extends Event {
@@ -72,3 +73,6 @@ export interface GetStreamUsernamesResponse {
 
 export const NoCustomer = '?'
 export const NoDemoBreak = 0
+export const GiveawayTypeNone = 0
+export const GiveawayTypePack = 1
+export const GiveawayTypeSlab = 2
