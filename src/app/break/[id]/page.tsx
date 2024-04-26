@@ -132,7 +132,7 @@ export default function Page({params} : {params: {id: string}}) {
                     <div>
                         <div>High Bid Team:</div>
                         <div className="dropdown">
-                            <button className="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton1" data-bs-auto-close="inside" data-bs-toggle="dropdown" aria-expanded="false">
+                            <button className="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton1" data-bs-auto-close="true" data-bs-toggle="dropdown" aria-expanded="false">
                                 {breakObject.high_bid_team == '' ? 'Select' : breakObject.high_bid_team}
                             </button>
                             <ul className="dropdown-menu cursor-pointer" aria-labelledby="dropdownMenuButton1">

@@ -1,8 +1,9 @@
 import {Event, GiveawayTypeNone, GiveawayTypePack, GiveawayTypeSlab} from "@/app/entity/entities";
 import Image from "next/image";
 import TextInput from "@/app/common/textInput";
-import {useCallback, useEffect, useState} from "react";
+import React, {useCallback, useEffect, useState} from "react";
 import {getEndpoints, post} from "@/app/lib/backend";
+import {Teams} from "@/app/common/teams";
 
 export default function GiveawayComponent({params}: {params: {
     event: Event,
@@ -54,25 +55,31 @@ export default function GiveawayComponent({params}: {params: {
         params.updateEvent(newEvent)
     }
 
+    function getGiveawayTypeName(type: number) {
+        return type == GiveawayTypeSlab ? 'S' : 'P';
+    }
+
+    function getGiveawayTypeFullName(type: number) {
+        return type == GiveawayTypeSlab ? 'Slab' : 'Pack';
+    }
+
     return (
-        <div className='border-1 rounded rounded-3'>
-            <div className='d-flex align-items-center justify-content-evenly'>
-                <div className='w-75p'><TextInput params={customerInputParams}/></div>
-                <img className='bg-secondary w-15p p-1 rounded rounded-3' alt='Delete' src="/images/bin_static_sm.png" onClick={_ => {
-                    setNewCustomer('')
-                    params.resetEvent(params.event)
-                }}/>
+        <div className='border-1 rounded rounded-3 d-flex align-items-center justify-content-evenly'>
+            <div className='w-75p'><TextInput params={customerInputParams}/></div>
+            <div className="dropdown p-2">
+                <button className="btn btn-secondary dropdown-toggle btn-sm" type="button" id="dropdownMenuButton1" data-bs-auto-close="true" data-bs-toggle="dropdown" aria-expanded="false">
+                    {getGiveawayTypeName(params.event.giveaway_type)}
+                </button>
+                <ul className="dropdown-menu cursor-pointer" aria-labelledby="dropdownMenuButton1">
+                    {
+                        [GiveawayTypeSlab, GiveawayTypePack].map(i => <li key={i} onClick={_ => switchType(i)} className={`dropdown-item ${params.event.giveaway_type == i ? 'active' : ''}`}>{getGiveawayTypeFullName(i)}</li>)
+                    }
+                </ul>
             </div>
-            <div className='d-flex gap-1'>
-                <div className='border-dashed border-1 rounded rounded-1'>
-                    Is Pack
-                    <input type="checkbox" checked={isPack} onClick={() => switchType(GiveawayTypePack)}/>
-                </div>
-                <div className='border-dashed border-1 rounded rounded-1'>
-                    Is Slab
-                    <input type="checkbox" checked={isSlab} onClick={() => switchType(GiveawayTypeSlab)}/>
-                </div>
-            </div>
+            <img className='bg-secondary w-15p p-1 rounded rounded-3' alt='Delete' src="/images/bin_static_sm.png" onClick={_ => {
+                setNewCustomer('')
+                params.resetEvent(params.event)
+            }}/>
         </div>
     )
 }
