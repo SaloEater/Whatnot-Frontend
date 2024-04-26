@@ -4,7 +4,15 @@ import React, {createRef, Dispatch, SetStateAction, useEffect, useRef, useState}
 import {getEndpoints, post} from "@/app/lib/backend";
 import {TuiDateTimePicker} from "nextjs-tui-date-picker";
 import moment, {max} from "moment";
-import {Day, Break, Event, SelectedBreak, GetStreamUsernamesResponse, NoCustomer} from "@/app/entity/entities";
+import {
+    Day,
+    Break,
+    Event,
+    SelectedBreak,
+    GetStreamUsernamesResponse,
+    NoCustomer,
+    GiveawayTypeNone
+} from "@/app/entity/entities";
 import {EventComponent} from "@/app/break/[id]/eventComponent";
 import {useRouter} from "next/navigation";
 import GiveawayComponent from "@/app/break/[id]/giveawayComponent";
@@ -38,7 +46,7 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
     const eventsRef = useRef(events)
     const [toDemo, setToDemo] = useState(false)
     let emptyEvent: Event = {
-        break_id: 0, customer: "", id: 0, index: 0, is_giveaway: false, note: "", price: 0, quantity: 0, team: ""
+        break_id: 0, customer: "", id: 0, index: 0, is_giveaway: false, note: "", price: 0, quantity: 0, team: "", giveaway_type: GiveawayTypeNone,
     }
     const [eventPlaceholder, setEventPlaceholder] = useState<Event>({...emptyEvent})
     const [sortDir, setSortDir] = useState<number|null>(null)
@@ -254,6 +262,7 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
             is_giveaway: true,
             note: '',
             quantity: 1,
+            giveaway_type: GiveawayTypeNone,
         }
         post(getEndpoints().event_add, event)
             .then(response => {

@@ -1,6 +1,6 @@
 import {useEffect, useState} from "react";
 import EventPlaceholderComponent from "@/app/break/[id]/eventPlaceholderComponent";
-import {Event} from "@/app/entity/entities";
+import {Event, GiveawayTypeNone} from "@/app/entity/entities";
 import {event} from "next/dist/build/output/log";
 
 export default function EventPlaceholdersComponent({params}: {params: {
@@ -12,7 +12,7 @@ export default function EventPlaceholdersComponent({params}: {params: {
     const [events, setEvents] = useState<Event[]>([])
     const [selectedEvent, setSelectedEvent] = useState<Event|null>(null)
     let emptyEvent: Event = {
-        break_id: 0, customer: "", id: 0, index: 0, is_giveaway: false, note: "", price: 0, quantity: 0, team: ""
+        break_id: 0, customer: "", id: 0, index: 0, is_giveaway: false, note: "", price: 0, quantity: 0, team: "", giveaway_type: GiveawayTypeNone,
     }
     const [wasUnchecked, setWasUnchecked ] = useState(false)
 
