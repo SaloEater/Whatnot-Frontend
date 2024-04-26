@@ -9,7 +9,8 @@ export function filterOnlyGiveaways(events: Event[]) {
 }
 
 export function getEventWithHighestPrice(events: Event[]) {
-    return events.reduce((acc: Event|null, event) => acc != null ? (event.price > acc.price ? event : acc) : event, null)
+    let event = events.reduce((acc: Event|null, event) => acc != null ? (event.price > acc.price ? event : acc) : event, null)
+    return (event?.price ?? 0) > 0 ? event : null
 }
 
 export function filterOnlyTakenTeams(events: Event[]) {

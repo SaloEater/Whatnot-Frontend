@@ -1,22 +1,22 @@
-body {
-    height: 100vh;
+body, .main {
+    height: -webkit-fill-available; /* For Safari */
+    height: 100vh; /* Fallback for other browsers */
 }
 
 .main {
     background-image: url('/images/nebula_big.png');
     background-size: cover;
-    height: 100%;
-    max-height: 100%;
 }
 
 .my-flex {
-    height: 100%;
+    height: -webkit-fill-available; /* For Safari */
+    height: 100%; /* Fallback for other browsers */
 }
 
 .demo-container {
     display: grid;
-    grid-template-columns: repeat(2, 0.75fr);
-    grid-template-rows: repeat(16, calc((100% - 105px)/16));
+    grid-template-columns: 50% 50%;
+    grid-template-rows: repeat(16, calc((100% - 105px)/16)); /* Adjusted for Safari */
     border-radius: 60px;
     padding: 20px;
     gap: 7px;
@@ -24,8 +24,8 @@ body {
 }
 
 .dimmed-overlay {
-    /*background-color: rgba(0, 0, 0, 0.75); !* Semi-transparent black background *!*/
-    z-index: 1000; /* Ensure the overlay is on top of other content */
+    /*background-color: rgba(0, 0, 0, 0.75);*/
+    z-index: 1000;
 }
 
 .white-overlay {

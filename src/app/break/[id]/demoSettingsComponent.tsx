@@ -42,7 +42,7 @@ export default function DemoSettingsComponent({params}: {params: {
                         return old
                     }
                     let newD = {...old}
-                    old.break_id = params.breakId
+                    newD.break_id = params.breakId
                     return newD
                 })
             })

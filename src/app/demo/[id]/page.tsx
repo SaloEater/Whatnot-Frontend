@@ -95,6 +95,10 @@ export default function Page({params} : {params: {id: string}}) {
         var elem = document.documentElement;
         if (elem.requestFullscreen) {
             elem.requestFullscreen();
+        } else { // @ts-ignore
+            if (elem.webkitRequestFullscreen) { // @ts-ignore
+                elem.webkitRequestFullscreen(); // @ts-ignore
+            }
         }
     }
 
