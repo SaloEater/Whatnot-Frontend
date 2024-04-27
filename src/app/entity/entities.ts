@@ -23,6 +23,11 @@ export interface Event {
     giveaway_type: number
 }
 
+export interface EventData {
+    customer: string
+    price: number
+}
+
 export interface PackageEvent extends Event {
     is_high_bid: boolean
 }

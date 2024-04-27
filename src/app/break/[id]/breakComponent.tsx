@@ -2,8 +2,6 @@
 
 import React, {createRef, Dispatch, SetStateAction, useEffect, useRef, useState} from "react";
 import {getEndpoints, post} from "@/app/lib/backend";
-import {TuiDateTimePicker} from "nextjs-tui-date-picker";
-import moment, {max} from "moment";
 import {
     Day,
     Break,
@@ -27,9 +25,9 @@ import {
     sortByTeamAscIndexDesc,
     sortByTeamName
 } from "@/app/common/event_filter";
-import EventPlaceholdersComponent from "@/app/break/[id]/eventPlaceholdersComponent";
 import {ToolsTabComponent} from "@/app/break/[id]/toolsTabComponent";
 import {arrayUnique, sortStringsAlphabetically} from "@/app/common/helpers";
+import {EventPlaceholdersTabsComponent} from "@/app/break/[id]/eventPlaceholdersTabsComponent";
 
 const SortIndexAsc = 0
 const SortIndexDesc = 1
@@ -248,15 +246,16 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
         setNewGiveawayCustomer(value)
     }
 
-    function saveNewGiveawayCustomer() {
-        if (newGiveawayCustomer == '') {
+    function saveNewGiveawayCustomer(forceValue: string = '') {
+        let value = forceValue == '' ? newGiveawayCustomer : forceValue
+        if (value == '') {
             return
         }
         let event: Event = {
             id: 0,
             index: -1,
             break_id: params.breakObject.id,
-            customer: newGiveawayCustomer,
+            customer: value,
             price: 0,
             team: '',
             is_giveaway: true,
@@ -446,7 +445,7 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
                             <TextInput params={{
                                 value: newGiveawayCustomer,
                                 update: updateNewGiveawayCustomer,
-                                save: saveNewGiveawayCustomer,
+                                save: (value: string|null) => saveNewGiveawayCustomer(value ?? ''),
                                 placeholder: 'Enter nickname',
                                 font_size: null,
                                 max_width: 175,
@@ -456,12 +455,13 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
                         </div>
                     </div>
                 </div>
-                <EventPlaceholdersComponent params={{
-                    realEventPlaceholder: {...eventPlaceholder},
-                    updateRealEventPlaceholder: updateEventPlaceholder,
-                    resetRealEventPlaceholder: resetEventPlaceholder,
-                    length: 4
-                }}/>
+                <EventPlaceholdersTabsComponent
+                    realEventPlaceholder={{...eventPlaceholder}}
+                    updateRealEventPlaceholder={updateEventPlaceholder}
+                    resetRealEventPlaceholder={resetEventPlaceholder}
+                    length={4}
+                    saveNewGiveawayCustomer={saveNewGiveawayCustomer}
+                />
                 <ToolsComponent params={{events: events, swapTeams: swapTeams}}/>
             </div>
             <div className='w-15p'>

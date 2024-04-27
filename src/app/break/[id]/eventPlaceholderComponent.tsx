@@ -7,11 +7,12 @@ import {getEndpoints, post} from "@/app/lib/backend";
 export default function EventPlaceholderComponent({params}: {params: {
     event: Event,
     updateEventPlaceholder: (event: Event) => void,
-    resetEventPlaceholder: (event: Event) => void,
+    resetEventPlaceholder: null|((event: Event) => void),
     selectEventPlaceholder: (event: Event) => void,
     deselectEventPlaceholder: () => void,
     isSelected: boolean,
-    isAuto: boolean
+    isAuto: boolean,
+    inputDisabled: boolean,
 }}) {
     const [newCustomer, setNewCustomer] = useState(params.event.customer)
     const [newPrice, setNewPrice] = useState(params.event.price)
@@ -70,6 +71,9 @@ export default function EventPlaceholderComponent({params}: {params: {
     }
 
     function resetCurrent() {
+        if (params.resetEventPlaceholder == null) {
+            return
+        }
         setNewCustomer('')
         setNewPrice(0)
         params.resetEventPlaceholder(params.event)
@@ -84,6 +88,7 @@ export default function EventPlaceholderComponent({params}: {params: {
         font_size: null,
         onClick: null,
         onBlur: null,
+        disabled: params.inputDisabled,
     }
 
     const customerInputParams = {
@@ -95,6 +100,7 @@ export default function EventPlaceholderComponent({params}: {params: {
         font_size: null,
         onClick: null,
         onBlur: null,
+        disabled: params.inputDisabled,
     }
 
     return (
@@ -103,7 +109,7 @@ export default function EventPlaceholderComponent({params}: {params: {
                 Future event:
                 <div className='d-flex gap-2 flex-column' id={params.isAuto ? 'auto' : ''}>
                     <div className='d-flex justify-content-evenly align-items-center'>
-                        <img onClick={resetCurrent} className='bg-secondary p-1 w-15p rounded rounded-3' alt='Delete' src="/images/bin_static_sm.png"/>
+                        {params.resetEventPlaceholder != null && <img onClick={resetCurrent} className='bg-secondary p-1 w-15p rounded rounded-3' alt='Delete' src="/images/bin_static_sm.png"/>}
                         <div className='w-50p'><TextInput params={priceInputParams}/></div>
                         <label>Copy</label><input disabled={!isChanged()} type='checkbox' checked={params.isSelected} onChange={onCheck}/>
                     </div>

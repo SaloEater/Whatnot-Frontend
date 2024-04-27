@@ -10,6 +10,7 @@ export default function TextInput({params} : {
         placeholder: string,
         onClick: (() => void) | null,
         onBlur: (() => void) | null,
+        disabled: boolean,
     }
 }) {
     let style = {
@@ -17,7 +18,7 @@ export default function TextInput({params} : {
         fontSize: params.font_size ? `${params.font_size}px` : '16px',
     };
     return (
-        <input className='text-input' style={style} onClick={_ => params.onClick != null && params.onClick()} value={params.value} onChange={e => {
+        <input className='text-input' disabled={params.disabled} style={style} onClick={_ => params.onClick != null && params.onClick()} value={params.value} onChange={e => {
             params.update(e.target.value)
         }} placeholder={params.placeholder} onKeyUp={e => {
             if (e.key === 'Enter') {
