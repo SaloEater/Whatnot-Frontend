@@ -14,7 +14,8 @@ interface TextInputWithSuggestionsProps {
     onClick: (() => void) | null,
     onBlur: (() => void) | null,
     suggestions: string[]
-    alwaysOn: boolean
+    alwaysOn: boolean,
+    disabled: false,
 }
 
 export const TextInputWithSuggestions: FC<TextInputWithSuggestionsProps> = (props) => {

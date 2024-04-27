@@ -125,6 +125,7 @@ export default function Page({params} : {params: {id: string}}) {
                     placeholder: 'Enter amount data',
                     onClick: null,
                     onBlur: null,
+                    disabled: false,
                 }}/>
             </div>{
             missingCustomers.length > 0 && <div className='bg-danger'>

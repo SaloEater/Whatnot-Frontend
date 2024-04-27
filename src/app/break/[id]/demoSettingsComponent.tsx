@@ -99,7 +99,9 @@ export default function DemoSettingsComponent({params}: {params: {
                         onClick={null}
                         onBlur={null}
                         suggestions={params.usernames}
-                        alwaysOn={true}/>
+                        alwaysOn={true}
+                        disabled={false}
+                    />
                 </div>
             }
         </div>}

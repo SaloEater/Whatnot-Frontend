@@ -83,6 +83,7 @@ export const EventComponent: FC<EventProps> = (props) => {
         font_size: null,
         onClick: null,
         onBlur: null,
+        disabled: false,
     }
 
     function hasIndex() {
@@ -157,6 +158,7 @@ export const EventComponent: FC<EventProps> = (props) => {
                             onBlur={null}
                             suggestions={props.usernames}
                             alwaysOn={false}
+                            disabled={false}
                         />
                     </div>
                 </div>

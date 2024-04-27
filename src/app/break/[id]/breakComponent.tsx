@@ -99,8 +99,8 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
                     return 0
                 })
                 giveawayEvents.sort((a, b) => {
-                    if (a.index > b.index) return 1
-                    if (a.index < b.index) return -1
+                    if (a.index > b.index) return -1
+                    if (a.index < b.index) return 1
                     return 0
                 })
 
@@ -421,9 +421,29 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
                 </div>
             </div>
             <div className='w-15p justify-content-center'>
+                <EventPlaceholdersTabsComponent
+                    realEventPlaceholder={{...eventPlaceholder}}
+                    updateRealEventPlaceholder={updateEventPlaceholder}
+                    resetRealEventPlaceholder={resetEventPlaceholder}
+                    length={4}
+                    saveNewGiveawayCustomer={saveNewGiveawayCustomer}
+                />
                 <div className='border border-primary rounded rounded-3 border-1 d-flex flex-column align-items-center'>
                     <div>Giveaways:</div>
                     <div>
+                        <div className='w-75p m-2' id='giveaway'>
+                            <TextInput params={{
+                                value: newGiveawayCustomer,
+                                update: updateNewGiveawayCustomer,
+                                save: (value: string|null) => saveNewGiveawayCustomer(value ?? ''),
+                                placeholder: 'Enter nickname',
+                                font_size: null,
+                                max_width: 175,
+                                onClick: null,
+                                onBlur: null,
+                                disabled: false,
+                            }}/>
+                        </div>
                         <div>
                             Slab: <span>{giveaways.reduce((acc, i) => i.giveaway_type == GiveawayTypeSlab ? acc + 1 : acc, 0)}</span>
                         </div>
@@ -441,27 +461,8 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
                                 })
                             }
                         </ul>
-                        <div className='w-75p m-2' id='giveaway'>
-                            <TextInput params={{
-                                value: newGiveawayCustomer,
-                                update: updateNewGiveawayCustomer,
-                                save: (value: string|null) => saveNewGiveawayCustomer(value ?? ''),
-                                placeholder: 'Enter nickname',
-                                font_size: null,
-                                max_width: 175,
-                                onClick: null,
-                                onBlur: null,
-                            }}/>
-                        </div>
                     </div>
                 </div>
-                <EventPlaceholdersTabsComponent
-                    realEventPlaceholder={{...eventPlaceholder}}
-                    updateRealEventPlaceholder={updateEventPlaceholder}
-                    resetRealEventPlaceholder={resetEventPlaceholder}
-                    length={4}
-                    saveNewGiveawayCustomer={saveNewGiveawayCustomer}
-                />
                 <ToolsComponent params={{events: events, swapTeams: swapTeams}}/>
             </div>
             <div className='w-15p'>

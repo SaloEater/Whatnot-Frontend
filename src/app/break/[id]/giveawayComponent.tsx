@@ -42,6 +42,7 @@ export default function GiveawayComponent({params}: {params: {
         placeholder: 'Enter nickname',
         onClick: null,
         onBlur: null,
+        disabled: false,
     }
 
     function switchType(type: number) {
