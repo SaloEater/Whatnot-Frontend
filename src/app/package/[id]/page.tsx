@@ -12,7 +12,7 @@ import {
     GetStreamsResponse,
     Event,
     GetEventsByBreakResponse,
-    PackageEvent
+    PackageEvent, GiveawayTypeSlab
 } from "@/app/entity/entities";
 import {get, getEndpoints, post} from "@/app/lib/backend";
 import {CustomerPackageComponent, IIndexable} from "@/app/package/[id]/customerPackage";
@@ -29,6 +29,7 @@ export default function Page({params} : {params: {id: string}}) {
     const [highBidTeamCount, setHighBidTeamCount] = useState(0)
     const [amountMap, setAmountMap] = useState<any|null>(null)
     const [amountMapRaw, setAmountMapRaw] = useState('')
+    const [giveawayAmount, setGiveawayAmount] = useState<Map<number, number>>(new Map<number, number>())
 
     useEffect(() => {
         const fetchData = async () => {
@@ -37,6 +38,7 @@ export default function Page({params} : {params: {id: string}}) {
             }
             post(getEndpoints().stream_breaks, body)
                 .then(async (breaks: Break[]) => {
+                    let giveaways = new Map<number, number>()
                     let newBreakCustomers = new Map<string, Map<string, PackageEvent[]>>()
 
                     let eventsCountCounter = 0
@@ -64,12 +66,17 @@ export default function Page({params} : {params: {id: string}}) {
                             existingEvents.push(packageEvent)
                             breakCustomer.set(breakName, existingEvents)
                             newBreakCustomers.set(customer, breakCustomer)
+
+                            if (packageEvent.is_giveaway) {
+                                giveaways.set(packageEvent.giveaway_type, (giveaways.get(packageEvent.giveaway_type) ?? 0) + 1)
+                            }
                         }
                         eventsCountCounter += events.events.length
                     }
                     setHighBidTeamCount(highBidTeamCounter)
                     setBreakCustomers(newBreakCustomers)
                     setEventsCount(eventsCountCounter)
+                    setGiveawayAmount(giveaways)
                 })
         };
 
@@ -105,6 +112,10 @@ export default function Page({params} : {params: {id: string}}) {
         amountDiff = amount - (eventsCount - highBidTeamCount)
     }
 
+    function getGiveawayTypeFullName(type: number) {
+        return type == GiveawayTypeSlab ? 'Slab' : 'Pack';
+    }
+
     return <div>
         <div >
             <div className='fs-1'>
@@ -114,6 +125,16 @@ export default function Page({params} : {params: {id: string}}) {
                 {amountMap && amountDiff > 0 ? <span className='text-danger'>Missing {amountDiff} events</span> : ''}
                 {amountMap && amountDiff < 0 ? <span className='text-danger'>Extra {amountDiff * -1} events</span> : ''}
                 {amountMap && amountDiff == 0 ? <span className='bg-green'>Correct</span> : ''}
+            </div>
+            <div>
+                Giveaways:
+                {
+                    Array.from(giveawayAmount.entries()).map((mapData) => {
+                        return <div>
+                            {getGiveawayTypeFullName(mapData[0])}: {mapData[1]}
+                        </div>
+                    })
+                }
             </div>
             <div className='w-25p'>
                 <TextInput params={{
