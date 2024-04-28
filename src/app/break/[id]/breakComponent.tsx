@@ -99,8 +99,8 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
                     return 0
                 })
                 giveawayEvents.sort((a, b) => {
-                    if (a.index > b.index) return -1
-                    if (a.index < b.index) return 1
+                    if (a.index > b.index) return 1
+                    if (a.index < b.index) return -1
                     return 0
                 })
 
@@ -421,13 +421,6 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
                 </div>
             </div>
             <div className='w-15p justify-content-center'>
-                <EventPlaceholdersTabsComponent
-                    realEventPlaceholder={{...eventPlaceholder}}
-                    updateRealEventPlaceholder={updateEventPlaceholder}
-                    resetRealEventPlaceholder={resetEventPlaceholder}
-                    length={4}
-                    saveNewGiveawayCustomer={saveNewGiveawayCustomer}
-                />
                 <div className='border border-primary rounded rounded-3 border-1 d-flex flex-column align-items-center'>
                     <div>Giveaways:</div>
                     <div>
@@ -463,6 +456,13 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
                         </ul>
                     </div>
                 </div>
+                <EventPlaceholdersTabsComponent
+                    realEventPlaceholder={{...eventPlaceholder}}
+                    updateRealEventPlaceholder={updateEventPlaceholder}
+                    resetRealEventPlaceholder={resetEventPlaceholder}
+                    length={4}
+                    saveNewGiveawayCustomer={saveNewGiveawayCustomer}
+                />
                 <ToolsComponent params={{events: events, swapTeams: swapTeams}}/>
             </div>
             <div className='w-15p'>
