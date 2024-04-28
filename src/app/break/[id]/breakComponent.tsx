@@ -424,19 +424,6 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
                 <div className='border border-primary rounded rounded-3 border-1 d-flex flex-column align-items-center'>
                     <div>Giveaways:</div>
                     <div>
-                        <div className='w-75p m-2' id='giveaway'>
-                            <TextInput params={{
-                                value: newGiveawayCustomer,
-                                update: updateNewGiveawayCustomer,
-                                save: (value: string|null) => saveNewGiveawayCustomer(value ?? ''),
-                                placeholder: 'Enter nickname',
-                                font_size: null,
-                                max_width: 175,
-                                onClick: null,
-                                onBlur: null,
-                                disabled: false,
-                            }}/>
-                        </div>
                         <div>
                             Slab: <span>{giveaways.reduce((acc, i) => i.giveaway_type == GiveawayTypeSlab ? acc + 1 : acc, 0)}</span>
                         </div>
@@ -454,6 +441,19 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
                                 })
                             }
                         </ul>
+                        <div className='w-75p m-2' id='giveaway'>
+                            <TextInput params={{
+                                value: newGiveawayCustomer,
+                                update: updateNewGiveawayCustomer,
+                                save: (value: string|null) => saveNewGiveawayCustomer(value ?? ''),
+                                placeholder: 'Enter nickname',
+                                font_size: null,
+                                max_width: 175,
+                                onClick: null,
+                                onBlur: null,
+                                disabled: false,
+                            }}/>
+                        </div>
                     </div>
                 </div>
                 <EventPlaceholdersTabsComponent
