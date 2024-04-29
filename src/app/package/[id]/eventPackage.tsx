@@ -1,17 +1,21 @@
 import {useState} from "react";
 import "./eventPackage.css"
-import {Event, PackageEvent} from "@/app/entity/entities";
+import {Event, GiveawayTypeSlab, PackageEvent} from "@/app/entity/entities";
 
 
 export default function EventComponent(props: {event: PackageEvent, index: number, updateEventState: (index: number, state: boolean) => void, currentState: boolean}) {
     const {event, index, updateEventState, currentState} = props
+
+    function getGiveawayTypeName(type: number) {
+        return type == GiveawayTypeSlab ? 'S' : 'P';
+    }
 
     let textValue
     if (event.team) {
         textValue = event.team
     } else {
         if (!event.note && event.is_giveaway) {
-            textValue = "Giveaway"
+            textValue = "Giveaway " + getGiveawayTypeName(event.giveaway_type)
         } else {
             textValue = event.note
         }
