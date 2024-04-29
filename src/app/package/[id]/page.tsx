@@ -130,7 +130,7 @@ export default function Page({params} : {params: {id: string}}) {
                 Giveaways:
                 {
                     Array.from(giveawayAmount.entries()).map((mapData) => {
-                        return <div>
+                        return <div key={mapData[0]}>
                             {getGiveawayTypeFullName(mapData[0])}: {mapData[1]}
                         </div>
                     })
