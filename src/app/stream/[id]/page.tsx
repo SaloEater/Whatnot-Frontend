@@ -5,6 +5,8 @@ import {Teams} from "@/app/common/teams";
 import {get, getEndpoints, post} from "@/app/lib/backend";
 import {Break, GetStreamsResponse, AddBreakResponse} from "@/app/entity/entities";
 import {useRouter} from "next/navigation";
+import {sortByIndex} from "@/app/common/event_filter";
+import {sortBreaksById} from "@/app/common/breaks";
 
 export default function Page({params} : {params: {id: string}}) {
     let streamId = parseInt(params.id)
@@ -18,7 +20,7 @@ export default function Page({params} : {params: {id: string}}) {
         }
         post(getEndpoints().stream_breaks, body)
             .then((breaks: Break[]) => {
-                setBreaks(breaks)
+                setBreaks(sortBreaksById(breaks))
             })
     }, []);
 

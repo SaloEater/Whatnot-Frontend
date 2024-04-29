@@ -17,6 +17,7 @@ import {
 import {get, getEndpoints, post} from "@/app/lib/backend";
 import {CustomerPackageComponent, IIndexable} from "@/app/package/[id]/customerPackage";
 import TextInput from "@/app/common/textInput";
+import {sortBreaksById} from "@/app/common/breaks";
 
 interface DaysData {
     days: Day[]
@@ -43,6 +44,7 @@ export default function Page({params} : {params: {id: string}}) {
 
                     let eventsCountCounter = 0
                     let highBidTeamCounter = 0
+                    breaks = sortBreaksById(breaks)
                     for (let breakObject of breaks) {
                         let eventBody = {
                             break_id: breakObject.id
