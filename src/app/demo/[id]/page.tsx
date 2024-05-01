@@ -146,9 +146,10 @@ export default function Page({params} : {params: {id: string}}) {
                     {/*    </div>*/}
                     {/*}*/}
                     {
-                        <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center w-75p'>
-                            <div className='fs-2 text-black'>Teams left: {getLeftTeamsAmount()}</div>
-                            <div className='fs-2 text-black'>Teams taken: {filterOnlyTakenTeams(events).length}</div>
+                        <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center w-75p fs-2 text-black'>
+                            Teams
+                            <div className='giveaway-winner'>Left: {getLeftTeamsAmount()}</div>
+                            <div className='giveaway-winner'>Taken: {filterOnlyTakenTeams(events).length}</div>
                         </div>
                     }
                     {
