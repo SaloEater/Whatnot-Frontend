@@ -9,7 +9,7 @@ import {useRouter} from "next/navigation";
 import './page.css'
 import EventComponent from "@/app/demo/[id]/eventComponent";
 import Image from "next/image";
-import {getEventWithHighestPrice} from "@/app/common/event_filter";
+import {filterOnlyEmptyTeams, filterOnlyTakenTeams, getEventWithHighestPrice} from "@/app/common/event_filter";
 
 export default function Page({params} : {params: {id: string}}) {
     const streamId = parseInt(params.id)
@@ -110,6 +110,15 @@ export default function Page({params} : {params: {id: string}}) {
         }
     }
 
+    function getLeftTeamsAmount() {
+        let actualEmptyTeams = filterOnlyEmptyTeams(events).length
+        if (events.filter(i => i.team == 'Kansas City Chiefs' && i.customer == '').length > 0) {
+            actualEmptyTeams -= 1
+        }
+        let withTexans = actualEmptyTeams - 1
+        return withTexans
+    }
+
     return (
         <div className='main'>
             <div className='w-100 h-100 dimmed-bg p-1'>
@@ -125,19 +134,25 @@ export default function Page({params} : {params: {id: string}}) {
                          Demo is not set
                      </div>
                 }
-                <div className='d-flex flex-column align-items-center justify-content-center gap-2 position-absolute end-0 top-0 h-100 w-25'>
+                <div className='d-flex flex-column align-items-center justify-content-center gap-2 position-absolute end-0 top-0 h-100 w-25p'>
+                    {/*{*/}
+                    {/*    giveaways.length > 0 && <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center w-75p'>*/}
+                    {/*        <div className='fs-2 text-black'>*/}
+                    {/*            Giveaway Winners:*/}
+                    {/*        </div>*/}
+                    {/*        {*/}
+                    {/*            giveaways.map((e, j) => <div className={`fs-4 text-black giveaway-winner w-95p d-flex justify-content-center overflow-hidden`} key={e.id}>{e.customer}</div>)*/}
+                    {/*        }*/}
+                    {/*    </div>*/}
+                    {/*}*/}
                     {
-                        giveaways.length > 0 && <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center'>
-                            <div className='fs-2 text-black'>
-                                Giveaway Winners:
-                            </div>
-                            {
-                                giveaways.map((e, j) => <div className={`fs-4 text-black giveaway-winner w-95p d-flex justify-content-center overflow-hidden`} key={e.id}>{e.customer}</div>)
-                            }
+                        <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center w-75p'>
+                            <div className='fs-2 text-black'>Teams left: {getLeftTeamsAmount()}</div>
+                            <div className='fs-2 text-black'>Teams taken: {filterOnlyTakenTeams(events).length}</div>
                         </div>
                     }
                     {
-                        highestBidEvent && <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center max-width'>
+                        highestBidEvent && <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center w-75p'>
                             <div className='fs-2 text-black'>Highest bid:</div>
                             <div className='fs-3 text-black giveaway-winner w-95p overflow-hidden d-flex justify-content-center'>{highestBidEvent.customer}</div>
                             <div className='fs-3 text-black giveaway-winner overflow-hidden'>{highestBidEvent.price}$</div>
