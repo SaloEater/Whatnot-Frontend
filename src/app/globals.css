@@ -46,8 +46,12 @@
     width: 100%;
 }
 
+.mw-100p {
+    min-width: 100%;
+}
+
 .minw {
-    min-width: 35vw;
+    min-width: 25vw;
 }
 
 .cursor-pointer {
@@ -58,9 +62,17 @@
     height: 100%;
 }
 
+.h-50p {
+    height: 50%;
+}
+
 .h-75v {
     max-height: 75vh;
     overflow-y: auto;
+}
+
+.h-75p {
+    height: 75%;
 }
 
 .bg-green {

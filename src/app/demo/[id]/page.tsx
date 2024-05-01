@@ -120,30 +120,30 @@ export default function Page({params} : {params: {id: string}}) {
                             <div className='demo-container white-overlay minw'>
                                 {items.length > 0 && items}
                             </div>
-                            <div className='d-flex flex-column align-items-center justify-content-center gap-2'>
-                                {
-                                    giveaways.length > 0 && <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center'>
-                                        <div className='fs-2 text-black'>
-                                            Giveaway Winners:
-                                        </div>
-                                        {
-                                            giveaways.map((e, j) => <div className={`fs-4 text-black giveaway-winner w-95p d-flex justify-content-center overflow-hidden`} key={e.id}>{e.customer}</div>)
-                                        }
-                                    </div>
-                                }
-                                {
-                                    highestBidEvent && <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center max-width'>
-                                        <div className='fs-2 text-black'>Highest bid:</div>
-                                        <div className='fs-3 text-black giveaway-winner w-95p overflow-hidden d-flex justify-content-center'>{highestBidEvent.customer}</div>
-                                        <div className='fs-3 text-black giveaway-winner overflow-hidden'>{highestBidEvent.price}$</div>
-                                    </div>
-                                }
-                            </div>
                         </div>
                      </div> : <div>
                          Demo is not set
                      </div>
                 }
+                <div className='d-flex flex-column align-items-center justify-content-center gap-2 position-absolute end-0 top-0 h-100 w-25'>
+                    {
+                        giveaways.length > 0 && <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center'>
+                            <div className='fs-2 text-black'>
+                                Giveaway Winners:
+                            </div>
+                            {
+                                giveaways.map((e, j) => <div className={`fs-4 text-black giveaway-winner w-95p d-flex justify-content-center overflow-hidden`} key={e.id}>{e.customer}</div>)
+                            }
+                        </div>
+                    }
+                    {
+                        highestBidEvent && <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center max-width'>
+                            <div className='fs-2 text-black'>Highest bid:</div>
+                            <div className='fs-3 text-black giveaway-winner w-95p overflow-hidden d-flex justify-content-center'>{highestBidEvent.customer}</div>
+                            <div className='fs-3 text-black giveaway-winner overflow-hidden'>{highestBidEvent.price}$</div>
+                        </div>
+                    }
+                </div>
             </div>
         </div>
     )

@@ -14,10 +14,10 @@ export default function EventComponent(
         return `/images/teams/${team}.webp`;
     }
 
-    return <div className={`p-1 max-height d-flex dimmed-overlay max-width align-items-center gap-2 ${params.event.customer == params.highlight_username && params.highlight_username != '' ? 'bg-green' : ''}`}>
+    return <div className={`max-height d-flex dimmed-overlay max-width align-items-center gap-2 ${params.event.customer == params.highlight_username && params.highlight_username != '' ? 'bg-green' : ''}`}>
         <img className='image' src={getTeamImageSrc(params.event.team)} alt={params.event.team}/>
-        <div className={`customer-text customer-border h-100p w-100p ${params.event.customer == params.highlight_username && params.highlight_username != '' ? 'text-white' : ''}`}>
-            <div className='w-95p overflow-hidden d-flex align-items-center justify-content-center'>
+        <div className={`d-flex overflow-hidden align-items-center justify-content-center customer-text customer-border h-50p w-100p ${params.event.customer == params.highlight_username && params.highlight_username != '' ? 'text-white' : ''}`}>
+            <div className='overflow-hidden'>
                 {params.event.customer}
             </div>
         </div>
