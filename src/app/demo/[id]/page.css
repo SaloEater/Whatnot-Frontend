@@ -29,7 +29,7 @@ body, .main {
 }
 
 .white-overlay {
-    background-color: rgba(219, 255, 251, 0.85);
+    background-color: rgba(255, 255, 255, 1);
     border: black solid 2px;
 }
 
@@ -43,7 +43,7 @@ body, .main {
 }
 
 .giveaway-winner {
-    border: black dashed 2px;
+    border: 1px #9b9b9b dashed;
     border-radius: 10px;
     padding: 5px;
     margin-bottom: 5px;

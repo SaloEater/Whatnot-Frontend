@@ -18,6 +18,10 @@
     width: 20%;
 }
 
+.w-95p {
+    width: 95%;
+}
+
 .w-20p {
     width: 20%;
 }
@@ -40,6 +44,10 @@
 
 .w-100p {
     width: 100%;
+}
+
+.minw {
+    min-width: 35vw;
 }
 
 .cursor-pointer {
