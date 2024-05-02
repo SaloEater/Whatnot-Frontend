@@ -18,6 +18,7 @@ export default function Page({params} : {params: {id: string}}) {
     const [giveaways, setGiveaways] = useState<Event[]>([])
     const [highestBidEvent, setHighestBidEvent] = useState<Event|null>(null)
     const demoRef = useRef<Demo|null>(null)
+    const[infoShown, setInfoShown] = useState(true)
 
     const refreshDemo = useCallback(() => {
         let eventsBody = {
@@ -116,7 +117,7 @@ export default function Page({params} : {params: {id: string}}) {
             actualEmptyTeams -= 1
         }
         let withTexans = actualEmptyTeams - 1
-        return withTexans
+        return Math.max(withTexans, 0)
     }
 
     return (
@@ -134,32 +135,37 @@ export default function Page({params} : {params: {id: string}}) {
                          Demo is not set
                      </div>
                 }
-                <div className='d-flex flex-column align-items-center justify-content-center gap-2 position-absolute end-0 top-0 h-100 w-25p'>
-                    {/*{*/}
-                    {/*    giveaways.length > 0 && <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center w-75p'>*/}
-                    {/*        <div className='fs-2 text-black'>*/}
-                    {/*            Giveaway Winners:*/}
-                    {/*        </div>*/}
-                    {/*        {*/}
-                    {/*            giveaways.map((e, j) => <div className={`fs-4 text-black giveaway-winner w-95p d-flex justify-content-center overflow-hidden`} key={e.id}>{e.customer}</div>)*/}
-                    {/*        }*/}
-                    {/*    </div>*/}
-                    {/*}*/}
-                    {
-                        <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center w-75p fs-2 text-black'>
-                            Teams
-                            <div className='giveaway-winner'>Left: {getLeftTeamsAmount()}</div>
-                            <div className='giveaway-winner'>Taken: {filterOnlyTakenTeams(events).length}</div>
-                        </div>
-                    }
-                    {
-                        highestBidEvent && <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center w-75p'>
-                            <div className='fs-2 text-black'>Highest bid:</div>
-                            <div className='fs-3 text-black giveaway-winner w-95p overflow-hidden d-flex justify-content-center'>{highestBidEvent.customer}</div>
-                            <div className='fs-3 text-black giveaway-winner overflow-hidden'>{highestBidEvent.price}$</div>
-                        </div>
-                    }
-                </div>
+                {
+                    infoShown && <div className='d-flex flex-column align-items-center justify-content-center gap-2 position-absolute end-0 top-0 h-100 w-25p'>
+                        {/*{*/}
+                        {/*    giveaways.length > 0 && <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center w-75p'>*/}
+                        {/*        <div className='fs-2 text-black'>*/}
+                        {/*            Giveaway Winners:*/}
+                        {/*        </div>*/}
+                        {/*        {*/}
+                        {/*            giveaways.map((e, j) => <div className={`fs-4 text-black giveaway-winner w-95p d-flex justify-content-center overflow-hidden`} key={e.id}>{e.customer}</div>)*/}
+                        {/*        }*/}
+                        {/*    </div>*/}
+                        {/*}*/}
+                        {
+                            <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center w-75p fs-2 text-black'>
+                                Teams
+                                <div className='giveaway-winner'>Left: {getLeftTeamsAmount()}</div>
+                                <div className='giveaway-winner'>Taken: {filterOnlyTakenTeams(events).length}</div>
+                            </div>
+                        }
+                        {
+                            highestBidEvent && <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center w-75p'>
+                                <div className='fs-2 text-black'>Highest bid:</div>
+                                <div className='fs-3 text-black giveaway-winner w-95p overflow-hidden d-flex justify-content-center'>{highestBidEvent.customer}</div>
+                                <div className='fs-3 text-black giveaway-winner overflow-hidden'>{highestBidEvent.price}$</div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+            <div className=''>
+
             </div>
         </div>
     )
