@@ -18,6 +18,10 @@ export default function DemoSettingsComponent({params}: {params: {
         refreshDemo()
     }, []);
 
+    useEffect(() => {
+        setHighlightUsername(demo?.highlight_username ?? '')
+    }, [demo]);
+
     function refreshDemo() {
         let body  = {
             stream_id: params.streamId
@@ -61,7 +65,7 @@ export default function DemoSettingsComponent({params}: {params: {
                         return old
                     }
                     let newD = {...old}
-                    old.highlight_username = body.highlight_username
+                    newD.highlight_username = body.highlight_username
                     return newD
                 })
             })

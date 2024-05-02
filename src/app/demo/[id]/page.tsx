@@ -14,11 +14,31 @@ import {filterOnlyEmptyTeams, filterOnlyTakenTeams, getEventWithHighestPrice} fr
 export default function Page({params} : {params: {id: string}}) {
     const streamId = parseInt(params.id)
     const [demo, setDemo] = useState<Demo|null>(null)
+    const [breakObject, setBreakObject] = useState<Break|null>(null)
     const [events, setEvents] = useState<Event[]>([])
     const [giveaways, setGiveaways] = useState<Event[]>([])
     const [highestBidEvent, setHighestBidEvent] = useState<Event|null>(null)
     const demoRef = useRef<Demo|null>(null)
-    const[infoShown, setInfoShown] = useState(true)
+    const [infoShown, setInfoShown] = useState(true)
+
+    function refreshBreakObject() {
+        if (!demoRef || !demoRef.current) {
+            return
+        }
+        let body = {
+            id: demoRef.current.break_id
+        }
+        post(getEndpoints().break_get, body)
+            .then((breakO: Break) => {
+                setBreakObject(breakO)
+            })
+    }
+
+    useEffect(() => {
+        setInterval(() => {
+            refreshBreakObject()
+        }, 60000)
+    }, []);
 
     const refreshDemo = useCallback(() => {
         let eventsBody = {
@@ -32,6 +52,7 @@ export default function Page({params} : {params: {id: string}}) {
     }, [params.id])
 
     useEffect(() => {
+        refreshBreakObject()
         refreshEvents()
         demoRef.current = demo
     }, [demo]);
@@ -84,7 +105,8 @@ export default function Page({params} : {params: {id: string}}) {
             let eventObject = events[index]
             let eventParams = {
                 event: eventObject,
-                highlight_username: demo.highlight_username
+                highlight_username: demo.highlight_username,
+                highBidTeam: breakObject?.high_bid_team ?? '',
             }
             let colKey = `col-${index}`
             items.push(<EventComponent key={colKey} params={eventParams}/>)
@@ -93,7 +115,8 @@ export default function Page({params} : {params: {id: string}}) {
             eventObject = events[index]
             eventParams = {
                 event: eventObject,
-                highlight_username: demo.highlight_username
+                highlight_username: demo.highlight_username,
+                highBidTeam: breakObject?.high_bid_team ?? ''
             }
             colKey = `col-${i}-${index}`
             items.push(<EventComponent key={colKey} params={eventParams}/>)
@@ -164,9 +187,7 @@ export default function Page({params} : {params: {id: string}}) {
                     </div>
                 }
             </div>
-            <div className=''>
-
-            </div>
+            <div className='position-absolute top-0 end-0' style={{width: 100, height: 100}} onClick={_ => setInfoShown(!infoShown)}></div>
         </div>
     )
 }

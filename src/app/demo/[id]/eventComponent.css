@@ -41,6 +41,10 @@
     min-width: 10em;
 }
 
+.bg-high-big {
+    background-color: #d59fde;
+}
+
 .dimmed-overlay {
     background-color: rgba(0, 0, 0, 0);
     z-index: 1000;
