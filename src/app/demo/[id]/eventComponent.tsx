@@ -27,7 +27,7 @@ export default function EventComponent(
             ? 'bg-high-big'
             : '',
         textColor: isHighBidTeam
-            ? 'text-white'
+            ? ''
             : '',
     }
     if (params.highlight_username != '' && params.event.customer == params.highlight_username) {
