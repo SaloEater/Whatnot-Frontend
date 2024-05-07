@@ -111,7 +111,8 @@ export default function EventPlaceholderComponent({params}: {params: {
                     <div className='d-flex justify-content-evenly align-items-center'>
                         {params.resetEventPlaceholder != null && <img onClick={resetCurrent} className='bg-secondary p-1 w-15p rounded rounded-3' alt='Delete' src="/images/bin_static_sm.png"/>}
                         <div className='w-50p'><TextInput params={priceInputParams}/></div>
-                        <label>Copy</label><input disabled={!isChanged()} type='checkbox' checked={params.isSelected} onChange={onCheck}/>
+                        <button className={`btn btn-sm ${params.isSelected ? 'btn-primary' : 'btn-secondary'}`} disabled={!isChanged()} onClick={onCheck}>{params.isSelected ? 'Stop' : 'Copy'}</button>
+                        {/*<label>Copy</label><input disabled={!isChanged()} type='checkbox' checked={params.isSelected} onChange={onCheck}/>*/}
                     </div>
                     <TextInput params={customerInputParams}/>
                 </div>
