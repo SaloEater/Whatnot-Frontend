@@ -164,13 +164,15 @@ export const EventComponent: FC<EventProps> = (props) => {
                 </div>
             </div>
             <div className='position-absolute top-0 start-0 d-flex'>
-                <div onClick={_ => {
-                    setNewCustomer('')
-                    setNewPrice(0)
-                    props.resetEvent(props.event)
-                }}>
-                    <Image className='bg-secondary p-1 rounded rounded-3' alt='Delete' src="/images/bin_static_sm.png" width='30' height='30'/>
-                </div>
+                {
+                    props.event.customer != '' && <div onClick={_ => {
+                            setNewCustomer('')
+                            setNewPrice(0)
+                            props.resetEvent(props.event)
+                        }}>
+                            <Image className='bg-secondary p-1 rounded rounded-3' alt='Delete' src="/images/bin_static_sm.png" width='30' height='30'/>
+                        </div>
+                    }
                 {
                     !props.isPlaceholderEmpty() && <div onClick={_ => applyPlaceholder()}>
                         <Image className='bg-secondary p-1' alt='Delete' src="/images/copy.png" width='30' height='30'/>
