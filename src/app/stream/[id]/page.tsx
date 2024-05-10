@@ -38,6 +38,7 @@ export default function Page({params} : {params: {id: string}}) {
             end_date: date,
             is_deleted: false,
             high_bid_team: '',
+            giveaway_team: ''
         }
 
         post(getEndpoints().break_add, body)
