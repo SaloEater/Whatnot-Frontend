@@ -421,26 +421,16 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
                 </div>
             </div>
             <div className='w-15p justify-content-center'>
+                <EventPlaceholdersTabsComponent
+                    realEventPlaceholder={{...eventPlaceholder}}
+                    updateRealEventPlaceholder={updateEventPlaceholder}
+                    resetRealEventPlaceholder={resetEventPlaceholder}
+                    length={4}
+                    saveNewGiveawayCustomer={saveNewGiveawayCustomer}
+                />
                 <div className='border border-primary rounded rounded-3 border-1 d-flex flex-column align-items-center'>
                     <div>Giveaways:</div>
                     <div>
-                        <div>
-                            Slab: <span>{giveaways.reduce((acc, i) => i.giveaway_type == GiveawayTypeSlab ? acc + 1 : acc, 0)}</span>
-                        </div>
-                        <div>
-                            Pack: <span>{giveaways.reduce((acc, i) => i.giveaway_type != GiveawayTypeSlab ? acc + 1 : acc, 0)}</span>
-                        </div>
-                        <ul className="list-group gap-1">
-                            {
-                                giveaways.map((giveaway, index) => {
-                                    return <GiveawayComponent key={giveaway.id} params={{
-                                        event: giveaway,
-                                        updateEvent: updateGiveaway,
-                                        resetEvent: deleteGiveaway,
-                                    }}/>
-                                })
-                            }
-                        </ul>
                         <div className='w-75p m-2' id='giveaway'>
                             <TextInput params={{
                                 value: newGiveawayCustomer,
@@ -454,15 +444,25 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
                                 disabled: false,
                             }}/>
                         </div>
+                        <div>
+                            Slab: <span>{giveaways.reduce((acc, i) => i.giveaway_type == GiveawayTypeSlab ? acc + 1 : acc, 0)}</span>
+                        </div>
+                        <div>
+                            Pack: <span>{giveaways.reduce((acc, i) => i.giveaway_type != GiveawayTypeSlab ? acc + 1 : acc, 0)}</span>
+                        </div>
+                        <ul className="list-group gap-1">
+                            {
+                                giveaways.toReversed().map((giveaway, index) => {
+                                    return <GiveawayComponent key={giveaway.id} params={{
+                                        event: giveaway,
+                                        updateEvent: updateGiveaway,
+                                        resetEvent: deleteGiveaway,
+                                    }}/>
+                                })
+                            }
+                        </ul>
                     </div>
                 </div>
-                <EventPlaceholdersTabsComponent
-                    realEventPlaceholder={{...eventPlaceholder}}
-                    updateRealEventPlaceholder={updateEventPlaceholder}
-                    resetRealEventPlaceholder={resetEventPlaceholder}
-                    length={4}
-                    saveNewGiveawayCustomer={saveNewGiveawayCustomer}
-                />
                 <ToolsComponent params={{events: events, swapTeams: swapTeams}}/>
             </div>
             <div className='w-15p'>
