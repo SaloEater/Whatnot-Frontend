@@ -25,7 +25,7 @@ export default function EventComponent(
     let bgColors: HighlightColors = {
         backgroundColor: isHighBidTeam
             ? 'bg-high-big'
-            : '',
+            : 'bg-empty',
         textColor: isHighBidTeam
             ? ''
             : '',
@@ -33,6 +33,8 @@ export default function EventComponent(
     if (params.highlight_username != '' && params.event.customer == params.highlight_username) {
         bgColors.backgroundColor = 'bg-green'
         bgColors.textColor = 'text-white'
+    } else if (params.event.customer != '') {
+        bgColors.backgroundColor = ''
     }
 
     return <div className={`max-height d-flex dimmed-overlay max-width align-items-center gap-2 `}>
