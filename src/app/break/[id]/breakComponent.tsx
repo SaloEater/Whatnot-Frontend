@@ -28,6 +28,7 @@ import {
 import {ToolsTabComponent} from "@/app/break/[id]/toolsTabComponent";
 import {arrayUnique, sortStringsAlphabetically} from "@/app/common/helpers";
 import {EventPlaceholdersTabsComponent} from "@/app/break/[id]/eventPlaceholdersTabsComponent";
+import {DataComponent} from "@/app/break/[id]/dataComponent";
 
 const SortIndexAsc = 0
 const SortIndexDesc = 1
