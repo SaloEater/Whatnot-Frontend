@@ -41,12 +41,16 @@
     min-width: 10em;
 }
 
-.bg-high-big {
+.bg-high-bid {
     background-color: #d59fde;
 }
 
 .bg-empty {
     background-color: #fff6f1;
+}
+
+.bg-giveaway {
+    background-color: #d2ffd2;
 }
 
 .dimmed-overlay {

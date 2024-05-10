@@ -247,7 +247,7 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
         setNewGiveawayCustomer(value)
     }
 
-    function saveNewGiveawayCustomer(forceValue: string = '') {
+    function saveNewGiveawayCustomer(forceValue: string = '', type: number = GiveawayTypeNone) {
         let value = forceValue == '' ? newGiveawayCustomer : forceValue
         if (value == '') {
             return
@@ -262,7 +262,7 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
             is_giveaway: true,
             note: '',
             quantity: 1,
-            giveaway_type: GiveawayTypeNone,
+            giveaway_type: type,
         }
         post(getEndpoints().event_add, event)
             .then(response => {
@@ -467,7 +467,7 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
                 <ToolsComponent params={{events: events, swapTeams: swapTeams}}/>
             </div>
             <div className='w-15p'>
-                <ToolsTabComponent events={events} changeIndex={moveEvent} streamId={params.breakObject.day_id} breakId={params.breakObject.id} highBidTeam={params.breakObject.high_bid_team}/>
+                <ToolsTabComponent events={events} changeIndex={moveEvent} streamId={params.breakObject.day_id} breakId={params.breakObject.id} highBidTeam={params.breakObject.high_bid_team} giveawayTeam={params.breakObject.giveaway_team}/>
             </div>
     </div>
 }

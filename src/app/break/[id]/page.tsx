@@ -34,6 +34,7 @@ export default function Page({params} : {params: {id: string}}) {
             start_date: newBreak.start_date,
             end_date: newBreak.end_date,
             high_bid_team: newBreak.high_bid_team,
+            giveaway_team: newBreak.giveaway_team
         }
         return post(getEndpoints().break_update, body)
             .then(response => {
@@ -89,6 +90,15 @@ export default function Page({params} : {params: {id: string}}) {
         setNewBreakObject(newO)
     }
 
+    function updateGiveawayTeam(team: string) {
+        if (!breakObject) {
+            return
+        }
+        let newO = {...breakObject}
+        newO.giveaway_team = team
+        setNewBreakObject(newO)
+    }
+
     return <div>
         {
             breakObject && <div>
@@ -138,6 +148,19 @@ export default function Page({params} : {params: {id: string}}) {
                             <ul className="dropdown-menu cursor-pointer" aria-labelledby="dropdownMenuButton1">
                                 {
                                     Teams.map(i => <li key={i} onClick={_ => updateHighBidTeam(i)} className={`dropdown-item ${breakObject.high_bid_team == i ? 'active' : ''}`}>{i}</li>)
+                                }
+                            </ul>
+                        </div>
+                    </div>
+                    <div>
+                        <div>Giveaway Team:</div>
+                        <div className="dropdown">
+                            <button className="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton1" data-bs-auto-close="true" data-bs-toggle="dropdown" aria-expanded="false">
+                                {breakObject.giveaway_team == '' ? 'Select' : breakObject.giveaway_team}
+                            </button>
+                            <ul className="dropdown-menu cursor-pointer" aria-labelledby="dropdownMenuButton1">
+                                {
+                                    Teams.map(i => <li key={i} onClick={_ => updateGiveawayTeam(i)} className={`dropdown-item ${breakObject.giveaway_team == i ? 'active' : ''}`}>{i}</li>)
                                 }
                             </ul>
                         </div>

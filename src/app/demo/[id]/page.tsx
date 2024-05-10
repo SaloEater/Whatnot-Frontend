@@ -107,6 +107,7 @@ export default function Page({params} : {params: {id: string}}) {
                 event: eventObject,
                 highlight_username: demo.highlight_username,
                 highBidTeam: breakObject?.high_bid_team ?? '',
+                giveawayTeam: breakObject?.giveaway_team ?? ''
             }
             let colKey = `col-${index}`
             items.push(<EventComponent key={colKey} params={eventParams}/>)
@@ -116,7 +117,8 @@ export default function Page({params} : {params: {id: string}}) {
             eventParams = {
                 event: eventObject,
                 highlight_username: demo.highlight_username,
-                highBidTeam: breakObject?.high_bid_team ?? ''
+                highBidTeam: breakObject?.high_bid_team ?? '',
+                giveawayTeam: breakObject?.giveaway_team ?? ''
             }
             colKey = `col-${i}-${index}`
             items.push(<EventComponent key={colKey} params={eventParams}/>)

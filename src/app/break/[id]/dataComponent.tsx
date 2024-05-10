@@ -6,6 +6,7 @@ import {Teams} from "@/app/common/teams";
 interface DataProps {
     events: Event[]
     highBidTeam: string
+    giveawayTeam: string
 }
 
 export const DataComponent: FC<DataProps> = (props) => {
@@ -26,7 +27,7 @@ export const DataComponent: FC<DataProps> = (props) => {
 
     function getValidTeamsAmount() {
         let validTeamsAmount = takenTeams.length
-        if (takenTeams.find(i => i.team == 'Kansas City Chiefs' && i.customer != '')) {
+        if (takenTeams.find(i => i.team == props.giveawayTeam && i.customer != '')) {
             validTeamsAmount--
         }
         if (takenTeams.find(i => i.team == props.highBidTeam && i.customer != '')) {

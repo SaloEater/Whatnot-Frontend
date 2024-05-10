@@ -1,5 +1,5 @@
 import TeamsListComponent from "@/app/break/[id]/teamsListComponent";
-import {Event, EventData, GiveawayTypeNone} from "@/app/entity/entities";
+import {Event, EventData, GiveawayTypeNone, GiveawayTypePack, GiveawayTypeSlab} from "@/app/entity/entities";
 import {FC, useEffect, useState} from "react";
 import DemoSettingsComponent from "@/app/break/[id]/demoSettingsComponent";
 import {arrayUnique} from "@/app/common/helpers";
@@ -15,7 +15,7 @@ const ManualPlaceholdersIndex = 0;
 const WhatnotPlaceholdersIndex = 1;
 
 interface EventPlaceholdersTabsProps {
-    saveNewGiveawayCustomer: (value: string) => void,
+    saveNewGiveawayCustomer: (value: string, type: number) => void,
     realEventPlaceholder: Event,
     updateRealEventPlaceholder: (event: Event) => void,
     resetRealEventPlaceholder: () => void,
@@ -25,9 +25,9 @@ interface EventPlaceholdersTabsProps {
 const WhatnotSoldEventName = 'new_event_event'
 
 interface WhatnotSoldEvent {
-    is_giveaway: boolean
     price: number
     customer: string
+    name: string
 }
 
 export const EventPlaceholdersTabsComponent: FC<EventPlaceholdersTabsProps> = (props) => {
@@ -50,10 +50,20 @@ export const EventPlaceholdersTabsComponent: FC<EventPlaceholdersTabsProps> = (p
 
     }, [props.length]);
 
+    function isGiveaway(newEvent: WhatnotSoldEvent) {
+        let name = newEvent.name === undefined ? '' : newEvent.name;
+        return name.toLowerCase().indexOf('giveaway') !== -1;
+    }
+
+    function getGiveawayType(newEvent: WhatnotSoldEvent) {
+        let name = newEvent.name === undefined ? '' : newEvent.name;
+        return name.toLowerCase().indexOf('slb') == -1 ? GiveawayTypePack : GiveawayTypeSlab;
+    }
+
     useEffect(() => {
         if (newEvent) {
-            if (newEvent.is_giveaway) {
-                props.saveNewGiveawayCustomer(newEvent.customer)
+            if (isGiveaway(newEvent)) {
+                props.saveNewGiveawayCustomer(newEvent.customer, getGiveawayType(newEvent))
             } else {
                 setWhatnotEvents((old) => {
                     let newE = [...old]

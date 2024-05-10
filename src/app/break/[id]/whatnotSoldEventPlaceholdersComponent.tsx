@@ -28,6 +28,10 @@ export const WhatnotSoldEventPlaceholdersComponent: FC<EventPlaceholdersProps> =
             emptyEvents.push(newEvent)
         })
         setEvents(emptyEvents)
+
+        if (!selectedEvent && emptyEvents.length > 0) {
+            selectEventPlaceholder(emptyEvents[0])
+        }
     }, [props.events]);
 
     useEffect(() => {

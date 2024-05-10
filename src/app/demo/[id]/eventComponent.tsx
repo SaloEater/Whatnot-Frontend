@@ -13,6 +13,7 @@ export default function EventComponent(
             event: Event,
             highlight_username: string,
             highBidTeam: string,
+            giveawayTeam: string,
         }
     }
 ) {
@@ -21,20 +22,20 @@ export default function EventComponent(
     }
 
     let isHighBidTeam = params.highBidTeam == params.event.team
+    let isGiveawayTeam = params.giveawayTeam == params.event.team
 
     let bgColors: HighlightColors = {
-        backgroundColor: isHighBidTeam
-            ? 'bg-high-big'
-            : 'bg-empty',
-        textColor: isHighBidTeam
-            ? ''
-            : '',
+        backgroundColor: params.event.customer == '' ? 'bg-empty' : '',
+        textColor: '',
     }
+
     if (params.highlight_username != '' && params.event.customer == params.highlight_username) {
         bgColors.backgroundColor = 'bg-green'
         bgColors.textColor = 'text-white'
-    } else if (params.event.customer != '') {
-        bgColors.backgroundColor = ''
+    } else if (isHighBidTeam) {
+        bgColors.backgroundColor = 'bg-high-bid'
+    } else if (isGiveawayTeam) {
+        bgColors.backgroundColor = 'bg-giveaway'
     }
 
     return <div className={`max-height d-flex dimmed-overlay max-width align-items-center gap-2 `}>

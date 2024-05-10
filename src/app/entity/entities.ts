@@ -40,6 +40,7 @@ export interface Break {
     end_date: string
     is_deleted: boolean
     high_bid_team: string
+    giveaway_team: string
 }
 
 export interface GetStreamsStream {
