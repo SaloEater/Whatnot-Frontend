@@ -467,7 +467,7 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
                 <ToolsComponent params={{events: events, swapTeams: swapTeams}}/>
             </div>
             <div className='w-15p'>
-                <ToolsTabComponent events={events} changeIndex={moveEvent} streamId={params.breakObject.day_id} breakId={params.breakObject.id}/>
+                <ToolsTabComponent events={events} changeIndex={moveEvent} streamId={params.breakObject.day_id} breakId={params.breakObject.id} highBidTeam={params.breakObject.high_bid_team}/>
             </div>
     </div>
 }

@@ -20,6 +20,7 @@ interface ToolsTabProps {
     changeIndex: (event: Event, newIndex: number) => void,
     breakId: number,
     streamId: number
+    highBidTeam: string
 }
 
 export const ToolsTabComponent: FC<ToolsTabProps> = (props) => {
@@ -39,6 +40,6 @@ export const ToolsTabComponent: FC<ToolsTabProps> = (props) => {
         </div>
         {selectedTabIndex == TeamsListIndex && <TeamsListComponent params={{events: props.events, changeIndex: props.changeIndex}} />}
         {selectedTabIndex == DemoIndex && <DemoSettingsComponent params={{streamId: props.streamId, breakId: props.breakId, usernames: getUsernames()}} />}
-        {selectedTabIndex == DataIndex && <DataComponent events={props.events}/>}
+        {selectedTabIndex == DataIndex && <DataComponent events={props.events} highBidTeam={props.highBidTeam}/>}
     </div>
 }
