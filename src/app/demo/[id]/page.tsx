@@ -138,7 +138,7 @@ export default function Page({params} : {params: {id: string}}) {
 
     function getLeftTeamsAmount() {
         let actualEmptyTeams = filterOnlyEmptyTeams(events).length
-        if (events.filter(i => i.team == 'Kansas City Chiefs' && i.customer == '').length > 0) {
+        if (events.filter(i => (i.team == breakObject?.giveaway_team || i.team == breakObject?.high_bid_team) && i.customer == '').length > 0) {
             actualEmptyTeams -= 1
         }
         let withTexans = actualEmptyTeams - 1
