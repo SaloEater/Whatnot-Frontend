@@ -138,11 +138,9 @@ export default function Page({params} : {params: {id: string}}) {
 
     function getLeftTeamsAmount() {
         let actualEmptyTeams = filterOnlyEmptyTeams(events).length
-        if (events.filter(i => (i.team == breakObject?.giveaway_team || i.team == breakObject?.high_bid_team) && i.customer == '').length > 0) {
-            actualEmptyTeams -= 1
-        }
-        let withTexans = actualEmptyTeams - 1
-        return Math.max(withTexans, 0)
+        events.filter(i => (i.team == breakObject?.giveaway_team || i.team == breakObject?.high_bid_team) && i.customer == '')
+            .forEach(i => actualEmptyTeams--)
+        return Math.max(actualEmptyTeams, 0)
     }
 
     return (
