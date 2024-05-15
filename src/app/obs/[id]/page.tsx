@@ -161,9 +161,9 @@ export default function Page({params}: {params: {id: string}}) {
                 <div>MOUNT OLYMPUS</div>
                 <div>BREAKS</div>
             </div>
-            <div className='d-flex flex-column'>
-                <HighBidComponent _events={teamEvents}/>
+            <div className='d-flex flex-column align-items-center'>
                 {demo && <HighBidTeamComponent highBigTeam={highBidTeam}/>}
+                <HighBidComponent _events={teamEvents}/>
             </div>
             <div className="overlay"></div>
         </div>
