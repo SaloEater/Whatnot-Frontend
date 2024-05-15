@@ -43,10 +43,6 @@ body {
 
 .grid-item {
     position: relative;
-    background-image: url('/images/card_bg.svg');
-    box-shadow: 0 0 0 1px #000;
-    background-size: cover;
-    background-clip: border-box;
 }
 
 .teams-left-amount {
@@ -61,8 +57,22 @@ body {
 }
 
 .logo {
-    background-image: url('/images/stream_bg_empty.png');
+    position: relative; /* Positioning context for absolute positioning */
+}
+
+.overlay {
+    background-image: url('/images/mount_golden.png');
     background-size: cover;
+    z-index: 1 !important;
+    width: 100%;
+    height: 107%;
+    left: 0;
+    top: 0;
+    position: absolute;
+}
+
+.logo * {
+    z-index: 2;
 }
 
 .big-font-size {
@@ -86,4 +96,9 @@ body {
     100% {
         transform: scale(1);
     }
+}
+
+.team-bg {
+    background-image: url('/images/board.png');
+    background-size: cover;
 }

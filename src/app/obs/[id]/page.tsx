@@ -155,7 +155,7 @@ export default function Page({params}: {params: {id: string}}) {
             })
     }
 
-    return <main className='teams-container grid-container overflow-hidden'>
+    return <main className='teams-container grid-container team-bg p-5'>
         <div className="position-relative grid-middle-item logo h-100p">
             <div className='bigboz-font big-font-size d-flex flex-column align-items-center justify-content-center'>
                 <div>MOUNT OLYMPUS</div>
@@ -165,6 +165,7 @@ export default function Page({params}: {params: {id: string}}) {
                 <HighBidComponent _events={teamEvents}/>
                 {demo && <HighBidTeamComponent highBigTeam={highBidTeam}/>}
             </div>
+            <div className="overlay"></div>
         </div>
         {teamEvents.map(e => <EventComponent key={e.team} event={e} initEvent={initEvent} resetEvent={resetEvent}/>)}
     </main>
