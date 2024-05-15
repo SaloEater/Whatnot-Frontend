@@ -165,7 +165,7 @@ export default function Page({params}: {params: {id: string}}) {
                 {demo && <HighBidTeamComponent highBigTeam={highBidTeam}/>}
                 <HighBidComponent _events={teamEvents}/>
             </div>
-            <div className="overlay"></div>
+            <img className='overlay' src='/images/mount_golden.png'/>
         </div>
         {teamEvents.map(e => <EventComponent key={e.team} event={e} initEvent={initEvent} resetEvent={resetEvent}/>)}
     </main>
