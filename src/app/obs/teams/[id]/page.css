@@ -1,0 +1,53 @@
+body, .main {
+    height: -webkit-fill-available; /* For Safari */
+    height: 100vh; /* Fallback for other browsers */
+}
+
+.main {
+    background-color: #30ff00;
+}
+
+.my-flex {
+    height: -webkit-fill-available; /* For Safari */
+    height: 100%; /* Fallback for other browsers */
+}
+
+.demo-container {
+    display: grid;
+    grid-template-columns: 50% 50%;
+    grid-template-rows: repeat(16, calc((100% - 105px)/16)); /* Adjusted for Safari */
+    border-radius: 60px;
+    padding: 20px;
+    gap: 7px;
+    border: black solid 2px;
+}
+
+.dimmed-overlay {
+    /*background-color: rgba(0, 0, 0, 0.75);*/
+    z-index: 1000;
+}
+
+.white-overlay {
+    background-color: rgba(255, 255, 255, 1);
+    border: black solid 2px;
+}
+
+.round-overlay {
+    border-radius: 40px;
+    padding: 10px;
+}
+
+.text-gray {
+    color: black;
+}
+
+.giveaway-winner {
+    border: 1px #9b9b9b dashed;
+    border-radius: 10px;
+    padding: 5px;
+    margin-bottom: 5px;
+}
+
+.dimmed-bg {
+    background-color: rgba(0,0,0,0.25);
+}
