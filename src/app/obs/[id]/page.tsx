@@ -16,6 +16,8 @@ export default function Page({params}: {params: {id: string}}) {
     const demoRef = useRef<Demo|null>(null)
     const streamId = parseInt(params.id)
     const [highBidTeam, setHighBidTeam] = useState('')
+    const [giveawayTeam, setGiveawayTeam] = useState('')
+    const [giveawayTeamTaken, setGiveawayTeamTaken] = useState(false)
 
     function refreshDemo (){
         let eventsBody = {
@@ -31,7 +33,10 @@ export default function Page({params}: {params: {id: string}}) {
     }
 
     useEffect(() => {
-        setHighBidTeam(breakObject?.high_bid_team ?? '')
+        if (breakObject) {
+            setHighBidTeam(breakObject.high_bid_team)
+            setGiveawayTeam(breakObject.giveaway_team)
+        }
     }, [breakObject]);
 
     function refreshBreak() {
@@ -51,8 +56,13 @@ export default function Page({params}: {params: {id: string}}) {
 
     useEffect(() => {
         refreshEvents()
+        refreshBreak()
         demoRef.current = demo
     }, [demo]);
+
+    useEffect(() => {
+        setGiveawayTeamTaken(teamEvents.find(i => i.team == giveawayTeam && i.customer != '') !== undefined)
+    }, [teamEvents]);
 
     useEffect(() => {
         refreshDemo()
@@ -85,11 +95,6 @@ export default function Page({params}: {params: {id: string}}) {
                 }))
             })
     }
-
-    useEffect(() => {
-        refreshEvents()
-        setInterval(refreshEvents, 5000)
-    }, []);
 
     function setEvent(event: Event) {
         setTeamsCards((old) => {
@@ -155,6 +160,10 @@ export default function Page({params}: {params: {id: string}}) {
             })
     }
 
+    function isGiveawayTeam(e: Event) {
+        return e.team == giveawayTeam;
+    }
+
     return <main className='teams-container grid-container team-bg p-5'>
         <div className="position-relative grid-middle-item logo h-100p">
             <div className='bigboz-font big-font-size d-flex flex-column align-items-center justify-content-center'>
@@ -167,6 +176,6 @@ export default function Page({params}: {params: {id: string}}) {
             </div>
             <img className='overlay' src='/images/mount_golden.png'/>
         </div>
-        {teamEvents.map(e => <EventComponent key={e.team} event={e} initEvent={initEvent} resetEvent={resetEvent}/>)}
+        {teamEvents.map(e => <EventComponent key={e.team} event={e} initEvent={initEvent} resetEvent={resetEvent} isGiveawayTeam={isGiveawayTeam(e)}/>)}
     </main>
 }

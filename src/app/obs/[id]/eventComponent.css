@@ -1,0 +1,16 @@
+.giveaway-text {
+    top: 0;
+    left: 50%;
+    transform: translate(-50%, -10%);
+    white-space: nowrap;
+    text-shadow:
+            -3px -3px 0 black,
+            3px -3px 0 black,
+            -3px  3px 0 black,
+            3px  3px 0 black;
+}
+
+.giveaway-text-bottom {
+    top: 100%;
+    transform: translate(-50%, -85%);
+ }
