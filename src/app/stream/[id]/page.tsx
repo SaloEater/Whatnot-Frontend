@@ -12,6 +12,7 @@ export default function Page({params} : {params: {id: string}}) {
     let streamId = parseInt(params.id)
     const [breaks, setBreaks] = useState<Break[]>([])
     const [newBreakName, setNewBreakName] = useState("")
+    const [newBreaksAmount, setNewBreaksAmount] = useState(1)
     let router = useRouter()
 
     useEffect(() => {
@@ -24,8 +25,9 @@ export default function Page({params} : {params: {id: string}}) {
             })
     }, []);
 
-    async function addNewBreak() {
-        if (newBreakName === "") {
+    async function addNewBreak(name: string = "") {
+        let nextName = name == "" ? newBreakName : name
+        if (nextName === "") {
             return
         }
 
@@ -33,7 +35,7 @@ export default function Page({params} : {params: {id: string}}) {
         let body: Break = {
             id: 0,
             day_id: streamId,
-            name: newBreakName,
+            name: nextName,
             start_date: date,
             end_date: date,
             is_deleted: false,
@@ -41,9 +43,10 @@ export default function Page({params} : {params: {id: string}}) {
             giveaway_team: ''
         }
 
-        post(getEndpoints().break_add, body)
+        return post(getEndpoints().break_add, body)
             .then((response: AddBreakResponse) => {
                 setNewBreakName("")
+                let promises: any[] = []
                 Teams.forEach((teamName) => {
                     let eventAddBody = {
                         break_id: response.id,
@@ -54,13 +57,14 @@ export default function Page({params} : {params: {id: string}}) {
                         note: '',
                         quantity: 0,
                     }
-                    post(getEndpoints().event_add, eventAddBody)
+                    promises.push(post(getEndpoints().event_add, eventAddBody)
                         .then(() => {
                             console.log(`Team ${teamName} added`)
                         })
+                    )
                 })
                 body.id = response.id
-                addBreak(body)
+                return Promise.all(promises).then(_ => addBreak(body))
             })
     }
 
@@ -90,6 +94,14 @@ export default function Page({params} : {params: {id: string}}) {
 
     function redirectToOBS() {
         router.push(`/obs/${streamId}`)
+    }
+
+    async function addBreaks() {
+        let amount = newBreaksAmount
+        setNewBreaksAmount(0)
+        for (let i = 1; i <= amount; i++) {
+            await addNewBreak(`Break ${i}`)
+        }
     }
 
     return (
@@ -136,22 +148,45 @@ export default function Page({params} : {params: {id: string}}) {
                     }
                     {
                         <li key="add_new" className="list-group-item">
-                            <input
-                                className="form-control"
-                                value={newBreakName}
-                                placeholder="Enter break name.."
-                                onChange={e => {
-                                    setNewBreakName(e.currentTarget.value)
-                                }
-                                }
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        addNewBreak();
-                                    }
-                                }}
-                            />
-                            <div className="d-flex justify-content-end mt-2">
-                                <button type="button" id="add-btn" className="btn btn-primary" onClick={async e => {addNewBreak()}}>Add</button>
+                            <div className='d-flex'>
+                                <div className='w-75p'>
+                                    <input
+                                        className="form-control"
+                                        value={newBreakName}
+                                        placeholder="Enter break name.."
+                                        onChange={e => {
+                                            setNewBreakName(e.currentTarget.value)
+                                        }
+                                        }
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                addNewBreak();
+                                            }
+                                        }}
+                                    />
+                                    <div className="d-flex justify-content-end mt-2">
+                                        <button type="button" id="add-btn" className="btn btn-primary" onClick={async e => {addNewBreak()}}>Add</button>
+                                    </div>
+                                </div>
+                                <div className='w-25p'>
+                                    <input
+                                        className="form-control"
+                                        value={newBreaksAmount}
+                                        onChange={e => {
+                                            let nextValue = parseInt(e.currentTarget.value)
+                                            setNewBreaksAmount(isNaN(nextValue) ? 0 : nextValue)
+                                        }
+                                        }
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                addBreaks();
+                                            }
+                                        }}
+                                    />
+                                    <div className="d-flex justify-content-end mt-2">
+                                        <button type="button" id="add-btn" className="btn btn-primary" onClick={async e => {addBreaks()}}>Add</button>
+                                    </div>
+                                </div>
                             </div>
                         </li>
                     }

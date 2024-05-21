@@ -1,4 +1,4 @@
-import {Demo, Event} from "@/app/entity/entities";
+import {Demo, Event, NoDemoBreak} from "@/app/entity/entities";
 import {useEffect, useState} from "react";
 import {getEndpoints, post} from "@/app/lib/backend";
 import TextInput from "@/app/common/textInput";
@@ -19,7 +19,14 @@ export default function DemoSettingsComponent({params}: {params: {
     }, []);
 
     useEffect(() => {
-        setHighlightUsername(demo?.highlight_username ?? '')
+        if (demo) {
+            setHighlightUsername(demo.highlight_username)
+            if (demo.break_id == NoDemoBreak) {
+                setCurrentBreak()
+            }
+        } else {
+            setHighlightUsername('')
+        }
     }, [demo]);
 
     function refreshDemo() {
