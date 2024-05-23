@@ -23,10 +23,10 @@ export const EventComponent: FC<OBSEventProps> = (props) => {
     return <div ref={containerRef} className='grid-item position-relative giveaway-parent'>
         <img className='team-image' src={getTeamImageSrc()}/>
         {props.isGiveawayTeam && <span className='bigboz-font position-absolute giveaway-text fs-1'>
-            Free
+            {/*Free*/}
         </span>}
         {props.isGiveawayTeam && <span className='bigboz-font position-absolute giveaway-text giveaway-text-bottom fs-1'>
-            Team
+            {/*Team*/}
         </span>}
     </div>
 }
