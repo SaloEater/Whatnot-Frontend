@@ -1,22 +1,18 @@
 import {Demo, Event, NoDemoBreak} from "@/app/entity/entities";
 import {useEffect, useState} from "react";
 import {getEndpoints, post} from "@/app/lib/backend";
-import TextInput from "@/app/common/textInput";
 import './demoSettingsComponent.css'
 import {SuggestionsComponent} from "@/app/common/suggestionsComponent";
 import {TextInputWithSuggestions} from "@/app/common/textInputWithSuggestions";
+import {useDemo} from "@/app/component/useDemo";
 
 export default function DemoSettingsComponent({params}: {params: {
         usernames: string[],
         streamId: number,
         breakId: number,
 }}) {
-    const [demo, setDemo] = useState<Demo|null>(null)
+    const demo = useDemo(params.streamId)
     const [highlightUsername, setHighlightUsername] = useState('')
-
-    useEffect(() => {
-        refreshDemo()
-    }, []);
 
     useEffect(() => {
         if (demo) {
@@ -29,17 +25,6 @@ export default function DemoSettingsComponent({params}: {params: {
         }
     }, [demo]);
 
-    function refreshDemo() {
-        let body  = {
-            stream_id: params.streamId
-        }
-        post(getEndpoints().stream_demo, body)
-            .then((response: Demo) => {
-                setDemo(response)
-                setHighlightUsername(response.highlight_username)
-            })
-    }
-
     function setCurrentBreak() {
         if (!demo) {
             return
@@ -48,14 +33,9 @@ export default function DemoSettingsComponent({params}: {params: {
         body.break_id = params.breakId
         post(getEndpoints().demo_update, body)
             .then((response: Demo) => {
-                setDemo((old) => {
-                    if (!old) {
-                        return old
-                    }
-                    let newD = {...old}
-                    newD.break_id = params.breakId
-                    return newD
-                })
+                if (demo) {
+                    demo.break_id = params.breakId
+                }
             })
     }
 
@@ -67,14 +47,9 @@ export default function DemoSettingsComponent({params}: {params: {
         body.highlight_username = forceValue != null ? forceValue : highlightUsername
         post(getEndpoints().demo_update, body)
             .then((response: Demo) => {
-                setDemo((old) => {
-                    if (!old) {
-                        return old
-                    }
-                    let newD = {...old}
-                    newD.highlight_username = body.highlight_username
-                    return newD
-                })
+                if (demo) {
+                    demo.highlight_username = body.highlight_username
+                }
             })
     }
 

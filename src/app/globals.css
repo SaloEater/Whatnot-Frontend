@@ -75,6 +75,10 @@
     height: 75%;
 }
 
+.h-25p {
+    height: 25%;
+}
+
 .bg-green {
     background-color: #126413 !important;
 }
@@ -86,4 +90,12 @@
 
 .bigboz-font {
     font-family: 'Bigboz-Web', Bigboz, sans-serif;
+}
+
+.text-green {
+    color: #30ff00;
+}
+
+.text-red {
+    color: #ff0000;
 }

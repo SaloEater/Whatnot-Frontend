@@ -1,6 +1,6 @@
 import {Event, GiveawayTypeNone, GiveawayTypePack, GiveawayTypeSlab} from "@/app/entity/entities";
 import Image from "next/image";
-import TextInput from "@/app/common/textInput";
+import {TextInput} from "@/app/common/textInput";
 import React, {useCallback, useEffect, useState} from "react";
 import {getEndpoints, post} from "@/app/lib/backend";
 import {Teams} from "@/app/common/teams";
@@ -33,18 +33,6 @@ export default function GiveawayComponent({params}: {params: {
         params.updateEvent(newEvent)
     }
 
-    const customerInputParams = {
-        value: newCustomer,
-        update: updateCustomer,
-        save: saveCustomer,
-        max_width: 150,
-        font_size: 15,
-        placeholder: 'Enter nickname',
-        onClick: null,
-        onBlur: null,
-        disabled: false,
-    }
-
     function switchType(type: number) {
         if (type == params.event.giveaway_type) {
             type = GiveawayTypeNone
@@ -66,7 +54,16 @@ export default function GiveawayComponent({params}: {params: {
 
     return (
         <div className='border-1 rounded rounded-3 d-flex align-items-center justify-content-evenly'>
-            <div className='w-75p'><TextInput params={customerInputParams}/></div>
+            <div className='w-75p'><TextInput 
+                value={newCustomer}
+                update={updateCustomer}
+                save={saveCustomer}
+                font_size={15}
+                placeholder={'Enter nickname'}
+                onClick={null}
+                onBlur={null}
+                disabled={false}
+            /></div>
             <div className="dropdown p-2">
                 <button className="btn btn-secondary dropdown-toggle btn-sm" type="button" id="dropdownMenuButton1" data-bs-auto-close="true" data-bs-toggle="dropdown" aria-expanded="false">
                     {getGiveawayTypeName(params.event.giveaway_type)}

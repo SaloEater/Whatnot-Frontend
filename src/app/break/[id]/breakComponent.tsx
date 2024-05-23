@@ -14,7 +14,7 @@ import {
 import {EventComponent} from "@/app/break/[id]/eventComponent";
 import {useRouter} from "next/navigation";
 import GiveawayComponent from "@/app/break/[id]/giveawayComponent";
-import TextInput from "@/app/common/textInput";
+import {TextInput} from "@/app/common/textInput";
 import EventPlaceholderComponent from "@/app/break/[id]/eventPlaceholderComponent";
 import './breakComponent.css'
 import TeamsListComponent from "@/app/break/[id]/teamsListComponent";
@@ -79,7 +79,7 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
             updateEvent(newEvent)
             resetEventPlaceholder()
         }
-    }, [newEvent]);
+    }, [newEvent, eventPlaceholder]);
 
     useEffect(() => {
         eventsRef.current = events
@@ -433,17 +433,16 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
                     <div>Giveaways:</div>
                     <div>
                         <div className='w-75p m-2' id='giveaway'>
-                            <TextInput params={{
-                                value: newGiveawayCustomer,
-                                update: updateNewGiveawayCustomer,
-                                save: (value: string|null) => saveNewGiveawayCustomer(value ?? ''),
-                                placeholder: 'Enter nickname',
-                                font_size: null,
-                                max_width: 175,
-                                onClick: null,
-                                onBlur: null,
-                                disabled: false,
-                            }}/>
+                            <TextInput
+                                value={newGiveawayCustomer}
+                                update={updateNewGiveawayCustomer}
+                                save={(value: string|null) => saveNewGiveawayCustomer(value ?? '')}
+                                placeholder={'Enter nickname'}
+                                font_size={null}
+                                onClick={null}
+                                onBlur={null}
+                                disabled={false}
+                            />
                         </div>
                         <div>
                             Slab: <span>{giveaways.reduce((acc, i) => i.giveaway_type == GiveawayTypeSlab ? acc + 1 : acc, 0)}</span>

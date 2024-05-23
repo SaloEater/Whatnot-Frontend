@@ -16,7 +16,7 @@ import {
 } from "@/app/entity/entities";
 import {get, getEndpoints, post} from "@/app/lib/backend";
 import {CustomerPackageComponent, IIndexable} from "@/app/package/[id]/customerPackage";
-import TextInput from "@/app/common/textInput";
+import {TextInput} from "@/app/common/textInput";
 import {sortBreaksById} from "@/app/common/breaks";
 
 interface DaysData {
@@ -139,17 +139,16 @@ export default function Page({params} : {params: {id: string}}) {
                 }
             </div>
             <div className='w-25p'>
-                <TextInput params={{
-                    value: amountMapRaw,
-                    update: setAmountMapRaw,
-                    save: parseAmountMap,
-                    max_width: 150,
-                    font_size: null,
-                    placeholder: 'Enter amount data',
-                    onClick: null,
-                    onBlur: null,
-                    disabled: false,
-                }}/>
+                <TextInput
+                    value={amountMapRaw}
+                    update={setAmountMapRaw}
+                    save={parseAmountMap}
+                    font_size={null}
+                    placeholder={'Enter amount data'}
+                    onClick={null}
+                    onBlur={null}
+                    disabled={false}
+                />
             </div>{
             missingCustomers.length > 0 && <div className='bg-danger'>
                     Missing these customers:

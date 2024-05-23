@@ -1,6 +1,6 @@
 import {Event} from "@/app/entity/entities";
 import Image from "next/image";
-import TextInput from "@/app/common/textInput";
+import {TextInput} from "@/app/common/textInput";
 import {FC, useEffect, useState} from "react";
 import {getEndpoints, post} from "@/app/lib/backend";
 import OrderChangingComponent from "@/app/break/[id]/orderChangingComponent";
@@ -73,19 +73,7 @@ export const EventComponent: FC<EventProps> = (props) => {
         newEvent.price = newPrice
         props.updateEvent(newEvent)
     }
-
-    const priceInputParams = {
-        value: `$${newPrice}`,
-        update: updatePrice,
-        save: savePrice,
-        max_width: 50,
-        placeholder: 'Enter price',
-        font_size: null,
-        onClick: null,
-        onBlur: null,
-        disabled: false,
-    }
-
+    
     function hasIndex() {
         return props.event.customer != '';
     }
@@ -145,7 +133,16 @@ export const EventComponent: FC<EventProps> = (props) => {
                     <div className='w-100p d-flex gap-2 flex-column hidden'>
                         <div className='d-flex gap-1'>
                             <strong className='fs-4 text-white cursor-pointer' onClick={showOrderChangingInterface}>{hasIndex() ? `#${props.event.index}` : '-'}</strong>
-                            <TextInput params={priceInputParams}/>
+                            <TextInput
+                                value={`$${newPrice}`}
+                                update={updatePrice}
+                                save={savePrice}
+                                placeholder={'Enter price'}
+                                font_size={null}
+                                onClick={null}
+                                onBlur={null}
+                                disabled={false} 
+                            />
                         </div>
                         <TextInputWithSuggestions
                             value={newCustomer}

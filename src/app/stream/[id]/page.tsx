@@ -3,7 +3,7 @@
 import React, {useEffect, useState} from "react";
 import {Teams} from "@/app/common/teams";
 import {get, getEndpoints, post} from "@/app/lib/backend";
-import {Break, GetStreamsResponse, AddBreakResponse} from "@/app/entity/entities";
+import {Event, Break, GetStreamsResponse, AddBreakResponse, GiveawayTypeNone} from "@/app/entity/entities";
 import {useRouter} from "next/navigation";
 import {sortByIndex} from "@/app/common/event_filter";
 import {sortBreaksById} from "@/app/common/breaks";
@@ -47,15 +47,19 @@ export default function Page({params} : {params: {id: string}}) {
             .then((response: AddBreakResponse) => {
                 setNewBreakName("")
                 let promises: any[] = []
-                Teams.forEach((teamName) => {
-                    let eventAddBody = {
+                Teams.forEach((teamName, j) => {
+                    let eventAddBody: Event = {
+                        id: 0,
+                        index: j,
+                        giveaway_type: GiveawayTypeNone,
                         break_id: response.id,
                         customer: '',
                         price: 0,
                         team: teamName,
                         is_giveaway: false,
                         note: '',
-                        quantity: 0,
+                        quantity: 0
+
                     }
                     promises.push(post(getEndpoints().event_add, eventAddBody)
                         .then(() => {
@@ -104,10 +108,15 @@ export default function Page({params} : {params: {id: string}}) {
         }
     }
 
+    function redirectToOBSManage() {
+        router.push(`/obs/manage/${streamId}`)
+    }
+
     return (
         <main>
             <button type='button' className='btn btn-primary' onClick={redirectToDemo}>Demo</button>
             <button type='button' className='btn btn-primary' onClick={redirectToOBS}>OBS</button>
+            <button type='button' className='btn btn-primary' onClick={redirectToOBSManage}>Manage OBS</button>
             <div className="d-flex justify-content-center">
                 <div className='pe-3'>
                     <button type="button" className="btn btn-primary" onClick={

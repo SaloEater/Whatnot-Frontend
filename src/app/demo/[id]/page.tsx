@@ -10,10 +10,11 @@ import './page.css'
 import EventComponent from "@/app/demo/[id]/eventComponent";
 import Image from "next/image";
 import {filterOnlyEmptyTeams, filterOnlyTakenTeams, getEventWithHighestPrice} from "@/app/common/event_filter";
+import {useDemo} from "@/app/component/useDemo";
 
 export default function Page({params} : {params: {id: string}}) {
     const streamId = parseInt(params.id)
-    const [demo, setDemo] = useState<Demo|null>(null)
+    const demo = useDemo(streamId)
     const [breakObject, setBreakObject] = useState<Break|null>(null)
     const [events, setEvents] = useState<Event[]>([])
     const [giveaways, setGiveaways] = useState<Event[]>([])
@@ -40,17 +41,6 @@ export default function Page({params} : {params: {id: string}}) {
         }, 60000)
     }, []);
 
-    const refreshDemo = useCallback(() => {
-        let eventsBody = {
-            stream_id: streamId
-        };
-
-        post(getEndpoints().stream_demo, eventsBody)
-            .then((response: Demo) => {
-                setDemo(response)
-            })
-    }, [params.id])
-
     useEffect(() => {
         refreshBreakObject()
         refreshEvents()
@@ -58,14 +48,10 @@ export default function Page({params} : {params: {id: string}}) {
     }, [demo]);
 
     useEffect(() => {
-        refreshDemo()
 
         setInterval(() => {
             refreshEvents()
         }, 5000)
-        setInterval(() => {
-            refreshDemo()
-        }, 1500)
     }, []);
 
     function demoIsSet() {

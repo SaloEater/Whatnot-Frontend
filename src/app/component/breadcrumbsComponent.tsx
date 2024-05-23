@@ -13,6 +13,14 @@ export default function BreadcrumbsComponent() {
         return pathname.indexOf('break') !== -1;
     }
 
+    function isObsManagePage() {
+        return pathname.indexOf('obs') !== -1 && pathname.indexOf('manage') !== -1
+    }
+
+    function isStreamRelatedPage() {
+        return isObsManagePage()
+    }
+
     if (isBreakPage()) {
         let pathPart = pathname.split('/')
         let params = {
@@ -20,9 +28,14 @@ export default function BreadcrumbsComponent() {
         }
         breadcrumbs.push(<div key='split-1' className='pe-3'>/</div>)
         breadcrumbs.push(<BreakBreadcrumbs key='day' params={params}/>)
+    } else if (isStreamRelatedPage()) {
+        let pathPart = pathname.split('/')
+        let streamId = parseInt(pathPart[pathPart.length - 1])
+        breadcrumbs.push(<div key='split-1' className='pe-3'>/</div>)
+        breadcrumbs.push(<a key='stream' className="nav-link active" href={`/stream/${streamId}`}>Stream {streamId}</a>)
     }
 
-    const isDemo = pathname.indexOf('demo') !== -1 || pathname.indexOf('obs') !== -1
+    const isDemo = pathname.indexOf('demo') !== -1 || (pathname.indexOf('obs') !== -1 && !isObsManagePage())
 
     return (
         <div>

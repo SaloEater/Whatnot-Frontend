@@ -1,6 +1,6 @@
 import './textInput.css'
 import {FC, useEffect, useState} from "react";
-import TextInput from "@/app/common/textInput";
+import {TextInput} from "@/app/common/textInput";
 import {SuggestionsComponent} from "@/app/common/suggestionsComponent";
 import './textInputWithSuggestions.css'
 
@@ -55,25 +55,23 @@ export const TextInputWithSuggestions: FC<TextInputWithSuggestionsProps> = (prop
         props.save(value)
     }
 
-    const textInputParams = {...props}
-    textInputParams.onClick = () => {
+    let onClick = () => {
         setShowSuggestions(true)
         setCloseSuggestions(false)
         if (props.onClick) {
             props.onClick()
         }
     }
-    textInputParams.onBlur = () => {
+    let onBlur = () => {
         props.save(null)
         setCloseSuggestions(true)
         if (props.onBlur) {
             props.onBlur()
         }
     }
-    textInputParams.value = value
 
     return <div>
-        <TextInput params={textInputParams}/>
+        <TextInput font_size={null} value={value} update={props.update} save={props.save} placeholder={props.placeholder} onClick={onClick} onBlur={onBlur} disabled={props.disabled}/>
         {props.suggestions.length > 0 && (showSuggestions || props.alwaysOn) && <SuggestionsComponent suggestions={props.suggestions} value={value} itemClicked={itemClicked}/>}
     </div>
 }

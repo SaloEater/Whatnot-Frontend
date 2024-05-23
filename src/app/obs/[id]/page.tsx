@@ -8,29 +8,17 @@ import {filterOnlyTeams} from "@/app/common/event_filter";
 import {EventComponent} from "@/app/obs/[id]/eventComponent";
 import HighBidComponent from "@/app/obs/[id]/highBidComponent";
 import {HighBidTeamComponent} from "@/app/obs/[id]/highBidTeamComponent";
+import {useDemo} from "@/app/component/useDemo";
 
 export default function Page({params}: {params: {id: string}}) {
+    const streamId = parseInt(params.id)
     const [teamEvents, setTeamsCards] = useState<Event[]>([])
     const [breakObject, setBreakObject] = useState<Break|null>(null);
-    const [demo, setDemo] = useState<Demo|null>(null)
+    const demo = useDemo(streamId)
     const demoRef = useRef<Demo|null>(null)
-    const streamId = parseInt(params.id)
     const [highBidTeam, setHighBidTeam] = useState('')
     const [giveawayTeam, setGiveawayTeam] = useState('')
     const [giveawayTeamTaken, setGiveawayTeamTaken] = useState(false)
-
-    function refreshDemo (){
-        let eventsBody = {
-            stream_id: streamId
-        };
-
-        post(getEndpoints().stream_demo, eventsBody)
-            .then((response: Demo) => {
-                if (!demo || response.id != demo.id) {
-                    setDemo(response)
-                }
-            })
-    }
 
     useEffect(() => {
         if (breakObject) {
@@ -65,14 +53,9 @@ export default function Page({params}: {params: {id: string}}) {
     }, [teamEvents]);
 
     useEffect(() => {
-        refreshDemo()
-
         setInterval(() => {
             refreshEvents()
         }, 5000)
-        setInterval(() => {
-            refreshDemo()
-        }, 20000)
         setInterval(() => {
             refreshBreak()
         }, 30000)

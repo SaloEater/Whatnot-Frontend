@@ -1,20 +1,19 @@
 import './textInput.css'
+import {FC} from "react";
 
-export default function TextInput({params} : {
-    params: {
-        value: string,
-        update: (value: string) => void,
-        save: (value: string|null) => void,
-        max_width: number,
-        font_size: number|null,
-        placeholder: string,
-        onClick: (() => void) | null,
-        onBlur: (() => void) | null,
-        disabled: boolean,
-    }
-}) {
+interface TextInputProps {
+    value: string,
+    update: (value: string) => void,
+    save: (value: string|null) => void,
+    font_size: number|null,
+    placeholder: string,
+    onClick: (() => void) | null,
+    onBlur: (() => void) | null,
+    disabled: boolean,
+}
+
+export const TextInput: FC<TextInputProps> = (params) => {
     let style = {
-        //maxWidth: `${params.max_width}px`,
         fontSize: params.font_size ? `${params.font_size}px` : '16px',
     };
     return (

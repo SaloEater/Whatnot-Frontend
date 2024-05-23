@@ -6,7 +6,6 @@ import moment from "moment/moment";
 import {TuiDateTimePicker} from "nextjs-tui-date-picker";
 import {useRouter} from "next/navigation";
 import {GetStreamsStream, GetStreamsResponse} from "@/app/entity/entities";
-import TextInput from "@/app/common/textInput";
 
 export default function Page() {
     const [streams, setStreams] = useState<GetStreamsStream[]>([]);

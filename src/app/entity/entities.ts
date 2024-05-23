@@ -82,3 +82,45 @@ export const NoDemoBreak = 0
 export const GiveawayTypeNone = 0
 export const GiveawayTypePack = 1
 export const GiveawayTypeSlab = 2
+
+//Obs Manage
+export interface TeamLogos {
+    sceneName: string
+    logos: TeamLogo[]
+}
+export interface TeamLogo {
+    team: string
+    obsItem: ObsItem
+}
+export interface TeamAnimation {
+    team: string
+    obsItem: ObsItem
+}
+export interface TeamAnimations {
+    sceneName: string
+    animations: TeamAnimation[]
+}
+export interface SimpleAnimation {
+    obsItem: ObsItem;
+    id: number
+}
+export interface SimpleAnimations {
+    sceneName: string
+    animations: SimpleAnimation[]
+}
+export const EmptyID = '0'
+export const EmptyName = ''
+
+export interface ObsItem {
+    name: string
+    uuid: string
+}
+
+export interface RawObsItem extends ObsItem{
+    inputKind: string
+}
+
+export const EmptyObsItem: ObsItem = {name: EmptyName, uuid: EmptyID}
+
+export interface ObsScene extends ObsItem{
+}
