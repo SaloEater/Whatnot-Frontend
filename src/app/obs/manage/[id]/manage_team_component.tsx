@@ -72,12 +72,12 @@ export const ManageTeamComponent: FC<ManageTeamProps> = (props) => {
                 {props.animation.team.split(' ').slice(-1)}
             </div>
             <div style={{
-                    width: 20,
-                    height: 20
+                    width: 50,
+                    height: 50
             }} className='d-flex align-items-center justify-content-center' onClick={_ => setHighlight(old => !old)}>
                 <div style={{
-                    width: 10,
-                    height: 10,
+                    width: 35,
+                    height: 35,
                     borderRadius: '50%',
                     backgroundColor: highlight ? '#30ff00' : 'gray',
                 }}/>

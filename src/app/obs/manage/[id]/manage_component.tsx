@@ -109,7 +109,7 @@ export const ManageComponent: FC<ManageProps> = (props) => {
     }
 
     return <div className='d-flex flex-wrap gap-2 w-100p'>
-        {props.animations.animations.map((i, j) => <div className='w-25p' key={j}>
+        {props.animations.animations.map((i, j) => <div className='w-15p' key={j}>
             <ManageTeamComponent animation={i} obs={props.obs} logger={props.logger} scene={props.scene} event={teamEvents.get(i.team)} initEvent={initEvent} animationScene={props.animations.sceneName}/>
         </div>)}
     </div>
