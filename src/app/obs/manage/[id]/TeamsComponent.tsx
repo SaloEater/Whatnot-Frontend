@@ -243,7 +243,7 @@ export const TeamsComponent: FC<TeamsProps> = (props) => {
                 node: <SetupSimpleAnimationsComponent updateAnimation={updateSimpleAnimation} itemsList={filterOnlyType(obsItemsList, RawObsItemTypeMedia)} data={simpleAnimations} updateScene={updateSimpleAnimationsScene} scene={obsScene} deleteAnimation={deleteSimpleAnimation}/>
             },
             {
-                name: 'Manage',
+                name: 'Stream',
                 node: <ManageComponent logger={props.logger} obs={props.obs} scene={obsScene} animations={animations} streamId={props.streamId} />
             }
         ]}/>}
