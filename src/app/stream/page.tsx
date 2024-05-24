@@ -7,7 +7,7 @@ export default function Page() {
     const router = useRouter()
 
     useEffect(() => {
-        router.push('/streams')
+        router.push('/channels')
     }, []);
 
     return <div>

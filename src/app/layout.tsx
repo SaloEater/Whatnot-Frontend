@@ -17,8 +17,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const value = process.env.BACKEND_HOST as string;
-
   return (
     <html lang="en">
       <body className={inter.className + " my-body"} data-bs-theme="dark">

@@ -1,13 +1,20 @@
 'use client'
 
-import React, {useEffect, useState} from "react";
+import React, {JSX, useEffect, useState} from "react";
 import {usePathname, useRouter, useSearchParams} from "next/navigation";
-import BreakBreadcrumbs from "@/app/component/breakBreadcrumbs";
+import {StreamBreadcrumbsComponent} from "@/app/component/streamBreadcrumbsComponent";
+import {getEndpoints, post} from "@/app/lib/backend";
+import {GetChannelsChannel, GetStreamsStream, WNBreak} from "@/app/entity/entities";
+import {ChannelBreadcrumbsComponent} from "@/app/component/channelBreadcrumbsComponent";
+
 
 export default function BreadcrumbsComponent() {
-    const router = useRouter();
+    const [breadcrumbs, setBreadcrumbs] = useState<JSX.Element[]>([])
     const pathname = usePathname() ?? ""
-    const breadcrumbs = []
+
+    useEffect(() => {
+        getBreadcrumbs()
+    }, [pathname]);
 
     function isBreakPage() {
         return pathname.indexOf('break') !== -1;
@@ -21,27 +28,44 @@ export default function BreadcrumbsComponent() {
         return isObsManagePage()
     }
 
-    if (isBreakPage()) {
+    function isChannelPage() {
+        return pathname.indexOf('channel') !== -1;
+    }
+
+    function isStreamPage() {
+        return pathname.indexOf('stream') !== -1;
+    }
+
+    async function getBreadcrumbs() {
         let pathPart = pathname.split('/')
-        let params = {
-            breakId: parseInt(pathPart[pathPart.length - 1])
+
+        let newBreadcrumbs = []
+        if (isStreamPage()) {
+            let streamId = parseInt(pathPart[pathPart.length - 1])
+            newBreadcrumbs.push(<div key='split-1' className='pe-3'>/</div>)
+            newBreadcrumbs.push(<ChannelBreadcrumbsComponent key='channel' streamId={streamId}/>)
+        } else if (isBreakPage()) {
+            let breakO: WNBreak = await post(getEndpoints().break_get, {id: parseInt(pathPart[pathPart.length - 1])})
+            newBreadcrumbs.push(<div key='split-1' className='pe-3'>/</div>)
+            newBreadcrumbs.push(<ChannelBreadcrumbsComponent key='channel' streamId={breakO.day_id}/>)
+            newBreadcrumbs.push(<div key='split-2' className='p-3'>/</div>)
+            newBreadcrumbs.push(<StreamBreadcrumbsComponent key='stream' streamId={breakO.day_id}/>)
+        } else if (isStreamRelatedPage()) {
+            let streamId = parseInt(pathPart[pathPart.length - 1])
+            newBreadcrumbs.push(<div key='split-1' className='pe-3'>/</div>)
+            newBreadcrumbs.push(<ChannelBreadcrumbsComponent key='channel' streamId={streamId}/>)
+            newBreadcrumbs.push(<div key='split-2' className='p-3'>/</div>)
+            newBreadcrumbs.push(<StreamBreadcrumbsComponent key='stream' streamId={streamId}/>)
         }
-        breadcrumbs.push(<div key='split-1' className='pe-3'>/</div>)
-        breadcrumbs.push(<BreakBreadcrumbs key='day' params={params}/>)
-    } else if (isStreamRelatedPage()) {
-        let pathPart = pathname.split('/')
-        let streamId = parseInt(pathPart[pathPart.length - 1])
-        breadcrumbs.push(<div key='split-1' className='pe-3'>/</div>)
-        breadcrumbs.push(<a key='stream' className="nav-link active" href={`/stream/${streamId}`}>Stream {streamId}</a>)
+        setBreadcrumbs(newBreadcrumbs)
     }
 
     const isDemo = pathname.indexOf('demo') !== -1 || (pathname.indexOf('obs') !== -1 && !isObsManagePage())
-
     return (
         <div>
             {
                 !isDemo && <nav className="navbar navbar-expand-lg navbar-light bg-dark ps-lg-4">
-                    <a key='days' className="navbar-brand" href="/streams">Streams</a>
+                    <a key='days' className="navbar-brand" href="/channels">Channels</a>
                     {breadcrumbs}
                 </nav>
             }

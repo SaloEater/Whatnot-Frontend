@@ -4,7 +4,7 @@ import {Logger} from "@/app/entity/logger";
 import {Teams} from "@/app/common/teams";
 import {SetupLogoComponent} from "@/app/obs/manage/[id]/SetupLogoComponent";
 import {
-    Break, Demo,
+    WNBreak, Demo,
     EmptyID,
     Event, NoCustomer,
     ObsItem,
@@ -12,7 +12,7 @@ import {
     TeamAnimations,
 } from "@/app/entity/entities";
 import {ManageTeamComponent} from "@/app/obs/manage/[id]/manage_team_component";
-import {useDemo} from "@/app/component/useDemo";
+import {useDemo} from "@/app/hooks/useDemo";
 import {getEndpoints, post} from "@/app/lib/backend";
 import {filterOnlyTeams} from "@/app/common/event_filter";
 

@@ -4,7 +4,7 @@ import {getEndpoints, post} from "@/app/lib/backend";
 import './demoSettingsComponent.css'
 import {SuggestionsComponent} from "@/app/common/suggestionsComponent";
 import {TextInputWithSuggestions} from "@/app/common/textInputWithSuggestions";
-import {useDemo} from "@/app/component/useDemo";
+import {useDemo} from "@/app/hooks/useDemo";
 
 export default function DemoSettingsComponent({params}: {params: {
         usernames: string[],

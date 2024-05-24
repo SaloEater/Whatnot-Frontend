@@ -6,7 +6,7 @@ import {daysAreEqual} from "@/app/common/helpers";
 import {router} from "next/client";
 import "./page.css"
 import {
-    Break,
+    WNBreak,
     Day,
     GetStreamsStream,
     GetStreamsResponse,
@@ -38,7 +38,7 @@ export default function Page({params} : {params: {id: string}}) {
                 id: streamId
             }
             post(getEndpoints().stream_breaks, body)
-                .then(async (breaks: Break[]) => {
+                .then(async (breaks: WNBreak[]) => {
                     let giveaways = new Map<number, number>()
                     let newBreakCustomers = new Map<string, Map<string, PackageEvent[]>>()
 

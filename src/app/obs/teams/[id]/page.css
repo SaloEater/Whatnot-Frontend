@@ -27,8 +27,8 @@ body, .main {
     z-index: 1000;
 }
 
-.white-overlay {
-    background-color: rgba(255, 255, 255, 1);
+.teams-bg {
+    background-color: #001b2e;
     border: black solid 2px;
 }
 

@@ -4,17 +4,17 @@ import {createRef, Dispatch, SetStateAction, useCallback, useEffect, useRef, use
 import {getEndpoints, post} from "@/app/lib/backend";
 import {TuiDateTimePicker} from "nextjs-tui-date-picker";
 import moment, {max} from "moment";
-import {Day, Break, Event, SelectedBreak, Demo} from "@/app/entity/entities";
+import {Day, WNBreak, Event, SelectedBreak, Demo} from "@/app/entity/entities";
 import {useRouter} from "next/navigation";
 import './page.css'
-import EventComponent from "@/app/demo/[id]/eventComponent";
 import Image from "next/image";
 import {filterOnlyEmptyTeams, filterOnlyTakenTeams, getEventWithHighestPrice} from "@/app/common/event_filter";
+import EventComponent from "@/app/obs/teams/[id]/eventComponent";
 
 export default function Page({params} : {params: {id: string}}) {
     const streamId = parseInt(params.id)
     const [demo, setDemo] = useState<Demo|null>(null)
-    const [breakObject, setBreakObject] = useState<Break|null>(null)
+    const [breakObject, setBreakObject] = useState<WNBreak|null>(null)
     const [events, setEvents] = useState<Event[]>([])
     const demoRef = useRef<Demo|null>(null)
 
@@ -26,7 +26,7 @@ export default function Page({params} : {params: {id: string}}) {
             id: demoRef.current.break_id
         }
         post(getEndpoints().break_get, body)
-            .then((breakO: Break) => {
+            .then((breakO: WNBreak) => {
                 setBreakObject(breakO)
             })
     }
@@ -144,7 +144,7 @@ export default function Page({params} : {params: {id: string}}) {
                 {
                      demoIsSet() ? <div className='w-100 h-100'>
                         <div className='max-height overflow-hidden d-flex justify-content-center my-flex gap-2 teams-container'>
-                            <div className='demo-container white-overlay minw'>
+                            <div className='demo-container teams-bg minw'>
                                 {items.length > 0 && items}
                             </div>
                         </div>

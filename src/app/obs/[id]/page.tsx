@@ -3,17 +3,17 @@
 import './page.css'
 import {useCallback, useEffect, useRef, useState} from "react";
 import {getEndpoints, post} from "@/app/lib/backend";
-import {GetEventsByBreakResponse, Event, NoCustomer, Demo, NoDemoBreak, Break} from "@/app/entity/entities";
+import {GetEventsByBreakResponse, Event, NoCustomer, Demo, NoDemoBreak, WNBreak} from "@/app/entity/entities";
 import {filterOnlyTeams} from "@/app/common/event_filter";
 import {EventComponent} from "@/app/obs/[id]/eventComponent";
 import HighBidComponent from "@/app/obs/[id]/highBidComponent";
 import {HighBidTeamComponent} from "@/app/obs/[id]/highBidTeamComponent";
-import {useDemo} from "@/app/component/useDemo";
+import {useDemo} from "@/app/hooks/useDemo";
 
 export default function Page({params}: {params: {id: string}}) {
     const streamId = parseInt(params.id)
     const [teamEvents, setTeamsCards] = useState<Event[]>([])
-    const [breakObject, setBreakObject] = useState<Break|null>(null);
+    const [breakObject, setBreakObject] = useState<WNBreak|null>(null);
     const demo = useDemo(streamId)
     const demoRef = useRef<Demo|null>(null)
     const [highBidTeam, setHighBidTeam] = useState('')
@@ -37,7 +37,7 @@ export default function Page({params}: {params: {id: string}}) {
             id: demoO.break_id
         }
         post(getEndpoints().break_get, body)
-            .then((breakData: Break) => {
+            .then((breakData: WNBreak) => {
                 setBreakObject(breakData)
         })
     }

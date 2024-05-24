@@ -5,21 +5,25 @@ import {useEffect, useState} from "react";
 import moment from "moment/moment";
 import {TuiDateTimePicker} from "nextjs-tui-date-picker";
 import {useRouter} from "next/navigation";
-import {GetStreamsStream, GetStreamsResponse} from "@/app/entity/entities";
+import {GetStreamsStream, GetStreamsResponse, GetChannelsChannel} from "@/app/entity/entities";
+import {TextInputAction} from "@/app/component/textInputAction";
+import {useChannel} from "@/app/hooks/useChannel";
 
-export default function Page() {
+export default function Page({params}: {params: {id: string}}) {
+    const channelId = parseInt(params.id)
+    const channel = useChannel(channelId)
     const [streams, setStreams] = useState<GetStreamsStream[]>([]);
     const [newName, setNewName] = useState("")
 
     useEffect(() => {
-        get(getEndpoints().stream_get_all)
-            .then(streamsData => {
-                const streamsResponse: GetStreamsResponse = streamsData
-                setStreams(streamsResponse.streams)
-            })
-    }, [])
+        if (channel) {
+            post(getEndpoints().stream_get_all, {channel_id: channel.id})
+                .then((streamsData: GetStreamsResponse) => {
+                    setStreams(streamsData.streams)
+                })
+        }
+    }, [channel]);
 
-    const dateTimeFormat = "YYYY-MM-dd"
     const router = useRouter()
 
     function removeStream(stream: GetStreamsStream) {
@@ -50,24 +54,19 @@ export default function Page() {
             <div className="d-flex justify-content-center">
                 <ul className="list-group">
                     <li className="list-group-item">
-                        <div>
-                            <input className='text-input' value={newName} onChange={e => {
-                                setNewName(e.target.value)
-                            }} placeholder='Enter new name...'/>
-                            <button type="button" id="add-Stream" className="btn bg-primary" onClick={
-                                async e => {
-                                    const body = {
-                                        name: newName,
-                                    };
-                                    post(getEndpoints().stream_add, body)
-                                        .then(response => {
-                                            let stream: GetStreamsStream = response
-                                            addStream(stream)
-                                            setNewName('')
-                                        })
-                                }
-                            }>Add</button>
-                        </div>
+                        <TextInputAction value={newName} setNewValue={setNewName} placeholder={'Enter new name...'} action={() => {
+                            const body = {
+                                name: newName,
+                                channel_id: channelId,
+                            };
+                            post(getEndpoints().stream_add, body)
+                                .then(response => {
+                                    let stream: GetStreamsStream = response
+                                    addStream(stream)
+                                    setNewName('')
+                                })
+                        }
+                        } actionLabel='Add'/>
                     </li>
                     {
                         sortStreamsByDate(streams).map(
@@ -101,18 +100,6 @@ export default function Page() {
                         )
                     }
                 </ul>
-                {/*<div className="container-fluid">*/}
-                {/*    <div className="row gx-2">*/}
-                {/*        <div className="col-3">*/}
-                {/*        </div>*/}
-                {/*        <div className="col-2" key={(selectedBreak ?? "") + (new Date()).getTime().toString()}>*/}
-                {/*            <StreamComponent selectedStream={selectedStream} selectedBreak={selectedBreak} setSelectedBreak={setSelectedBreak} requestedStreamsReload={requestedStreamsReload} requestStreamsReload={requestStreamsReload}/>*/}
-                {/*        </div>*/}
-                {/*        <div className="col-7">*/}
-                {/*            {selectedStream && <BreakComponent selectedStream={selectedStream} selectedBreak={selectedBreak} requestedStreamsReload={requestedStreamsReload} requestStreamsReload={requestStreamsReload}/>}*/}
-                {/*        </div>*/}
-                {/*    </div>*/}
-                {/*</div>*/}
             </div>
         </main>
     )

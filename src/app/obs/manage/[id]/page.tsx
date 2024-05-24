@@ -2,7 +2,7 @@
 
 import {useEffect, useState} from "react";
 import {WebSocketUrlComponent} from "@/app/obs/manage/[id]/web_socket_url_component";
-import {useDemo} from "@/app/component/useDemo";
+import {useDemo} from "@/app/hooks/useDemo";
 import {useOSBWebhook} from "@/app/component/useOSBWebhook";
 import {ComponentLogger, ConsoleLogger} from "@/app/entity/logger";
 import {ConnectedComponent} from "@/app/obs/manage/[id]/connected_component";

@@ -11,25 +11,34 @@ interface Credentials {
 
 export function getEndpoints()  {
     return {
-        stream_get_all: "/api/streams",
+        channel_get: "/api/channel",
+        channel_get_all: "/api/channels",
+        channel_add: "/api/channel/add",
+        channel_delete: "/api/channel/delete",
+        channel_update: "/api/channel/update",
+        channel_by_stream: "/api/channel/by_stream",
+
+        stream_get_all: "/api/channel/streams",
         stream_add: "/api/stream/add",
         stream_delete: "/api/stream/delete",
         stream_get: "/api/stream",
         stream_breaks: "/api/stream/breaks",
         stream_usernames: "/api/stream/usernames",
         stream_demo: "/api/stream/demo",
+
         break_get: "/api/break",
         break_add: "/api/break/add",
         break_delete: "/api/break/delete",
         break_update: "/api/break/update",
         break_events: "/api/break/events",
+
         event_update: "/api/event/update",
         event_update_all: "/api/event/update_all",
         event_add: "/api/event/add",
         event_delete: "/api/event/delete",
         event_move: "/api/event/move",
-        demo_update: "/api/demo/update",
 
+        demo_update: "/api/demo/update",
     }
 }
 

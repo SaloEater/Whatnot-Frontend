@@ -1,0 +1,73 @@
+.dimmed-overlay {
+    border-radius: 35px;
+    z-index: 1000;
+}
+
+.font-small {
+    font-size: 10px;
+}
+
+.image {
+    height: 130%;
+}
+
+.max-height {
+    height: -webkit-fill-available;
+    height: 100%;
+    max-height: 100%;
+}
+
+.max-width {
+    width: 100%;
+    max-width: 100%;
+}
+
+.dynamic-text {
+    font-size: calc(1.1vh);
+}
+
+.container, .row, .col {
+    padding: 0;
+    margin: 0;
+}
+
+.height-with-image {
+    height: 100%;
+}
+
+.customer-text {
+    font-size: 1.5em;
+    color: black;
+    min-width: 10em;
+}
+
+.bg-high-bid {
+    background-color: #72668a;
+}
+
+.bg-empty {
+    background-color: #fff6f1;
+}
+
+.bg-giveaway {
+    background-color: #114538;
+}
+
+.dimmed-overlay {
+    background-color: rgba(0, 0, 0, 0);
+    z-index: 1000;
+}
+
+.customer-border {
+    border: 1px #9b9b9b dashed;
+    border-radius: 10px;
+    padding: 3px;
+}
+
+.teams-item-bg {
+    background-color: #1d3f58;
+}
+
+.teams-customer {
+    color: #eef3f9
+}

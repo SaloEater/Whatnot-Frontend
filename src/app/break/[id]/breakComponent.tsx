@@ -4,7 +4,7 @@ import React, {createRef, Dispatch, SetStateAction, useEffect, useRef, useState}
 import {getEndpoints, post} from "@/app/lib/backend";
 import {
     Day,
-    Break,
+    WNBreak,
     Event,
     SelectedBreak,
     GetStreamUsernamesResponse,
@@ -35,7 +35,7 @@ const SortIndexDesc = 1
 const SortTeamFirst = 2
 
 interface BreakComponentProps {
-    breakObject: Break
+    breakObject: WNBreak
 }
 
 export const BreakComponent: React.FC<BreakComponentProps> = (params) => {

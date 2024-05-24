@@ -4,14 +4,14 @@ import {BreakComponent} from "@/app/break/[id]/breakComponent";
 import {TuiDateTimePicker} from "nextjs-tui-date-picker";
 import moment from "moment/moment";
 import React, {useEffect, useState} from "react";
-import {Break} from "@/app/entity/entities";
+import {WNBreak} from "@/app/entity/entities";
 import {getEndpoints, post} from "@/app/lib/backend";
 import {useRouter} from "next/navigation";
 import {Teams} from "@/app/common/teams";
 
 export default function Page({params} : {params: {id: string}}) {
     const breakId = parseInt(params.id)
-    const [breakObject, setBreakObject] = useState<Break|null>(null);
+    const [breakObject, setBreakObject] = useState<WNBreak|null>(null);
     const [newName, setNewName] = useState("")
 
     const dateTimeFormat = "YYYY-MM-dd hh:mm a"
@@ -21,13 +21,13 @@ export default function Page({params} : {params: {id: string}}) {
             id: breakId
         }
         post(getEndpoints().break_get, body)
-            .then((breakData: Break) => {
+            .then((breakData: WNBreak) => {
                 setBreakObject(breakData)
                 setNewName(breakData.name)
             })
     }, [])
 
-    function setNewBreakObject(newBreak: Break) {
+    function setNewBreakObject(newBreak: WNBreak) {
         let body = {
             id: newBreak.id,
             name: newBreak.name,

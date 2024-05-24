@@ -3,14 +3,14 @@
 import React, {useEffect, useState} from "react";
 import {Teams} from "@/app/common/teams";
 import {get, getEndpoints, post} from "@/app/lib/backend";
-import {Event, Break, GetStreamsResponse, AddBreakResponse, GiveawayTypeNone} from "@/app/entity/entities";
+import {Event, WNBreak, GetStreamsResponse, AddBreakResponse, GiveawayTypeNone} from "@/app/entity/entities";
 import {useRouter} from "next/navigation";
 import {sortByIndex} from "@/app/common/event_filter";
 import {sortBreaksById} from "@/app/common/breaks";
 
 export default function Page({params} : {params: {id: string}}) {
     let streamId = parseInt(params.id)
-    const [breaks, setBreaks] = useState<Break[]>([])
+    const [breaks, setBreaks] = useState<WNBreak[]>([])
     const [newBreakName, setNewBreakName] = useState("")
     const [newBreaksAmount, setNewBreaksAmount] = useState(1)
     let router = useRouter()
@@ -20,7 +20,7 @@ export default function Page({params} : {params: {id: string}}) {
             id: streamId
         }
         post(getEndpoints().stream_breaks, body)
-            .then((breaks: Break[]) => {
+            .then((breaks: WNBreak[]) => {
                 setBreaks(sortBreaksById(breaks))
             })
     }, []);
@@ -32,7 +32,7 @@ export default function Page({params} : {params: {id: string}}) {
         }
 
         let date = (new Date()).toISOString()
-        let body: Break = {
+        let body: WNBreak = {
             id: 0,
             day_id: streamId,
             name: nextName,
@@ -72,7 +72,7 @@ export default function Page({params} : {params: {id: string}}) {
             })
     }
 
-    function addBreak(newBreak: Break) {
+    function addBreak(newBreak: WNBreak) {
         setBreaks((old) => {
             let newBreaks = [...old]
             newBreaks.push(newBreak)

@@ -32,7 +32,7 @@ export interface PackageEvent extends Event {
     is_high_bid: boolean
 }
 
-export interface Break {
+export interface WNBreak {
     id: number
     day_id: number
     name: string
@@ -53,8 +53,17 @@ export interface GetStreamsResponse {
     streams: GetStreamsStream[]
 }
 
+export interface GetChannelsChannel {
+    id: number
+    name: string
+}
+
+export interface GetChannelsResponse {
+    channels: GetChannelsChannel[]
+}
+
 export interface GetBreaksByDayResponse {
-    breaks: Break[]
+    breaks: WNBreak[]
 }
 
 export type SelectedBreak = string
@@ -71,6 +80,11 @@ export interface Demo {
     id: number
     highlight_username: string
     break_id: number
+}
+
+export interface WNChannel {
+    id: number
+    name: string
 }
 
 export interface GetStreamUsernamesResponse {
