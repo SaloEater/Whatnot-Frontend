@@ -88,7 +88,7 @@ export const ManageTeamComponent: FC<ManageTeamProps> = (props) => {
             {
                 props.event?.customer == ''
                     ? isAdvancedAnimationSet() && <button className='btn btn-primary' disabled={animated} onClick={_ => {
-                        playAdvancedAnimation
+                        playAdvancedAnimation()
                         setHighlight(false)
                         }}>
                     Advanced
