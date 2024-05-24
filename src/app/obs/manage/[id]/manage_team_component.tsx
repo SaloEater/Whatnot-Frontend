@@ -69,19 +69,19 @@ export const ManageTeamComponent: FC<ManageTeamProps> = (props) => {
                 <span>
                     <Image src={getTeamImageSrc(props.animation.team)} alt={props.animation.team} height="30" width="30"/>
                 </span>
-                {props.animation.team.split(' ').slice(-1)}
+                <span onClick={_ => setHighlight(true)}>{props.animation.team.split(' ').slice(-1)}</span>
             </div>
-            <div style={{
-                    width: 50,
-                    height: 50
-            }} className='d-flex align-items-center justify-content-center' onClick={_ => setHighlight(old => !old)}>
+            {highlight && <div style={{
+                width: 50,
+                height: 50
+            }} className='d-flex align-items-center justify-content-center' onClick={_ => setHighlight(false)}>
                 <div style={{
                     width: 35,
                     height: 35,
                     borderRadius: '50%',
-                    backgroundColor: highlight ? '#30ff00' : 'gray',
+                    backgroundColor: '#30ff00',
                 }}/>
-            </div>
+            </div>}
         </div>
         <div className='fs-5 text-green'>{animated ? 'Animated!' : ''}</div>
         <div className='d-flex gap-2'>
