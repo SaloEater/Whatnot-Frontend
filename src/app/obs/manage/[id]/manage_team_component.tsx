@@ -29,6 +29,7 @@ function getTeamImageSrc(team: string) {
 
 export const ManageTeamComponent: FC<ManageTeamProps> = (props) => {
     const [animated, setAnimated] = useState(false)
+    const [highlight, setHighlight] = useState(false)
 
     useEffect(() => {
         if (animated) {
@@ -63,16 +64,35 @@ export const ManageTeamComponent: FC<ManageTeamProps> = (props) => {
     }
 
     return <div className='border border-1 p-2 w-50p overflow-hidden w-100p h-100p'>
-        <span>
-            <Image src={getTeamImageSrc(props.animation.team)} alt={props.animation.team} height="30" width="30"/>
-        </span>
-        {props.animation.team.split(' ').slice(-1)}
+        <div className='d-flex align-items-center gap-2'>
+            <div>
+                <span>
+                    <Image src={getTeamImageSrc(props.animation.team)} alt={props.animation.team} height="30" width="30"/>
+                </span>
+                {props.animation.team.split(' ').slice(-1)}
+            </div>
+            <div style={{
+                    width: 20,
+                    height: 20
+            }} className='d-flex align-items-center justify-content-center' onClick={_ => setHighlight(old => !old)}>
+                <div style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: '50%',
+                    backgroundColor: highlight ? '#30ff00' : 'gray',
+                }}/>
+            </div>
+        </div>
         <div className='fs-5 text-green'>{animated ? 'Animated!' : ''}</div>
         <div className='d-flex gap-2'>
             {
                 props.event?.customer == ''
-                    ? isAdvancedAnimationSet() && <button className='btn btn-primary' disabled={animated} onClick={playAdvancedAnimation}>Advanced</button>
-                    : <div className='text-red'>Team is taken</div>
+                    ? isAdvancedAnimationSet() && <button className='btn btn-primary' disabled={animated} onClick={_ => {
+                        playAdvancedAnimation
+                        setHighlight(false)
+                        }}>
+                    Advanced
+                    </button> : <div className='text-red'>Team is taken</div>
             }
         </div>
     </div>
