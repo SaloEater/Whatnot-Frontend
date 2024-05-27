@@ -41,6 +41,7 @@ export interface WNBreak {
     is_deleted: boolean
     high_bid_team: string
     giveaway_team: string
+    high_bid_floor: number
 }
 
 export interface GetStreamsStream {

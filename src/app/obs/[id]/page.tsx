@@ -6,7 +6,7 @@ import {getEndpoints, post} from "@/app/lib/backend";
 import {GetEventsByBreakResponse, Event, NoCustomer, Demo, NoDemoBreak, WNBreak} from "@/app/entity/entities";
 import {filterOnlyTeams} from "@/app/common/event_filter";
 import {EventComponent} from "@/app/obs/[id]/eventComponent";
-import HighBidComponent from "@/app/obs/[id]/highBidComponent";
+import {HighBidComponent} from "@/app/obs/[id]/highBidComponent";
 import {HighBidTeamComponent} from "@/app/obs/[id]/highBidTeamComponent";
 import {useDemo} from "@/app/hooks/useDemo";
 
@@ -155,7 +155,7 @@ export default function Page({params}: {params: {id: string}}) {
             </div>
             <div className='d-flex flex-column align-items-center'>
                 {demo && <HighBidTeamComponent highBigTeam={highBidTeam}/>}
-                <HighBidComponent _events={teamEvents}/>
+                <HighBidComponent events={teamEvents} highBidFloor={breakObject?.high_bid_floor ?? 0}/>
             </div>
             <img className='overlay' src='/images/mount_golden.png'/>
         </div>

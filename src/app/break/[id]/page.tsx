@@ -28,13 +28,16 @@ export default function Page({params} : {params: {id: string}}) {
     }, [])
 
     function setNewBreakObject(newBreak: WNBreak) {
-        let body = {
+        let body: WNBreak = {
             id: newBreak.id,
+            is_deleted: newBreak.is_deleted,
+            day_id: newBreak.day_id,
             name: newBreak.name,
             start_date: newBreak.start_date,
             end_date: newBreak.end_date,
             high_bid_team: newBreak.high_bid_team,
-            giveaway_team: newBreak.giveaway_team
+            giveaway_team: newBreak.giveaway_team,
+            high_bid_floor: newBreak.high_bid_floor
         }
         return post(getEndpoints().break_update, body)
             .then(response => {
@@ -96,6 +99,15 @@ export default function Page({params} : {params: {id: string}}) {
         }
         let newO = {...breakObject}
         newO.giveaway_team = team
+        setNewBreakObject(newO)
+    }
+
+    function updateHighBidFloor(floor: number) {
+        if (!breakObject) {
+            return
+        }
+        let newO = {...breakObject}
+        newO.high_bid_floor = floor
         setNewBreakObject(newO)
     }
 
@@ -166,7 +178,7 @@ export default function Page({params} : {params: {id: string}}) {
                         </div>
                     </div>
                 </div>
-                <BreakComponent breakObject={breakObject}/>
+                <BreakComponent breakObject={breakObject} updateHighBidFloor={updateHighBidFloor}/>
             </div>
         }
     </div>

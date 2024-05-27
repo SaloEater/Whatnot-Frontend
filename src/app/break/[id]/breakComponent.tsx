@@ -36,6 +36,7 @@ const SortTeamFirst = 2
 
 interface BreakComponentProps {
     breakObject: WNBreak
+    updateHighBidFloor: (value: number) => void
 }
 
 export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
@@ -466,7 +467,7 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
                 <ToolsComponent params={{events: events, swapTeams: swapTeams}}/>
             </div>
             <div className='w-15p'>
-                <ToolsTabComponent events={events} changeIndex={moveEvent} streamId={params.breakObject.day_id} breakId={params.breakObject.id} highBidTeam={params.breakObject.high_bid_team} giveawayTeam={params.breakObject.giveaway_team}/>
+                <ToolsTabComponent events={events} changeIndex={moveEvent} streamId={params.breakObject.day_id} breakO={params.breakObject} highBidTeam={params.breakObject.high_bid_team} giveawayTeam={params.breakObject.giveaway_team} updateHighBidFloor={params.updateHighBidFloor}/>
             </div>
     </div>
 }
