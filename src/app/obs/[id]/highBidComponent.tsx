@@ -7,7 +7,7 @@ export default function HighBidComponent({_events}) {
     let events: Event[] = _events
     let highestAmount = getEventWithHighestPrice(events)
     return <div className='hb-container p-2'>
-        {(highestAmount?.price ?? 0) >= 40 && <span className='bigboz-font'>
+        {(highestAmount?.price ?? 0) >= 20 && <span className='bigboz-font'>
             High Bid: ${highestAmount?.price ?? 0}
         </span>}
     </div>
