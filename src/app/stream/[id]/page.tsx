@@ -33,6 +33,7 @@ export default function Page({params} : {params: {id: string}}) {
 
         let date = (new Date()).toISOString()
         let body: WNBreak = {
+            high_bid_floor: 0,
             id: 0,
             day_id: streamId,
             name: nextName,
