@@ -54,9 +54,7 @@ export interface GetStreamsResponse {
     streams: GetStreamsStream[]
 }
 
-export interface GetChannelsChannel {
-    id: number
-    name: string
+export interface GetChannelsChannel extends WNChannel {
 }
 
 export interface GetChannelsResponse {
@@ -86,6 +84,7 @@ export interface Demo {
 export interface WNChannel {
     id: number
     name: string
+    demo_id: number|null
 }
 
 export interface GetStreamUsernamesResponse {

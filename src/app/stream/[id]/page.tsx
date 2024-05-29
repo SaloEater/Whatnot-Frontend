@@ -93,14 +93,6 @@ export default function Page({params} : {params: {id: string}}) {
         router.push(`/break/${id}`)
     }
 
-    function redirectToDemo() {
-        router.push(`/demo/${streamId}`)
-    }
-
-    function redirectToOBS() {
-        router.push(`/obs/${streamId}`)
-    }
-
     async function addBreaks() {
         let amount = newBreaksAmount
         setNewBreaksAmount(0)
@@ -109,15 +101,8 @@ export default function Page({params} : {params: {id: string}}) {
         }
     }
 
-    function redirectToOBSManage() {
-        router.push(`/obs/manage/${streamId}`)
-    }
-
     return (
         <main>
-            <button type='button' className='btn btn-primary' onClick={redirectToDemo}>Demo</button>
-            <button type='button' className='btn btn-primary' onClick={redirectToOBS}>OBS</button>
-            <button type='button' className='btn btn-primary' onClick={redirectToOBSManage}>Manage OBS</button>
             <div className="d-flex justify-content-center">
                 <div className='pe-3'>
                     <button type="button" className="btn btn-primary" onClick={

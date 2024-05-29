@@ -3,22 +3,37 @@
 import './page.css'
 import {useCallback, useEffect, useRef, useState} from "react";
 import {getEndpoints, post} from "@/app/lib/backend";
-import {GetEventsByBreakResponse, Event, NoCustomer, Demo, NoDemoBreak, WNBreak} from "@/app/entity/entities";
+import {
+    GetEventsByBreakResponse,
+    Event,
+    NoCustomer,
+    Demo,
+    NoDemoBreak,
+    WNBreak,
+    WNChannel
+} from "@/app/entity/entities";
 import {filterOnlyTeams} from "@/app/common/event_filter";
 import {EventComponent} from "@/app/obs/[id]/eventComponent";
 import {HighBidComponent} from "@/app/obs/[id]/highBidComponent";
 import {HighBidTeamComponent} from "@/app/obs/[id]/highBidTeamComponent";
-import {useDemo} from "@/app/hooks/useDemo";
+import {useChannel} from "@/app/hooks/useChannel";
+import {useDemoById} from "@/app/hooks/useDemoById";
 
 export default function Page({params}: {params: {id: string}}) {
-    const streamId = parseInt(params.id)
+    const channelId = parseInt(params.id)
+    const channel = useChannel(channelId, 30000)
+    const [demoId, setDemoId] = useState<number|null>(null)
+    const demo = useDemoById(demoId)
     const [teamEvents, setTeamsCards] = useState<Event[]>([])
     const [breakObject, setBreakObject] = useState<WNBreak|null>(null);
-    const demo = useDemo(streamId)
-    const demoRef = useRef<Demo|null>(null)
     const [highBidTeam, setHighBidTeam] = useState('')
     const [giveawayTeam, setGiveawayTeam] = useState('')
-    const [giveawayTeamTaken, setGiveawayTeamTaken] = useState(false)
+
+    useEffect(() => {
+        if (channel) {
+            setDemoId(channel.demo_id)
+        }
+    }, [channel]);
 
     useEffect(() => {
         if (breakObject) {
@@ -27,14 +42,13 @@ export default function Page({params}: {params: {id: string}}) {
         }
     }, [breakObject]);
 
-    function refreshBreak() {
-        let demoO = demoRef.current
-        if (!demoO) {
+    function refreshBreak(demo: Demo|null) {
+        if (!demo) {
             return
         }
 
         const body = {
-            id: demoO.break_id
+            id: demo.break_id
         }
         post(getEndpoints().break_get, body)
             .then((breakData: WNBreak) => {
@@ -43,31 +57,30 @@ export default function Page({params}: {params: {id: string}}) {
     }
 
     useEffect(() => {
-        refreshEvents()
-        refreshBreak()
-        demoRef.current = demo
+        refreshEvents(demo)
+        refreshBreak(demo)
+
+        let idEvents = setInterval(() => {
+            refreshEvents(demo)
+        }, 5000)
+        let idBreak = setInterval(() => {
+            refreshBreak(demo)
+        }, 30000)
+
+        return () => {
+            clearInterval(idEvents)
+            clearInterval(idBreak)
+        }
+
     }, [demo]);
 
-    useEffect(() => {
-        setGiveawayTeamTaken(teamEvents.find(i => i.team == giveawayTeam && i.customer != '') !== undefined)
-    }, [teamEvents]);
-
-    useEffect(() => {
-        setInterval(() => {
-            refreshEvents()
-        }, 5000)
-        setInterval(() => {
-            refreshBreak()
-        }, 30000)
-    }, []);
-
-    function refreshEvents() {
-        if (!demoRef.current || demoRef.current.break_id == NoDemoBreak) {
+    function refreshEvents(demo: Demo|null) {
+        if (!demo || demo.break_id == NoDemoBreak) {
             return
         }
 
         let body = {
-            break_id: demoRef.current.break_id
+            break_id: demo.break_id
         }
         post(getEndpoints().break_events, body)
             .then((events: GetEventsByBreakResponse) => {
@@ -154,7 +167,7 @@ export default function Page({params}: {params: {id: string}}) {
                 <div>BREAKS</div>
             </div>
             <div className='d-flex flex-column align-items-center'>
-                {demo && <HighBidTeamComponent highBigTeam={highBidTeam}/>}
+                <HighBidTeamComponent highBigTeam={highBidTeam}/>
                 <HighBidComponent events={teamEvents} highBidFloor={breakObject?.high_bid_floor ?? 0}/>
             </div>
             <img className='overlay' src='/images/mount_golden.png'/>

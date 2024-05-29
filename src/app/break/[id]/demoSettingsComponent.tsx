@@ -13,6 +13,7 @@ export default function DemoSettingsComponent({params}: {params: {
 }}) {
     const demo = useDemo(params.streamId)
     const [highlightUsername, setHighlightUsername] = useState('')
+    const [isSetting, setIsSetting] = useState(false)
 
     useEffect(() => {
         if (demo) {
@@ -31,11 +32,14 @@ export default function DemoSettingsComponent({params}: {params: {
         }
         let body: Demo  = {...demo}
         body.break_id = params.breakId
+        setIsSetting(true)
         post(getEndpoints().demo_update, body)
             .then((response: Demo) => {
                 if (demo) {
                     demo.break_id = params.breakId
                 }
+            }).finally(() => {
+                setIsSetting(false)
             })
     }
 
@@ -67,7 +71,7 @@ export default function DemoSettingsComponent({params}: {params: {
                 </div>}
                 {demo.break_id != params.breakId && <div className='d-flex bg-danger align-items-center'>
                     <div className='w-75p'>Different break is shown</div>
-                    <button type='button' className='w-25p btn btn-primary' onClick={setCurrentBreak}>Set</button>
+                    <button type='button' className='w-25p btn btn-primary' disabled={isSetting} onClick={setCurrentBreak}>Set</button>
                 </div>}
             </div>
             {

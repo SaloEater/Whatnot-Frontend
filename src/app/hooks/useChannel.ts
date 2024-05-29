@@ -1,20 +1,35 @@
-import {useEffect, useState} from "react";
+import {useEffect, useMemo, useState} from "react";
 import {Demo, GetChannelsChannel, WNChannel} from "@/app/entity/entities";
 import {getEndpoints, post} from "@/app/lib/backend";
 
-export function useChannel(streamId: number) {
-    const [channel, setChannel] = useState<WNChannel|null>(null)
+export const NoInterval = -1
 
-    useEffect(() => {
+export function useChannel(streamId: number, interval = NoInterval) {
+    const [channel, setChannel] = useState<WNChannel|null>(null)
+    const [id, setId] = useState<NodeJS.Timeout|null>(null)
+
+    function fetchChannel() {
         let eventsBody = {
             id: streamId
         };
 
-        post(getEndpoints().channel_get, eventsBody)
-            .then((response: GetChannelsChannel) => {
-                setChannel(response)
-            })
-    }, []);
+        post(getEndpoints().channel_get, eventsBody).then((response: GetChannelsChannel) => setChannel(response))
+    }
+
+    useEffect(() => {
+        fetchChannel()
+
+        if (id) {
+            clearInterval(id)
+            setId(null)
+        }
+
+        if (interval != NoInterval) {
+            setId(setInterval(() => {
+                fetchChannel()
+            }, interval))
+        }
+    }, [streamId]);
 
     return channel
 }

@@ -244,7 +244,7 @@ export const TeamsComponent: FC<TeamsProps> = (props) => {
             },
             {
                 name: 'Stream',
-                node: <ManageComponent logger={props.logger} obs={props.obs} scene={obsScene} animations={animations} streamId={props.streamId} />
+                node: <ManageComponent logger={props.logger} obs={props.obs} scene={obsScene} animations={animations} channelId={props.streamId} />
             }
         ]}/>}
     </div>

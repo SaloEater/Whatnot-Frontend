@@ -11,10 +11,14 @@ import EventComponent from "@/app/demo/[id]/eventComponent";
 import Image from "next/image";
 import {filterOnlyEmptyTeams, filterOnlyTakenTeams, getEventWithHighestPrice} from "@/app/common/event_filter";
 import {useDemo} from "@/app/hooks/useDemo";
+import {useChannel} from "@/app/hooks/useChannel";
+import {useDemoById} from "@/app/hooks/useDemoById";
 
 export default function Page({params} : {params: {id: string}}) {
-    const streamId = parseInt(params.id)
-    const demo = useDemo(streamId)
+    const channelId = parseInt(params.id)
+    const channel = useChannel(channelId)
+    const [demoId, setDemoId] = useState<number|null>(null)
+    const demo = useDemoById(demoId)
     const [breakObject, setBreakObject] = useState<WNBreak|null>(null)
     const [events, setEvents] = useState<Event[]>([])
     const [giveaways, setGiveaways] = useState<Event[]>([])
@@ -22,12 +26,18 @@ export default function Page({params} : {params: {id: string}}) {
     const demoRef = useRef<Demo|null>(null)
     const [infoShown, setInfoShown] = useState(true)
 
-    function refreshBreakObject() {
-        if (!demoRef || !demoRef.current) {
+    useEffect(() => {
+        if (channel) {
+            setDemoId(channel.demo_id)
+        }
+    }, [channel]);
+
+    function refreshBreakObject(demo: Demo|null) {
+        if (!demo) {
             return
         }
         let body = {
-            id: demoRef.current.break_id
+            id: demo.break_id
         }
         post(getEndpoints().break_get, body)
             .then((breakO: WNBreak) => {
@@ -36,35 +46,24 @@ export default function Page({params} : {params: {id: string}}) {
     }
 
     useEffect(() => {
-        setInterval(() => {
-            refreshBreakObject()
+        refreshBreakObject(demo)
+        refreshEvents(demo)
+        let idBreak = setInterval(() => {
+            refreshBreakObject(demo)
+        }, 300000)
+        let idEvent = setInterval(() => {
+            refreshEvents(demo)
         }, 60000)
-    }, []);
-
-    useEffect(() => {
-        refreshBreakObject()
-        refreshEvents()
-        demoRef.current = demo
+        return () => {
+            clearInterval(idBreak)
+            clearInterval(idEvent)
+        }
     }, [demo]);
 
-    useEffect(() => {
-
-        setInterval(() => {
-            refreshEvents()
-        }, 5000)
-    }, []);
-
-    function demoIsSet() {
-        let demo = demoRef.current
-        return demo && demo.break_id;
-    }
-
-    function refreshEvents() {
-        if (!demoIsSet()) {
+    function refreshEvents(demo: Demo|null) {
+        if (!demo) {
             return
         }
-        let demo = demoRef.current
-
         let eventsBody = { //@ts-ignore
             break_id: demo.break_id
         };
@@ -133,7 +132,7 @@ export default function Page({params} : {params: {id: string}}) {
         <div className='main'>
             <div className='w-100 h-100 dimmed-bg p-1'>
                 {
-                     demoIsSet() ? <div className='w-100 h-100'>
+                     demo ? <div className='w-100 h-100'>
                         <Image className='position-absolute top-0 start-0 bg-img' src='/images/full_screen.png' alt={'fullscreen'} onClick={launchFullScreen} width='50' height='50'/>
                         <div className='max-height overflow-hidden d-flex justify-content-center my-flex gap-2 teams-container'>
                             <div className='demo-container white-overlay minw'>
@@ -146,16 +145,6 @@ export default function Page({params} : {params: {id: string}}) {
                 }
                 {
                     infoShown && <div className='d-flex flex-column align-items-center justify-content-center gap-2 position-absolute end-0 top-0 h-100 w-25p'>
-                        {/*{*/}
-                        {/*    giveaways.length > 0 && <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center w-75p'>*/}
-                        {/*        <div className='fs-2 text-black'>*/}
-                        {/*            Giveaway Winners:*/}
-                        {/*        </div>*/}
-                        {/*        {*/}
-                        {/*            giveaways.map((e, j) => <div className={`fs-4 text-black giveaway-winner w-95p d-flex justify-content-center overflow-hidden`} key={e.id}>{e.customer}</div>)*/}
-                        {/*        }*/}
-                        {/*    </div>*/}
-                        {/*}*/}
                         {
                             <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center w-75p fs-2 text-black'>
                                 Teams

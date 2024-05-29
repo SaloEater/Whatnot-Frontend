@@ -39,6 +39,7 @@ export function getEndpoints()  {
         event_move: "/api/event/move",
 
         demo_update: "/api/demo/update",
+        demo_get: "/api/demo"
     }
 }
 

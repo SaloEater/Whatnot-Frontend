@@ -1,11 +1,11 @@
 'use client'
 
 import {get, getEndpoints, post} from "@/app/lib/backend";
-import {useEffect, useState} from "react";
+import React, {useEffect, useState} from "react";
 import moment from "moment/moment";
 import {TuiDateTimePicker} from "nextjs-tui-date-picker";
 import {useRouter} from "next/navigation";
-import {GetStreamsStream, GetStreamsResponse, GetChannelsChannel} from "@/app/entity/entities";
+import {GetStreamsStream, GetStreamsResponse, GetChannelsChannel, WNChannel} from "@/app/entity/entities";
 import {TextInputAction} from "@/app/component/textInputAction";
 import {useChannel} from "@/app/hooks/useChannel";
 
@@ -13,7 +13,7 @@ export default function Page({params}: {params: {id: string}}) {
     const channelId = parseInt(params.id)
     const channel = useChannel(channelId)
     const [streams, setStreams] = useState<GetStreamsStream[]>([]);
-    const [newName, setNewName] = useState("")
+    const [newName, setNewName] = useState<string>("")
 
     useEffect(() => {
         if (channel) {
@@ -49,8 +49,30 @@ export default function Page({params}: {params: {id: string}}) {
         })
     }
 
+    function redirectToDemo() {
+        router.push(`/demo/${channelId}`)
+    }
+
+    function redirectToOBS() {
+        router.push(`/obs/${channelId}`)
+    }
+
+    function redirectToOBSTeams() {
+        router.push(`/obs/teams/${channelId}`)
+    }
+
+    function redirectToOBSManage() {
+        router.push(`/obs/manage/${channelId}`)
+    }
+
     return (
         <main>
+            <div>
+                <button type='button' className='btn btn-primary' onClick={redirectToDemo}>Demo</button>
+                <button type='button' className='btn btn-primary' onClick={redirectToOBS}>OBS</button>
+                <button type='button' className='btn btn-primary' onClick={redirectToOBSTeams}>Teams</button>
+                <button type='button' className='btn btn-primary' onClick={redirectToOBSManage}>Manage OBS</button>
+            </div>
             <div className="d-flex justify-content-center">
                 <ul className="list-group">
                     <li className="list-group-item">

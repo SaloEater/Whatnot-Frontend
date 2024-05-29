@@ -86,13 +86,10 @@ export const ManageTeamComponent: FC<ManageTeamProps> = (props) => {
         <div className='fs-5 text-green'>{animated ? 'Animated!' : ''}</div>
         <div className='d-flex gap-2'>
             {
-                props.event?.customer == ''
-                    ? isAdvancedAnimationSet() && <button className='btn btn-primary' disabled={animated} onClick={_ => {
+                isAdvancedAnimationSet() && <button className='btn btn-primary' disabled={animated} onClick={_ => {
                         playAdvancedAnimation()
                         setHighlight(false)
-                        }}>
-                    Advanced
-                    </button> : <div className='text-red'>Team is taken</div>
+                }}>Advanced</button>
             }
         </div>
     </div>

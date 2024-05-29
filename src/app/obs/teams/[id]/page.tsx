@@ -4,26 +4,29 @@ import {createRef, Dispatch, SetStateAction, useCallback, useEffect, useRef, use
 import {getEndpoints, post} from "@/app/lib/backend";
 import {TuiDateTimePicker} from "nextjs-tui-date-picker";
 import moment, {max} from "moment";
-import {Day, WNBreak, Event, SelectedBreak, Demo} from "@/app/entity/entities";
+import {Day, WNBreak, Event, SelectedBreak, Demo, GetEventsByBreakResponse} from "@/app/entity/entities";
 import {useRouter} from "next/navigation";
 import './page.css'
 import Image from "next/image";
 import {filterOnlyEmptyTeams, filterOnlyTakenTeams, getEventWithHighestPrice} from "@/app/common/event_filter";
 import EventComponent from "@/app/obs/teams/[id]/eventComponent";
+import {useChannel} from "@/app/hooks/useChannel";
+import {useDemoById} from "@/app/hooks/useDemoById";
 
 export default function Page({params} : {params: {id: string}}) {
-    const streamId = parseInt(params.id)
-    const [demo, setDemo] = useState<Demo|null>(null)
+    const channelId = parseInt(params.id)
+    const channel = useChannel(channelId)
+    const [demoId, setDemoId] = useState<number|null>(null)
+    const demo = useDemoById(demoId)
     const [breakObject, setBreakObject] = useState<WNBreak|null>(null)
     const [events, setEvents] = useState<Event[]>([])
-    const demoRef = useRef<Demo|null>(null)
 
-    function refreshBreakObject() {
-        if (!demoRef || !demoRef.current) {
+    function refreshBreakObject(demo: Demo|null) {
+        if (!demo) {
             return
         }
         let body = {
-            id: demoRef.current.break_id
+            id: demo.break_id
         }
         post(getEndpoints().break_get, body)
             .then((breakO: WNBreak) => {
@@ -32,56 +35,36 @@ export default function Page({params} : {params: {id: string}}) {
     }
 
     useEffect(() => {
-        setInterval(() => {
-            refreshBreakObject()
+        refreshBreakObject(demo)
+        refreshEvents(demo)
+        let idBreak = setInterval(() => {
+            refreshBreakObject(demo)
+        }, 300000)
+        let idEvent = setInterval(() => {
+            refreshEvents(demo)
         }, 60000)
-    }, []);
-
-    const refreshDemo = useCallback(() => {
-        let eventsBody = {
-            stream_id: streamId
-        };
-
-        post(getEndpoints().stream_demo, eventsBody)
-            .then((response: Demo) => {
-                setDemo(response)
-            })
-    }, [params.id])
-
-    useEffect(() => {
-        refreshBreakObject()
-        refreshEvents()
-        demoRef.current = demo
+        return () => {
+            clearInterval(idBreak)
+            clearInterval(idEvent)
+        }
     }, [demo]);
 
     useEffect(() => {
-        refreshDemo()
+        if (channel) {
+            setDemoId(channel.demo_id)
+        }
+    }, [channel]);
 
-        setInterval(() => {
-            refreshEvents()
-        }, 5000)
-        setInterval(() => {
-            refreshDemo()
-        }, 1500)
-    }, []);
-
-    function demoIsSet() {
-        let demo = demoRef.current
-        return demo && demo.break_id;
-    }
-
-    function refreshEvents() {
-        if (!demoIsSet()) {
+    function refreshEvents(demo: Demo|null) {
+        if (!demo) {
             return
         }
-        let demo = demoRef.current
-
         let eventsBody = { //@ts-ignore
             break_id: demo.break_id
         };
 
         post(getEndpoints().break_events, eventsBody)
-            .then((events: {events: Event[]}) => {
+            .then((events: GetEventsByBreakResponse) => {
                 events.events.sort((a, b) => {
                     if (a.team > b.team) return 1
                     if (a.team < b.team) return -1
@@ -120,29 +103,11 @@ export default function Page({params} : {params: {id: string}}) {
         }
     }
 
-    function launchFullScreen() {
-        var elem = document.documentElement;
-        if (elem.requestFullscreen) {
-            elem.requestFullscreen();
-        } else { // @ts-ignore
-            if (elem.webkitRequestFullscreen) { // @ts-ignore
-                elem.webkitRequestFullscreen(); // @ts-ignore
-            }
-        }
-    }
-
-    function getLeftTeamsAmount() {
-        let actualEmptyTeams = filterOnlyEmptyTeams(events).length
-        events.filter(i => (i.team == breakObject?.giveaway_team || i.team == breakObject?.high_bid_team) && i.customer == '')
-            .forEach(i => actualEmptyTeams--)
-        return Math.max(actualEmptyTeams, 0)
-    }
-
     return (
         <div className='main'>
             <div className='w-100 h-100 dimmed-bg p-5'>
                 {
-                     demoIsSet() ? <div className='w-100 h-100'>
+                     demo ? <div className='w-100 h-100'>
                         <div className='max-height overflow-hidden d-flex justify-content-center my-flex gap-2 teams-container'>
                             <div className='demo-container teams-bg minw'>
                                 {items.length > 0 && items}

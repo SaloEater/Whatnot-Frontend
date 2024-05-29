@@ -12,26 +12,48 @@ import {
     TeamAnimations,
 } from "@/app/entity/entities";
 import {ManageTeamComponent} from "@/app/obs/manage/[id]/manage_team_component";
-import {useDemo} from "@/app/hooks/useDemo";
 import {getEndpoints, post} from "@/app/lib/backend";
 import {filterOnlyTeams} from "@/app/common/event_filter";
+import {useDemo} from "@/app/hooks/useDemo";
+import {useChannel} from "@/app/hooks/useChannel";
+import {useDemoById} from "@/app/hooks/useDemoById";
 
 interface ManageProps {
     obs: MyOBSWebsocket
     logger: Logger
     scene: ObsScene
     animations: TeamAnimations
-    streamId: number
+    channelId: number
 }
 
 export const ManageComponent: FC<ManageProps> = (props) => {
-    const demo = useDemo(props.streamId)
+    const channelId = props.channelId
+    const channel = useChannel(channelId)
+    const [demoId, setDemoId] = useState<number|null>(null)
+    const demo = useDemoById(demoId)
     const [teamEvents, setTeamEvents] = useState<Map<string, Event>>(new Map<string, Event>())
-    const [updateId, setUpdateId] = useState<NodeJS.Timeout|null>(null)
 
-    function getEvents(demoO: Demo) {
+    useEffect(() => {
+        if (channel) {
+            setDemoId(channel.demo_id)
+        }
+    }, [channel]);
+
+    useEffect(() => {
+        if (demo) {
+            getEvents(demo)
+            let idEvent = setInterval(() => {
+                getEvents(demo)
+            }, 60000)
+            return () => {
+                clearInterval(idEvent)
+            }
+        }
+    }, [demo]);
+
+    function getEvents(demo: Demo) {
         let body = {
-            break_id: demoO.break_id
+            break_id: demo.break_id
         }
         post(getEndpoints().break_events, body)
             .then((breakEvents: {events: Event[]}) => {
@@ -42,24 +64,6 @@ export const ManageComponent: FC<ManageProps> = (props) => {
                 setTeamEvents(newMap)
             })
     }
-
-    useEffect(() => {
-        if (!demo) {
-            return
-        }
-
-        getEvents(demo)
-
-        if (updateId) {
-            clearInterval(updateId)
-            setUpdateId(null)
-        }
-
-        let newId = setInterval(() => {
-            getEvents(demo)
-        }, 5000)
-        setUpdateId(newId)
-    }, [demo]);
 
     function initEvent(event: Event) {
         let body = {...event}
@@ -109,7 +113,7 @@ export const ManageComponent: FC<ManageProps> = (props) => {
     }
 
     return <div className='d-flex flex-wrap gap-2 w-100p'>
-        {props.animations.animations.map((i, j) => <div className='w-15p' key={j}>
+        {props.animations.animations.filter(i => teamEvents.get(i.team)?.customer == '').map((i, j) => <div className='w-15p' key={j}>
             <ManageTeamComponent animation={i} obs={props.obs} logger={props.logger} scene={props.scene} event={teamEvents.get(i.team)} initEvent={initEvent} animationScene={props.animations.sceneName}/>
         </div>)}
     </div>
