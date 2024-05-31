@@ -66,6 +66,10 @@
     height: 50%;
 }
 
+.h-95p {
+    height: 90%;
+}
+
 .h-75v {
     max-height: 75vh;
     overflow-y: auto;

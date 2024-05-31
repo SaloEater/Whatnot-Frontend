@@ -162,14 +162,21 @@ export default function Page({params}: {params: {id: string}}) {
 
     return <main className='teams-container grid-container team-bg p-5'>
         <div className="position-relative grid-middle-item logo h-100p">
-            <div className='bigboz-font big-font-size d-flex flex-column align-items-center justify-content-center'>
-                <div>MOUNT OLYMPUS</div>
-                <div>BREAKS</div>
-            </div>
-            <div className='d-flex flex-column align-items-center'>
-                <HighBidTeamComponent highBigTeam={highBidTeam}/>
-                <HighBidComponent events={teamEvents} highBidFloor={breakObject?.high_bid_floor ?? 0}/>
-            </div>
+            {
+                highBidTeam != "" ? <div className='d-flex flex-column align-items-center h-100p justify-content-center gap-2'>
+                    <div className='bigboz-font big-font-size hb-fontsize w-75p d-flex align-items-center justify-content-center'>
+                        <div>HIGH BID</div>
+                    </div>
+                    <div className='d-flex align-items-center justify-content-between w-75p'>
+                        <HighBidTeamComponent highBigTeam={highBidTeam}/>
+                        <HighBidComponent events={teamEvents} highBidFloor={breakObject?.high_bid_floor ?? 0}/>
+                    </div>
+                </div> : <div className='h-100p bigboz-font big-font-size d-flex flex-column align-items-center justify-content-center'>
+                    <div>MOUNT</div>
+                    <div>OLYMPUS</div>
+                    <div>BREAKS</div>
+                </div>
+            }
             <img className='overlay' src='/images/mount_golden.png'/>
         </div>
         {teamEvents.map(e => <EventComponent key={e.team} event={e} initEvent={initEvent} resetEvent={resetEvent} isGiveawayTeam={isGiveawayTeam(e)}/>)}

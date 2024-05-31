@@ -1,13 +1,29 @@
-.hb-container {
-}
-
 .hb-container > * {
-    font-size: 4vw;
-    line-height: 4vw;
+    font-size: 7.5vw;
+    line-height: 1;
     color: white;
     text-shadow:
-            -2px -2px 0 black,
-            2px -2px 0 black,
-            -2px  2px 0 black,
-            2px  2px 0 black;
+            -3px -3px 0 black,
+            3px -3px 0 black,
+            -3px  3px 0 black,
+            3px  3px 0 black;
+    /*border-bottom: 3px solid red; !* Adjust thickness as needed *!*/
+    padding: 3px;
+    vertical-align: middle; /* Vertically centers the text */
+}
+
+.hb-container {
+    background-color: rgba(0, 0, 0, 0.75);
+    border-radius: 25px;
+    border-width: 3px;
+    border-style: solid;
+    border-color: #FECB62;
+}
+.higbid-color {
+    border-bottom: 5px solid red;
+    /*text-shadow:*/
+    /*        -3px -3px 0 #c9000d,*/
+    /*        3px -3px 0 #c9000d,*/
+    /*        -3px  3px 0 #c9000d,*/
+    /*        3px  3px 0 #c9000d;*/
 }

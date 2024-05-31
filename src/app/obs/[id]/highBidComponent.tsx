@@ -18,9 +18,15 @@ export const HighBidComponent: FC<HighBidProps> = (props) => {
     }, [props.events]);
 
     let events: Event[] = props.events
-    return <div className='hb-container p-2'>
-        {highestAmount >= props.highBidFloor && props.highBidFloor != 0 && highestAmount != 0 && <span className='bigboz-font'>
-            High Bid: {highestAmount}
-        </span>}
-    </div>
+
+    function isHighBid() {
+        return highestAmount >= props.highBidFloor && props.highBidFloor != 0 && highestAmount != 0;
+    }
+
+    return isHighBid() ? <div className='hb-container p-2 h-100p d-flex align-items-center justify-content-center'>
+        <span className='bigboz-font'>
+            $<span className='higbid-color'>{highestAmount}</span>
+        </span>
+    </div> : <div></div>
+
 }

@@ -3,6 +3,7 @@ import {getEventWithHighestPrice} from "@/app/common/event_filter";
 import './highBidComponent.css'
 import {FC} from "react";
 import Image from "next/image";
+import "./highBidTeamComponent.css"
 
 interface HighBidTeamProps {
     highBigTeam: string,
@@ -14,10 +15,7 @@ export const HighBidTeamComponent: FC<HighBidTeamProps> = (props) => {
         return `/images/teams/${team}.webp`;
     }
 
-    return <div className='hb-container p-2'>
-        {props.highBigTeam != '' && <span className='bigboz-font'>
-            High Bid Team:
-            <Image src={getTeamImageSrc(props.highBigTeam)} alt={props.highBigTeam} height="75" width="75"/>
-        </span>}
+    return <div className='hbt-container'>
+        {props.highBigTeam != '' && <Image src={getTeamImageSrc(props.highBigTeam)} alt={props.highBigTeam} height="175" width="175"/>}
     </div>
 }
