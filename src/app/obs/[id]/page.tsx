@@ -12,7 +12,7 @@ import {
     WNBreak,
     WNChannel
 } from "@/app/entity/entities";
-import {filterOnlyTeams} from "@/app/common/event_filter";
+import {filterOnlyTeams, getEventWithHighestPrice} from "@/app/common/event_filter";
 import {EventComponent} from "@/app/obs/[id]/eventComponent";
 import {HighBidComponent} from "@/app/obs/[id]/highBidComponent";
 import {HighBidTeamComponent} from "@/app/obs/[id]/highBidTeamComponent";
@@ -28,6 +28,8 @@ export default function Page({params}: {params: {id: string}}) {
     const [breakObject, setBreakObject] = useState<WNBreak|null>(null);
     const [highBidTeam, setHighBidTeam] = useState('')
     const [giveawayTeam, setGiveawayTeam] = useState('')
+    const [highBid, setHighBid] = useState(0)
+    const [highBidFloor, setHighBidFloor] = useState(Number.MAX_SAFE_INTEGER)
 
     useEffect(() => {
         if (channel) {
@@ -36,9 +38,15 @@ export default function Page({params}: {params: {id: string}}) {
     }, [channel]);
 
     useEffect(() => {
+        let amount = getEventWithHighestPrice(teamEvents)?.price ?? 0
+        setHighBid(amount)
+    }, [teamEvents]);
+
+    useEffect(() => {
         if (breakObject) {
             setHighBidTeam(breakObject.high_bid_team)
             setGiveawayTeam(breakObject.giveaway_team)
+            setHighBidFloor(breakObject.high_bid_floor)
         }
     }, [breakObject]);
 
@@ -167,9 +175,9 @@ export default function Page({params}: {params: {id: string}}) {
                     <div className='bigboz-font big-font-size hb-fontsize w-75p d-flex align-items-center justify-content-center'>
                         <div>HIGH BID</div>
                     </div>
-                    <div className='d-flex align-items-center justify-content-between w-75p'>
+                    <div className={`d-flex align-items-center w-75p ${highBid >= highBidFloor ? 'justify-content-between' : 'justify-content-center'}`}>
                         <HighBidTeamComponent highBigTeam={highBidTeam}/>
-                        <HighBidComponent events={teamEvents} highBidFloor={breakObject?.high_bid_floor ?? 0}/>
+                        {highBid >= highBidFloor && <HighBidComponent highBid={highBid} />}
                     </div>
                 </div> : <div className='h-100p bigboz-font big-font-size d-flex flex-column align-items-center justify-content-center'>
                     <div>MOUNT</div>
