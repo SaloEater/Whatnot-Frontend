@@ -57,7 +57,7 @@ export const EventPlaceholdersTabsComponent: FC<EventPlaceholdersTabsProps> = (p
 
     function getGiveawayType(newEvent: WhatnotSoldEvent) {
         let name = newEvent.name === undefined ? '' : newEvent.name;
-        return (name.toLowerCase().indexOf('slb') == -1 || name.toLowerCase().indexOf('mag') == -1) ? GiveawayTypePack : GiveawayTypeSlab;
+        return (name.toLowerCase().indexOf('slb') !== -1 || name.toLowerCase().indexOf('mag') !== -1) ? GiveawayTypeSlab : GiveawayTypePack ;
     }
 
     useEffect(() => {
