@@ -49,7 +49,7 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
         break_id: 0, customer: "", id: 0, index: 0, is_giveaway: false, note: "", price: 0, quantity: 0, team: "", giveaway_type: GiveawayTypeNone,
     }
     const [eventPlaceholder, setEventPlaceholder] = useState<Event>({...emptyEvent})
-    const [sortDir, setSortDir] = useState<number|null>(null)
+    const [sortDir, setSortDir] = useState<number|null>(SortTeamFirst)
     const [usernames, setUsernames] = useState<string[]>([])
     const [newEvent, setNewEvent] = useState<Event|null>(null)
 
