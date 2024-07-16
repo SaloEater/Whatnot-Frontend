@@ -26,7 +26,7 @@ interface ToolsTabProps {
 }
 
 export const ToolsTabComponent: FC<ToolsTabProps> = (props) => {
-    const [selectedTabIndex, setSelectedTabIndex] = useState(0)
+    const [selectedTabIndex, setSelectedTabIndex] = useState(DemoIndex)
 
     function getUsernames() {
         return arrayUnique(onlyWithUsernames(props.events).map(i => i.customer));

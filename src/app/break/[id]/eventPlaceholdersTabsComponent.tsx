@@ -6,6 +6,7 @@ import {arrayUnique} from "@/app/common/helpers";
 import {onlyWithUsernames} from "@/app/common/event_filter";
 import {EventPlaceholdersComponent} from "@/app/break/[id]/eventPlaceholdersComponent";
 import {WhatnotSoldEventPlaceholdersComponent} from "@/app/break/[id]/whatnotSoldEventPlaceholdersComponent";
+import {getGiveawayType, isGiveaway} from "@/app/utils/whatnot_product";
 
 const Tabs = [
     'Events',
@@ -31,7 +32,7 @@ interface WhatnotSoldEvent {
 }
 
 export const EventPlaceholdersTabsComponent: FC<EventPlaceholdersTabsProps> = (props) => {
-    const [selectedTabIndex, setSelectedTabIndex] = useState(0)
+    const [selectedTabIndex, setSelectedTabIndex] = useState(WhatnotPlaceholdersIndex)
     const [newEvent, setNewEvent] = useState<WhatnotSoldEvent | null>(null)
     const [whatnotEvents, setWhatnotEvents] = useState<EventData[]>([])
     const [events, setEvents] = useState<Event[]>([])
@@ -50,20 +51,12 @@ export const EventPlaceholdersTabsComponent: FC<EventPlaceholdersTabsProps> = (p
 
     }, [props.length]);
 
-    function isGiveaway(newEvent: WhatnotSoldEvent) {
-        let name = newEvent.name === undefined ? '' : newEvent.name;
-        return name.toLowerCase().indexOf('giveaway') !== -1;
-    }
 
-    function getGiveawayType(newEvent: WhatnotSoldEvent) {
-        let name = newEvent.name === undefined ? '' : newEvent.name;
-        return (name.toLowerCase().indexOf('slb') !== -1 || name.toLowerCase().indexOf('mag') !== -1 || name.toLowerCase().indexOf('one touch') !== -1) ? GiveawayTypeSlab : GiveawayTypePack ;
-    }
 
     useEffect(() => {
         if (newEvent) {
-            if (isGiveaway(newEvent)) {
-                props.saveNewGiveawayCustomer(newEvent.customer, getGiveawayType(newEvent))
+            if (isGiveaway(newEvent.name)) {
+                props.saveNewGiveawayCustomer(newEvent.customer, getGiveawayType(newEvent.name))
             } else {
                 setWhatnotEvents((old) => {
                     let newE = [...old]

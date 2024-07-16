@@ -1,7 +1,7 @@
 'use client'
 
 import {useRouter, useSearchParams} from 'next/navigation'
-import React, {useEffect, useState} from "react";
+import React, {ChangeEventHandler, useEffect, useState} from "react";
 import {daysAreEqual} from "@/app/common/helpers";
 import {router} from "next/client";
 import "./page.css"
@@ -12,12 +12,14 @@ import {
     GetStreamsResponse,
     Event,
     GetEventsByBreakResponse,
-    PackageEvent, GiveawayTypeSlab
+    PackageEvent, GiveawayTypeSlab, ReportUser, ReportUserFailed, PackageUsersData, PackageUserData
 } from "@/app/entity/entities";
 import {get, getEndpoints, post} from "@/app/lib/backend";
 import {CustomerPackageComponent, IIndexable} from "@/app/package/[id]/customerPackage";
 import {TextInput} from "@/app/common/textInput";
 import {sortBreaksById} from "@/app/common/breaks";
+import Papa from "papaparse";
+import {getGiveawayType, isGiveaway} from "@/app/utils/whatnot_product";
 
 interface DaysData {
     days: Day[]
@@ -28,9 +30,92 @@ export default function Page({params} : {params: {id: string}}) {
     const [breakCustomers, setBreakCustomers] = useState(new Map<string, Map<string, PackageEvent[]>>())
     const [eventsCount, setEventsCount] = useState(0)
     const [highBidTeamCount, setHighBidTeamCount] = useState(0)
-    const [amountMap, setAmountMap] = useState<any|null>(null)
-    const [amountMapRaw, setAmountMapRaw] = useState('')
+    const [packageUsersData, setPackageUsersData] = useState<PackageUsersData|null>(null)
     const [giveawayAmount, setGiveawayAmount] = useState<Map<number, number>>(new Map<number, number>())
+    const [file, setFile] = useState<File|null>(null)
+    const [missingCustomers, setMissingCustomers] = useState<string[]>([])
+    const [nonExistingCustomers, setNonExistingCustomers] = useState<string[]>([])
+    const [amountDiff, setAmountDiff] = useState(0)
+    const [packageUsersDataLength, setPackageUsersDataLength] = useState(0)
+
+    useEffect(() => {
+        if (file) {
+            let parse = (data: ReportUser[]) => {
+                let map: PackageUsersData = {data: new Map<string, PackageUserData>()}
+                let packageUsersDataLength = 0
+                data.forEach(i => {
+                    if (i.cancelled_or_failed.toLowerCase() == ReportUserFailed) {
+                        return
+                    }
+                    packageUsersDataLength++
+                    let customer = i.buyer;
+                    if (!map.data.has(customer)) {
+                        map.data.set(customer, {
+                            giveawayQuantity: 0,
+                            giveawayTypes: new Map<number, number>(),
+                            totalQuantity: 0,
+                            auctionQuantity: 0,
+                        })
+                    }
+                    let customerData = map.data.get(customer) as PackageUserData
+                    let quantity = parseInt(i.product_quantity)
+                    customerData.totalQuantity += quantity
+                    let isGiveawayProduct = isGiveaway(i.product_name)
+                    if (isGiveawayProduct) {
+                        customerData.giveawayQuantity += quantity
+                        let type = getGiveawayType(i.product_name)
+                        if (!customerData.giveawayTypes.has(type)) {
+                            customerData.giveawayTypes.set(type, 0)
+                        }
+                        let typeQuantity = customerData.giveawayTypes.get(type) as number
+                        customerData.giveawayTypes.set(type, typeQuantity + quantity)
+                    } else {
+                        customerData.auctionQuantity += quantity
+                    }
+                })
+                setPackageUsersData(map)
+                setPackageUsersDataLength(packageUsersDataLength)
+            }
+
+            Papa.parse<ReportUser>(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function (results) {
+                    parse(results.data)
+                },
+                transformHeader(header: string, index: number): string {
+                    return header.trim().replaceAll(' ', '_')
+                }
+            });
+        }
+    }, [file]);
+
+    useEffect(() => {
+        if (packageUsersData) {
+            let missingCustomers: string[] = []
+            packageUsersData.data.forEach((value, key) => {
+                if (!breakCustomers.has(key)) {
+                    missingCustomers.push(key)
+                }
+            })
+            setMissingCustomers(missingCustomers)
+
+            let nonExistingCustomers: string[] = []
+            Array.from(breakCustomers.keys()).forEach(i => {
+                if (!packageUsersData.data.has(i)) {
+                    nonExistingCustomers.push(i)
+                }
+            })
+            setNonExistingCustomers(nonExistingCustomers)
+        }
+    }, [packageUsersData]);
+
+    useEffect(() => {
+        if (packageUsersData) {
+            let diff = packageUsersDataLength - (eventsCount - highBidTeamCount)
+            setAmountDiff(diff)
+        }
+    }, [missingCustomers, nonExistingCustomers])
 
     useEffect(() => {
         const fetchData = async () => {
@@ -85,37 +170,14 @@ export default function Page({params} : {params: {id: string}}) {
         fetchData();
     }, [])
 
-    function parseAmountMap() {
-        if (amountMapRaw == '') {
-            return
-        }
-        let raw = JSON.parse(amountMapRaw)
-        setAmountMap(raw)
-    }
-
-    let amount = 0
-    let amountDiff = 0
-    let missingCustomers: string[] = []
-    let nonExistingCustomers: string[] = []
-    if (amountMap) {
-        for (const [key, value] of Object.entries(amountMap)) {
-            amount += (value as number)
-            if (!breakCustomers.has(key)) {
-                missingCustomers.push(key)
-            }
-        }
-
-        Array.from(breakCustomers.keys()).forEach(i => {
-            if ((amountMap as IIndexable)[i] == undefined) {
-                nonExistingCustomers.push(i)
-            }
-        })
-
-        amountDiff = amount - (eventsCount - highBidTeamCount)
-    }
-
     function getGiveawayTypeFullName(type: number) {
         return type == GiveawayTypeSlab ? 'Slab' : 'Pack';
+    }
+
+    function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+        if (e.target.files) {
+            setFile(e.target.files[0])
+        }
     }
 
     return <div>
@@ -123,10 +185,10 @@ export default function Page({params} : {params: {id: string}}) {
             <div className='fs-1'>
                 Events:
                 {eventsCount}
-                {amountMap && <span className='text-primary'> {amount} </span>}
-                {amountMap && amountDiff > 0 ? <span className='text-danger'>Missing {amountDiff} events</span> : ''}
-                {amountMap && amountDiff < 0 ? <span className='text-danger'>Extra {amountDiff * -1} events</span> : ''}
-                {amountMap && amountDiff == 0 ? <span className='bg-green'>Correct</span> : ''}
+                {packageUsersData && <span><span className='text-primary'> {packageUsersDataLength} </span> (<span className='text-secondary'>{highBidTeamCount}</span>)</span>}
+                {packageUsersData && amountDiff > 0 ? <span className='text-danger'>Missing {amountDiff} events</span> : ''}
+                {packageUsersData && amountDiff < 0 ? <span className='text-danger'>Extra {amountDiff * -1} events</span> : ''}
+                {packageUsersData && amountDiff == 0 ? <span className='bg-green'>Correct</span> : ''}
             </div>
             <div>
                 Giveaways:
@@ -138,22 +200,14 @@ export default function Page({params} : {params: {id: string}}) {
                     })
                 }
             </div>
-            <div className='w-25p'>
-                <TextInput
-                    value={amountMapRaw}
-                    update={setAmountMapRaw}
-                    save={parseAmountMap}
-                    font_size={null}
-                    placeholder={'Enter amount data'}
-                    onClick={null}
-                    onBlur={null}
-                    disabled={false}
-                />
-            </div>{
-            missingCustomers.length > 0 && <div className='bg-danger'>
+            <div>
+                <input type="file" accept=".csv" onChange={e => handleFileUpload(e)}/>
+            </div>
+            {
+                missingCustomers.length > 0 && <div className='bg-danger'>
                     Missing these customers:
                     {missingCustomers.map(i => <div key={i}>
-                        {i} [{(amountMap as IIndexable)[i]}]
+                        {i} [{packageUsersData?.data.get(i)?.totalQuantity ?? 0}]
                     </div>)}
                 </div>
             }
@@ -178,7 +232,7 @@ export default function Page({params} : {params: {id: string}}) {
                     (customerInfo, i) => {
                         let customer = customerInfo[0]
                         let breaks = customerInfo[1]
-                        return <CustomerPackageComponent key={i} customer={customer} breaks={breaks} amountMap={amountMap}/>
+                        return <CustomerPackageComponent key={i} customer={customer} breaks={breaks} packageUserData={packageUsersData?.data.get(customer)}/>
                     }
                 )
             }

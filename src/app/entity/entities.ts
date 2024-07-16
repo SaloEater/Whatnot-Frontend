@@ -138,3 +138,23 @@ export const EmptyObsItem: ObsItem = {name: EmptyName, uuid: EmptyID}
 
 export interface ObsScene extends ObsItem{
 }
+
+export const ReportUserFailed = 'failed'
+
+export interface ReportUser {
+    buyer: string
+    product_name: string
+    product_quantity: string
+    cancelled_or_failed: string
+}
+
+export interface PackageUsersData {
+    data: Map<string, PackageUserData>
+}
+
+export interface PackageUserData {
+    totalQuantity: number
+    auctionQuantity: number
+    giveawayQuantity: number
+    giveawayTypes: Map<number, number>
+}
