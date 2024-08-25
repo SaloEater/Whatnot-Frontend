@@ -21,7 +21,7 @@ import {useDemoById} from "@/app/hooks/useDemoById";
 
 export default function Page({params}: {params: {id: string}}) {
     const channelId = parseInt(params.id)
-    const channel = useChannel(channelId, 30000)
+    const [channel, setChannel] = useChannel(channelId, 30000)
     const [demoId, setDemoId] = useState<number|null>(null)
     const demo = useDemoById(demoId)
     const [teamEvents, setTeamsCards] = useState<Event[]>([])

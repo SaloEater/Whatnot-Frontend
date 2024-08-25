@@ -15,7 +15,7 @@ import {useDemoById} from "@/app/hooks/useDemoById";
 
 export default function Page({params} : {params: {id: string}}) {
     const channelId = parseInt(params.id)
-    const channel = useChannel(channelId)
+    const [channel, setChannel] = useChannel(channelId)
     const [demoId, setDemoId] = useState<number|null>(null)
     const demo = useDemoById(demoId)
     const [breakObject, setBreakObject] = useState<WNBreak|null>(null)

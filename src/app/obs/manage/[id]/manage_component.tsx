@@ -28,7 +28,7 @@ interface ManageProps {
 
 export const ManageComponent: FC<ManageProps> = (props) => {
     const channelId = props.channelId
-    const channel = useChannel(channelId)
+    const [channel, setChannel] = useChannel(channelId)
     const [demoId, setDemoId] = useState<number|null>(null)
     const demo = useDemoById(demoId)
     const [teamEvents, setTeamEvents] = useState<Map<string, Event>>(new Map<string, Event>())
