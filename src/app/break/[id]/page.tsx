@@ -8,6 +8,7 @@ import {WNBreak} from "@/app/entity/entities";
 import {getEndpoints, post} from "@/app/lib/backend";
 import {useRouter} from "next/navigation";
 import {Teams} from "@/app/common/teams";
+import {BreakSwitchComponent} from "@/app/break/[id]/breakSwitchComponent";
 
 export default function Page({params} : {params: {id: string}}) {
     const breakId = parseInt(params.id)
@@ -114,68 +115,51 @@ export default function Page({params} : {params: {id: string}}) {
     return <div>
         {
             breakObject && <div>
-                <div className="d-flex align-items-end gap-2">
-                    <div>
+                <div className='d-flex justify-content-between'>
+                    <div className="d-flex align-items-end gap-2">
                         <div>
-                            Name
-                        </div>
-                        <input type="text" value={newName} onChange={e => changeNewName(e)} onKeyUp={e => {
-                            if (e.key === 'Enter') {
-                                updateNewName()
-                            }
-                        }} onBlur={updateNewName}/>
-                    </div>
-                    <div>
-                        Start Date
-                        <TuiDateTimePicker
-                            handleChange={async e => {
-                                let date = moment(e, dateTimeFormat.toUpperCase()).utc(false)
-                                const startDateUnix = date.toISOString()
-                                setBreakStartDate(startDateUnix)
-                            }}
-                            format={dateTimeFormat}
-                            date={new Date(breakObject.start_date)}
-                            inputWidth="auto"
-                        />
-                    </div>
-                    <div>
-                        End Date
-                        <TuiDateTimePicker
-                            handleChange={async e => {
-                                let date = moment(e, dateTimeFormat.toUpperCase()).utc(false)
-                                const endDateUnix = date.toISOString()
-                                setBreakEndDate(endDateUnix)
-                            }}
-                            format={dateTimeFormat}
-                            date={new Date(breakObject.end_date)}
-                            inputWidth="auto"
-                        />
-                    </div>
-                    <div>
-                        <div>High Bid Team:</div>
-                        <div className="dropdown">
-                            <button className="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton1" data-bs-auto-close="true" data-bs-toggle="dropdown" aria-expanded="false">
-                                {breakObject.high_bid_team == '' ? 'Select' : breakObject.high_bid_team}
-                            </button>
-                            <ul className="dropdown-menu cursor-pointer" aria-labelledby="dropdownMenuButton1">
-                                {
-                                    Teams.map(i => <li key={i} onClick={_ => updateHighBidTeam(i)} className={`dropdown-item ${breakObject.high_bid_team == i ? 'active' : ''}`}>{i}</li>)
+                            <div>
+                                Name
+                            </div>
+                            <input type="text" value={newName} onChange={e => changeNewName(e)} onKeyUp={e => {
+                                if (e.key === 'Enter') {
+                                    updateNewName()
                                 }
-                            </ul>
+                            }} onBlur={updateNewName}/>
+                        </div>
+                        <div>
+                            <div>High Bid Team:</div>
+                            <div className="dropdown">
+                                <button className="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton1"
+                                        data-bs-auto-close="true" data-bs-toggle="dropdown" aria-expanded="false">
+                                    {breakObject.high_bid_team == '' ? 'Select' : breakObject.high_bid_team}
+                                </button>
+                                <ul className="dropdown-menu cursor-pointer" aria-labelledby="dropdownMenuButton1">
+                                    {
+                                        Teams.map(i => <li key={i} onClick={_ => updateHighBidTeam(i)}
+                                                           className={`dropdown-item ${breakObject.high_bid_team == i ? 'active' : ''}`}>{i}</li>)
+                                    }
+                                </ul>
+                            </div>
+                        </div>
+                        <div>
+                            <div>Giveaway Team:</div>
+                            <div className="dropdown">
+                                <button className="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton1"
+                                        data-bs-auto-close="true" data-bs-toggle="dropdown" aria-expanded="false">
+                                    {breakObject.giveaway_team == '' ? 'Select' : breakObject.giveaway_team}
+                                </button>
+                                <ul className="dropdown-menu cursor-pointer" aria-labelledby="dropdownMenuButton1">
+                                    {
+                                        Teams.map(i => <li key={i} onClick={_ => updateGiveawayTeam(i)}
+                                                           className={`dropdown-item ${breakObject.giveaway_team == i ? 'active' : ''}`}>{i}</li>)
+                                    }
+                                </ul>
+                            </div>
                         </div>
                     </div>
                     <div>
-                        <div>Giveaway Team:</div>
-                        <div className="dropdown">
-                            <button className="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton1" data-bs-auto-close="true" data-bs-toggle="dropdown" aria-expanded="false">
-                                {breakObject.giveaway_team == '' ? 'Select' : breakObject.giveaway_team}
-                            </button>
-                            <ul className="dropdown-menu cursor-pointer" aria-labelledby="dropdownMenuButton1">
-                                {
-                                    Teams.map(i => <li key={i} onClick={_ => updateGiveawayTeam(i)} className={`dropdown-item ${breakObject.giveaway_team == i ? 'active' : ''}`}>{i}</li>)
-                                }
-                            </ul>
-                        </div>
+                        {breakObject && <BreakSwitchComponent currentBreak={breakObject}/>}
                     </div>
                 </div>
                 <BreakComponent breakObject={breakObject} updateHighBidFloor={updateHighBidFloor}/>

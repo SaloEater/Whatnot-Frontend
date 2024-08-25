@@ -1,10 +1,10 @@
-import {useEffect, useMemo, useState} from "react";
+import {Dispatch, SetStateAction, useEffect, useMemo, useState} from "react";
 import {Demo, GetChannelsChannel, WNChannel} from "@/app/entity/entities";
 import {getEndpoints, post} from "@/app/lib/backend";
 
 export const NoInterval = -1
 
-export function useChannel(streamId: number, interval = NoInterval) {
+export function useChannel(streamId: number, interval = NoInterval): [WNChannel|null, Dispatch<SetStateAction<WNChannel|null>>] {
     const [channel, setChannel] = useState<WNChannel|null>(null)
     const [id, setId] = useState<NodeJS.Timeout|null>(null)
 
@@ -31,5 +31,5 @@ export function useChannel(streamId: number, interval = NoInterval) {
         }
     }, [streamId]);
 
-    return channel
+    return [channel, setChannel]
 }

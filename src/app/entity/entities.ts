@@ -26,6 +26,7 @@ export interface Event {
 export interface EventData {
     customer: string
     price: number
+    id: number
 }
 
 export interface PackageEvent extends Event {
@@ -85,6 +86,8 @@ export interface WNChannel {
     id: number
     name: string
     demo_id: number|null
+    default_high_bid_floor: number
+    default_high_bid_team: string
 }
 
 export interface GetStreamUsernamesResponse {

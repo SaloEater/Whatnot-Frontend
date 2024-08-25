@@ -36,6 +36,7 @@ export const EventPlaceholdersTabsComponent: FC<EventPlaceholdersTabsProps> = (p
     const [newEvent, setNewEvent] = useState<WhatnotSoldEvent | null>(null)
     const [whatnotEvents, setWhatnotEvents] = useState<EventData[]>([])
     const [events, setEvents] = useState<Event[]>([])
+    const [id, setId] = useState(0)
     let emptyEvent: Event = {
         break_id: 0, customer: "", id: 0, index: 0, is_giveaway: false, note: "", price: 0, quantity: 0, team: "", giveaway_type: GiveawayTypeNone,
     }
@@ -51,8 +52,6 @@ export const EventPlaceholdersTabsComponent: FC<EventPlaceholdersTabsProps> = (p
 
     }, [props.length]);
 
-
-
     useEffect(() => {
         if (newEvent) {
             if (isGiveaway(newEvent.name)) {
@@ -60,7 +59,9 @@ export const EventPlaceholdersTabsComponent: FC<EventPlaceholdersTabsProps> = (p
             } else {
                 setWhatnotEvents((old) => {
                     let newE = [...old]
-                    newE.push({customer: newEvent.customer, price: newEvent.price})
+                    let nextId = id
+                    setId((old) => old + 1)
+                    newE.push({customer: newEvent.customer, price: newEvent.price, id: nextId})
                     return newE
                 })
             }
