@@ -1,6 +1,6 @@
 import {FC, useEffect, useState} from "react";
 import {getEndpoints, post} from "@/app/lib/backend";
-import {GetChannelsChannel, GetStreamsStream, WNBreak} from "@/app/entity/entities";
+import {GetChannelsChannel, StreamResponse, WNBreak} from "@/app/entity/entities";
 
 interface ChannelBreadcrumbsProps {
     streamId: number

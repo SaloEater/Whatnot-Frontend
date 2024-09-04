@@ -7,8 +7,8 @@ import {router} from "next/client";
 import "./page.css"
 import {
     WNBreak,
-    Day,
-    GetStreamsStream,
+    Stream,
+    StreamResponse,
     GetStreamsResponse,
     Event,
     GetEventsByBreakResponse,
@@ -22,7 +22,7 @@ import Papa from "papaparse";
 import {getGiveawayType, isGiveaway} from "@/app/utils/whatnot_product";
 
 interface DaysData {
-    days: Day[]
+    days: Stream[]
 }
 
 export default function Page({params} : {params: {id: string}}) {
@@ -37,6 +37,7 @@ export default function Page({params} : {params: {id: string}}) {
     const [nonExistingCustomers, setNonExistingCustomers] = useState<string[]>([])
     const [amountDiff, setAmountDiff] = useState(0)
     const [packageUsersDataLength, setPackageUsersDataLength] = useState(0)
+    const [notifiedAboutReady, setNotifiedAboutReady] = useState(false)
 
     useEffect(() => {
         if (file) {
@@ -182,11 +183,20 @@ export default function Page({params} : {params: {id: string}}) {
 
     return <div>
         <div >
+            <div>
+                <button type="button" className={`btn ${notifiedAboutReady ? 'btn-danger' : 'btn-primary'}`} disabled={notifiedAboutReady} onClick={
+                    _ => {
+                        post(getEndpoints().notify_stream_packaging_finished, {stream_id: streamId}).then(_ => setNotifiedAboutReady(true))
+                    }
+                }>{notifiedAboutReady ? 'Notification was sent' : 'Ship the stream'}</button>
+            </div>
             <div className='fs-1'>
                 Events:
                 {eventsCount}
-                {packageUsersData && <span><span className='text-primary'> {packageUsersDataLength} </span> (<span className='text-secondary'>{highBidTeamCount}</span>)</span>}
-                {packageUsersData && amountDiff > 0 ? <span className='text-danger'>Missing {amountDiff} events</span> : ''}
+                {packageUsersData && <span><span className='text-primary'> {packageUsersDataLength} </span> (<span
+                    className='text-secondary'>{highBidTeamCount}</span>)</span>}
+                {packageUsersData && amountDiff > 0 ?
+                    <span className='text-danger'>Missing {amountDiff} events</span> : ''}
                 {packageUsersData && amountDiff < 0 ? <span className='text-danger'>Extra {amountDiff * -1} events</span> : ''}
                 {packageUsersData && amountDiff == 0 ? <span className='bg-green'>Correct</span> : ''}
             </div>

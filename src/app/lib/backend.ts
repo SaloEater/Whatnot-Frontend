@@ -39,7 +39,10 @@ export function getEndpoints()  {
         event_move: "/api/event/move",
 
         demo_update: "/api/demo/update",
-        demo_get: "/api/demo"
+        demo_get: "/api/demo",
+
+        notify_stream_ended: "/api/notification/stream_ended",
+        notify_stream_packaging_finished: "/api/notification/stream_packaging_finished",
     }
 }
 

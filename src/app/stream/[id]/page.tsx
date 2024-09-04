@@ -7,9 +7,11 @@ import {Event, WNBreak, GetStreamsResponse, AddBreakResponse, GiveawayTypeNone} 
 import {useRouter} from "next/navigation";
 import {sortByIndex} from "@/app/common/event_filter";
 import {sortBreaksById} from "@/app/common/breaks";
+import {useStream} from "@/app/hooks/useStream";
 
 export default function Page({params} : {params: {id: string}}) {
     let streamId = parseInt(params.id)
+    let [stream, refreshStream] = useStream(streamId)
     const [breaks, setBreaks] = useState<WNBreak[]>([])
     const [newBreakName, setNewBreakName] = useState("")
     const [newBreaksAmount, setNewBreaksAmount] = useState(1)
@@ -105,12 +107,23 @@ export default function Page({params} : {params: {id: string}}) {
         <main>
             <div className="d-flex justify-content-center">
                 <div className='pe-3'>
-                    <button type="button" className="btn btn-primary" onClick={
-                        e => {
-                            let href = `/package/${streamId}`
-                            router.push(href)
-                        }
-                    }>Package all</button>
+                    <div>
+                        <button type="button" className="btn btn-primary" onClick={
+                            e => {
+                                let href = `/package/${streamId}`
+                                router.push(href)
+                            }
+                        }>Package all
+                        </button>
+                    </div>
+                    <div>
+                        <button type="button" className={`btn ${!!stream && !stream.is_ended ? 'btn-primary' : 'btn-danger'}`} disabled={!!stream && stream.is_ended} onClick={
+                            _ => {
+                                post(getEndpoints().notify_stream_ended, {stream_id: streamId}).then(refreshStream)
+                            }
+                        }>{!!stream && !stream.is_ended ? 'End stream' : 'Stream ended'}
+                        </button>
+                    </div>
                 </div>
                 <ul className="list-group">
                     {
@@ -118,7 +131,7 @@ export default function Page({params} : {params: {id: string}}) {
                             (breakObject, index, arr) => {
                                 return <li key={breakObject.id} className="list-group-item text-white">
                                     <div className="container-fluid">
-                                        <div className="row">
+                                    <div className="row">
                                             <div className="col-1">{index + 1})</div>
                                             <div className="col" onClick={() => redirectToBreak(breakObject.id)}>{breakObject.name}</div>
                                             <div className="col-3">

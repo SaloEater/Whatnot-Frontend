@@ -52,12 +52,20 @@ export const ChannelPropertiesComponent: FC<ChannelPropertiesComponentProps> = (
         setDefaultFloor(newNumber)
     }
 
+    function getDefaultFloor() {
+        let floor = defaultFloor
+        if (!floor) {
+            return ""
+        }
+        return floor.toString();
+    }
+
     return (
         <div>
             <span>
                 <div>High Bid Floor:</div>
                 <TextInputAction
-                    value={defaultFloor.toString()}
+                    value={getDefaultFloor()}
                     setNewValue={setDefaultFloorString}
                     placeholder={'Enter default floor...'}
                     action={updateChannelWithFloor} actionLabel={'Set'}

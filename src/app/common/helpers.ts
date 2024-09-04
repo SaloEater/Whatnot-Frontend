@@ -1,6 +1,6 @@
-import {Day} from "@/app/entity/entities";
+import {Stream} from "@/app/entity/entities";
 
-export function daysAreEqual(a: Day | null, b: Day | null) {
+export function daysAreEqual(a: Stream | null, b: Stream | null) {
     if (!a && !b) {
         return true
     }

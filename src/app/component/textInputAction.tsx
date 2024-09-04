@@ -1,6 +1,6 @@
 import {FC} from "react";
 import {getEndpoints, post} from "@/app/lib/backend";
-import {GetStreamsStream} from "@/app/entity/entities";
+import {StreamResponse} from "@/app/entity/entities";
 
 interface TextInputProps {
     value: string

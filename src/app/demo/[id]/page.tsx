@@ -4,7 +4,7 @@ import {createRef, Dispatch, SetStateAction, useCallback, useEffect, useRef, use
 import {getEndpoints, post} from "@/app/lib/backend";
 import {TuiDateTimePicker} from "nextjs-tui-date-picker";
 import moment, {max} from "moment";
-import {Day, WNBreak, Event, SelectedBreak, Demo} from "@/app/entity/entities";
+import {Stream, WNBreak, Event, SelectedBreak, Demo} from "@/app/entity/entities";
 import {useRouter} from "next/navigation";
 import './page.css'
 import EventComponent from "@/app/demo/[id]/eventComponent";

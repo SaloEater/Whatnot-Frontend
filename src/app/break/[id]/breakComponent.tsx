@@ -3,7 +3,7 @@
 import React, {createRef, Dispatch, SetStateAction, useEffect, useRef, useState} from "react";
 import {getEndpoints, post} from "@/app/lib/backend";
 import {
-    Day,
+    Stream,
     WNBreak,
     Event,
     SelectedBreak,

@@ -4,7 +4,7 @@ export interface DayData {
     day: number
 }
 
-export interface Day {
+export interface Stream {
     date: DayData
     breaks: string[]
 }
@@ -45,14 +45,17 @@ export interface WNBreak {
     high_bid_floor: number
 }
 
-export interface GetStreamsStream {
+export interface WNStream {
     id: number
     created_at: number
     name: string
+    is_ended: boolean
 }
 
+export interface StreamResponse extends WNStream {}
+
 export interface GetStreamsResponse {
-    streams: GetStreamsStream[]
+    streams: StreamResponse[]
 }
 
 export interface GetChannelsChannel extends WNChannel {

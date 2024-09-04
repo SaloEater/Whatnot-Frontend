@@ -5,7 +5,7 @@ import React, {useEffect, useState} from "react";
 import moment from "moment/moment";
 import {TuiDateTimePicker} from "nextjs-tui-date-picker";
 import {useRouter} from "next/navigation";
-import {GetStreamsStream, GetStreamsResponse, GetChannelsChannel, WNChannel} from "@/app/entity/entities";
+import {StreamResponse, GetStreamsResponse, GetChannelsChannel, WNChannel} from "@/app/entity/entities";
 import {TextInputAction} from "@/app/component/textInputAction";
 import {useChannel} from "@/app/hooks/useChannel";
 import {ChannelPropertiesComponent} from "@/app/channel/[id]/channelPropertiesComponent";
@@ -13,7 +13,7 @@ import {ChannelPropertiesComponent} from "@/app/channel/[id]/channelPropertiesCo
 export default function Page({params}: {params: {id: string}}) {
     const channelId = parseInt(params.id)
     const [channel, setChannel] = useChannel(channelId)
-    const [streams, setStreams] = useState<GetStreamsStream[]>([]);
+    const [streams, setStreams] = useState<StreamResponse[]>([]);
     const [newName, setNewName] = useState<string>("")
 
     useEffect(() => {
@@ -27,14 +27,14 @@ export default function Page({params}: {params: {id: string}}) {
 
     const router = useRouter()
 
-    function removeStream(stream: GetStreamsStream) {
+    function removeStream(stream: StreamResponse) {
         setStreams((oldStreams) => {
             let newStreams = [...oldStreams]
             return newStreams.filter(i => i.id != stream.id)
         })
     }
 
-    function addStream(stream: GetStreamsStream) {
+    function addStream(stream: StreamResponse) {
         setStreams((oldStreams) => {
             let newStreams = [...oldStreams]
             newStreams.push(stream)
@@ -42,7 +42,7 @@ export default function Page({params}: {params: {id: string}}) {
         })
     }
 
-    function sortStreamsByDate(streams: GetStreamsStream[]) {
+    function sortStreamsByDate(streams: StreamResponse[]) {
         return [...streams].sort((a, b) => {
             if (a.created_at > b.created_at) return -1
             if (a.created_at < b.created_at) return 1
@@ -103,7 +103,7 @@ export default function Page({params}: {params: {id: string}}) {
                                                  };
                                                  post(getEndpoints().stream_add, body)
                                                      .then(response => {
-                                                         let stream: GetStreamsStream = response
+                                                         let stream: StreamResponse = response
                                                          addStream(stream)
                                                          setNewName('')
                                                      })
@@ -112,7 +112,7 @@ export default function Page({params}: {params: {id: string}}) {
                         </li>
                         {
                             sortStreamsByDate(streams).map(
-                                (stream: GetStreamsStream, index: number, arr: GetStreamsStream[]) => {
+                                (stream: StreamResponse, index: number, arr: StreamResponse[]) => {
                                     return <li key={stream.id} className="list-group-item text-white">
                                         <div className="container-fluid">
                                             <div className="row">

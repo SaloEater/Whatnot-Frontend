@@ -4,7 +4,7 @@ import React, {JSX, useEffect, useState} from "react";
 import {usePathname, useRouter, useSearchParams} from "next/navigation";
 import {StreamBreadcrumbsComponent} from "@/app/component/streamBreadcrumbsComponent";
 import {getEndpoints, post} from "@/app/lib/backend";
-import {GetChannelsChannel, GetStreamsStream, WNBreak} from "@/app/entity/entities";
+import {GetChannelsChannel, StreamResponse, WNBreak} from "@/app/entity/entities";
 import {ChannelBreadcrumbsComponent} from "@/app/component/channelBreadcrumbsComponent";
 
 
