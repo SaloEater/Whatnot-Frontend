@@ -1,4 +1,4 @@
-import {Event} from "@/app/entity/entities";
+import {Event, NoCustomer} from "@/app/entity/entities";
 import Image from "next/image";
 import './eventComponent.css'
 
@@ -14,6 +14,7 @@ export default function EventComponent(
             highlight_username: string,
             highBidTeam: string,
             giveawayTeam: string,
+            events: Event[],
         }
     }
 ) {
@@ -38,11 +39,16 @@ export default function EventComponent(
         bgColors.backgroundColor = 'bg-giveaway'
     }
 
+    function getTeamsAmount() {
+        let teamEvents = params.events.filter(e => e.customer == params.event.customer)
+        return teamEvents.length
+    }
+
     return <div className={`max-height d-flex dimmed-overlay max-width align-items-center gap-2 `}>
         <img className='image' src={getTeamImageSrc(params.event.team)} alt={params.event.team}/>
         <div className={`d-flex overflow-hidden align-items-center justify-content-center customer-text customer-border h-75p w-100p ${bgColors.backgroundColor} ${bgColors.textColor}`}>
-            <div className='overflow-hidden'>
-                {params.event.customer}
+            <div className='overflow-hidden whitespace-nowrap'>
+                <span>{params.event.customer}</span> <span>{params.event.customer != "" && <b>[{getTeamsAmount()}]</b>}</span>
             </div>
         </div>
     </div>

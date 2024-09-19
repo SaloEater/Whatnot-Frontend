@@ -92,7 +92,8 @@ export default function Page({params} : {params: {id: string}}) {
                 event: eventObject,
                 highlight_username: demo.highlight_username,
                 highBidTeam: breakObject?.high_bid_team ?? '',
-                giveawayTeam: breakObject?.giveaway_team ?? ''
+                giveawayTeam: breakObject?.giveaway_team ?? '',
+                events: events
             }
             let colKey = `col-${index}`
             items.push(<EventComponent key={colKey} params={eventParams}/>)
@@ -103,7 +104,8 @@ export default function Page({params} : {params: {id: string}}) {
                 event: eventObject,
                 highlight_username: demo.highlight_username,
                 highBidTeam: breakObject?.high_bid_team ?? '',
-                giveawayTeam: breakObject?.giveaway_team ?? ''
+                giveawayTeam: breakObject?.giveaway_team ?? '',
+                events: events
             }
             colKey = `col-${i}-${index}`
             items.push(<EventComponent key={colKey} params={eventParams}/>)
@@ -132,7 +134,7 @@ export default function Page({params} : {params: {id: string}}) {
         <div className='main'>
             <div className='w-100 h-100 dimmed-bg p-1'>
                 {
-                     demo ? <div className='w-100 h-100'>
+                     demo ? <div className='w-100 h-100 z-1 position-relative'>
                         <Image className='position-absolute top-0 start-0 bg-img' src='/images/full_screen.png' alt={'fullscreen'} onClick={launchFullScreen} width='50' height='50'/>
                         <div className='max-height overflow-hidden d-flex justify-content-center my-flex gap-2 teams-container'>
                             <div className='demo-container white-overlay minw'>

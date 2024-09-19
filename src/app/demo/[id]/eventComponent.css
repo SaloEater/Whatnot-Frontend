@@ -63,3 +63,7 @@
     border-radius: 10px;
     padding: 3px;
 }
+
+.whitespace-nowrap {
+    white-space: nowrap;
+}
