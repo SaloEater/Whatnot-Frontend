@@ -1,7 +1,7 @@
 import React, {FC, useEffect, useState} from "react";
 import {WNChannel} from "@/app/entity/entities";
 import {TextInputAction} from "@/app/component/textInputAction";
-import {Teams} from "@/app/common/teams";
+import {HighBidOptions, Teams} from "@/app/common/teams";
 import {resolveVerification} from "next/dist/lib/metadata/resolvers/resolve-basics";
 import {channel} from "node:diagnostics_channel";
 
@@ -80,7 +80,7 @@ export const ChannelPropertiesComponent: FC<ChannelPropertiesComponentProps> = (
                     </button>
                     <ul className="dropdown-menu cursor-pointer" aria-labelledby="dropdownMenuButton1">
                         {
-                            Teams.map(i => <li key={i} onClick={_ => updateHighBidTeam(i)}
+                            HighBidOptions.map(i => <li key={i} onClick={_ => updateHighBidTeam(i)}
                                                className={`dropdown-item ${defaultTeam == i ? 'active' : ''}`}>{i}</li>)
                         }
                     </ul>

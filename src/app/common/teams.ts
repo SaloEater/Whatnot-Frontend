@@ -32,3 +32,8 @@ export const Teams = [
     "Tennessee Titans",
     "Washington Commanders"
 ]
+
+export const HighBidOptions = [
+    "_Box Aphrodite",
+    ...Teams
+]

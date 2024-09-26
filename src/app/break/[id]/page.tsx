@@ -7,7 +7,7 @@ import React, {useEffect, useState} from "react";
 import {WNBreak} from "@/app/entity/entities";
 import {getEndpoints, post} from "@/app/lib/backend";
 import {useRouter} from "next/navigation";
-import {Teams} from "@/app/common/teams";
+import {HighBidOptions, Teams} from "@/app/common/teams";
 import {BreakSwitchComponent} from "@/app/break/[id]/breakSwitchComponent";
 
 export default function Page({params} : {params: {id: string}}) {
@@ -136,7 +136,7 @@ export default function Page({params} : {params: {id: string}}) {
                                 </button>
                                 <ul className="dropdown-menu cursor-pointer" aria-labelledby="dropdownMenuButton1">
                                     {
-                                        Teams.map(i => <li key={i} onClick={_ => updateHighBidTeam(i)}
+                                        HighBidOptions.map(i => <li key={i} onClick={_ => updateHighBidTeam(i)}
                                                            className={`dropdown-item ${breakObject.high_bid_team == i ? 'active' : ''}`}>{i}</li>)
                                     }
                                 </ul>
