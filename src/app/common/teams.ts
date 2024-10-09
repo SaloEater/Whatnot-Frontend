@@ -34,6 +34,11 @@ export const Teams = [
 ]
 
 export const HighBidOptions = [
+    "None",
     "_Box Aphrodite",
     ...Teams
 ]
+
+export function IsNone(team: string) {
+    return team == "" ? "None" : team
+}

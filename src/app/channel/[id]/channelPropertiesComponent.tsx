@@ -1,7 +1,7 @@
 import React, {FC, useEffect, useState} from "react";
 import {WNChannel} from "@/app/entity/entities";
 import {TextInputAction} from "@/app/component/textInputAction";
-import {HighBidOptions, Teams} from "@/app/common/teams";
+import {HighBidOptions, IsNone, Teams} from "@/app/common/teams";
 import {resolveVerification} from "next/dist/lib/metadata/resolvers/resolve-basics";
 import {channel} from "node:diagnostics_channel";
 
@@ -32,6 +32,9 @@ export const ChannelPropertiesComponent: FC<ChannelPropertiesComponentProps> = (
     }, [defaultTeam]);
 
     function updateHighBidTeam(team: string) {
+        if (team == "None") {
+            team = ''
+        }
         setDefaultTeam(team)
     }
 
@@ -81,7 +84,7 @@ export const ChannelPropertiesComponent: FC<ChannelPropertiesComponentProps> = (
                     <ul className="dropdown-menu cursor-pointer" aria-labelledby="dropdownMenuButton1">
                         {
                             HighBidOptions.map(i => <li key={i} onClick={_ => updateHighBidTeam(i)}
-                                               className={`dropdown-item ${defaultTeam == i ? 'active' : ''}`}>{i}</li>)
+                                               className={`dropdown-item ${IsNone(defaultTeam) == i ? 'active' : ''}`}>{i}</li>)
                         }
                     </ul>
                 </div>
