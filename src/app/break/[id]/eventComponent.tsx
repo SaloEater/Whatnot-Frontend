@@ -153,7 +153,7 @@ export const EventComponent: FC<EventProps> = (props) => {
                             font_size={null}
                             onClick={null}
                             onBlur={null}
-                            suggestions={props.usernames}
+                            suggestions={[]}
                             alwaysOn={false}
                             disabled={false}
                         />
