@@ -52,7 +52,7 @@ export interface WNStream {
     is_ended: boolean
 }
 
-export interface StreamResponse extends WNStream {}
+export interface StreamResponse extends WNStream { }
 
 export interface GetStreamsResponse {
     streams: StreamResponse[]
@@ -88,7 +88,7 @@ export interface Demo {
 export interface WNChannel {
     id: number
     name: string
-    demo_id: number|null
+    demo_id: number | null
     default_high_bid_floor: number
     default_high_bid_team: string
 }
@@ -136,13 +136,14 @@ export interface ObsItem {
     uuid: string
 }
 
-export interface RawObsItem extends ObsItem{
+export interface RawObsItem extends ObsItem {
     inputKind: string
+    isVisible?: boolean
 }
 
-export const EmptyObsItem: ObsItem = {name: EmptyName, uuid: EmptyID}
+export const EmptyObsItem: ObsItem = { name: EmptyName, uuid: EmptyID }
 
-export interface ObsScene extends ObsItem{
+export interface ObsScene extends ObsItem {
 }
 
 export const ReportUserFailed = 'failed'

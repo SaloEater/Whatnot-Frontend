@@ -1,6 +1,6 @@
-import {Logger} from "@/app/entity/logger";
-import OBSWebSocket, {EventSubscription, OBSRequestTypes} from "obs-websocket-js";
-import {ObsItem, ObsScene, RawObsItem} from "@/app/entity/entities";
+import { Logger } from "@/app/entity/logger";
+import OBSWebSocket, { EventSubscription, OBSRequestTypes } from "obs-websocket-js";
+import { ObsItem, ObsScene, RawObsItem } from "@/app/entity/entities";
 
 interface ObsItemToHide {
     item: ObsItem
@@ -10,10 +10,10 @@ interface ObsItemToHide {
 
 export class MyOBSWebsocket {
     url: string
-    webSocket : OBSWebSocket
+    webSocket: OBSWebSocket
     logger: Logger
     _isConnected: boolean = false
-    _setIsConnected: undefined|((isConnected: boolean) => void) = undefined
+    _setIsConnected: undefined | ((isConnected: boolean) => void) = undefined
     mediaSourcesHideAfterPlayback: ObsItemToHide[] = []
 
     constructor(url: string, log: Logger, setIsConnected: (isConnected: boolean) => void) {
@@ -86,13 +86,14 @@ export class MyOBSWebsocket {
     getSceneItemList(scene: ObsScene): Promise<RawObsItem[]> {
         this.guardIsConnected()
 
-        return this.webSocket.call('GetSceneItemList', {'sceneName': scene.name})
+        return this.webSocket.call('GetSceneItemList', { 'sceneName': scene.name })
             .then(r => {
                 return r.sceneItems.map(i => {
                     return {
                         inputKind: (i.inputKind ?? '').toString(),
                         name: (i.sourceName ?? '').toString(),
-                        uuid: (i.sceneItemId ?? '').toString()
+                        uuid: (i.sceneItemId ?? '').toString(),
+                        isVisible: Boolean(i.sceneItemEnabled),
                     }
                 })
             })
@@ -118,10 +119,10 @@ export class MyOBSWebsocket {
             inputUuid: sourceUuid,
             inputName: sourceName,
             mediaAction: 'OBS_WEBSOCKET_MEDIA_INPUT_ACTION_RESTART'
-        }).then(r  => {
-           return this.webSocket.call('GetMediaInputStatus', {
-               inputUuid: sourceUuid,
-               inputName: sourceName,
+        }).then(r => {
+            return this.webSocket.call('GetMediaInputStatus', {
+                inputUuid: sourceUuid,
+                inputName: sourceName,
             }).then(r => {
                 return r.mediaState == 'OBS_MEDIA_STATE_PLAYING'
             })
@@ -134,6 +135,17 @@ export class MyOBSWebsocket {
             this.addItemToHide(scene, item, callback)
         })
     }
+
+    public hideItem(scene: ObsScene, item: ObsItem): Promise<void> {
+        this.guardIsConnected();
+        return this.setSceneItemEnabled(scene, item, false);
+    }
+
+    public showItem(scene: ObsScene, item: ObsItem): Promise<void> {
+        this.guardIsConnected();
+        return this.setSceneItemEnabled(scene, item, true);
+    }
+
 
     private setSceneItemEnabled(scene: ObsScene, item: ObsItem, isEnabled: boolean) {
         return this.webSocket.call('SetSceneItemEnabled', {
@@ -152,6 +164,6 @@ export class MyOBSWebsocket {
     }
 
     private addItemToHide(scene: ObsScene, item: ObsItem, callback: () => void) {
-        this.mediaSourcesHideAfterPlayback.push({scene: scene, item: item, callback: callback})
+        this.mediaSourcesHideAfterPlayback.push({ scene: scene, item: item, callback: callback })
     }
 }
