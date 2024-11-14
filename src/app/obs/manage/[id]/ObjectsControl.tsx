@@ -16,9 +16,9 @@ interface SelectedItemsMap {
 export const ObjectsControl: FC<ObjectsControlProps> = ({ obs, obsScene }) => {
   const [sceneItems, setSceneItems] = useState<RawObsItem[]>([]);
   const [selectedItems, setSelectedItems] = useState<SelectedItemsMap>({
-    Доска: null,
-    Таблица: null,
-    Заглушка: null,
+    Board: null,
+    BreakResults: null,
+    WaitScreen: null,
   });
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -57,7 +57,7 @@ export const ObjectsControl: FC<ObjectsControlProps> = ({ obs, obsScene }) => {
       <span style={{ marginRight: "10px" }}>{label}</span>
       <Select
         style={{ width: 200 }}
-        placeholder="Выберите объект"
+        placeholder="Select OBS object"
         onChange={(itemUuid) => {
           const item = sceneItems.find((i) => i.uuid === itemUuid) || null;
           setSelectedItems((prev) => ({ ...prev, [label]: item }));
@@ -86,7 +86,7 @@ export const ObjectsControl: FC<ObjectsControlProps> = ({ obs, obsScene }) => {
     </div>
   );
 
-  if (loading) return <Spin tip="Загрузка объектов..." />;
+  if (loading) return <Spin tip="Loading OBS objets..." />;
 
   return (
     <StepsComponent
@@ -95,9 +95,9 @@ export const ObjectsControl: FC<ObjectsControlProps> = ({ obs, obsScene }) => {
           name: "Object Selection",
           node: (
             <div>
-              {renderSelectionRow("Доска")}
-              {renderSelectionRow("Таблица")}
-              {renderSelectionRow("Заглушка")}
+              {renderSelectionRow("Board")}
+              {renderSelectionRow("BreakResults")}
+              {renderSelectionRow("WaitScreen")}
             </div>
           ),
         },
@@ -105,9 +105,9 @@ export const ObjectsControl: FC<ObjectsControlProps> = ({ obs, obsScene }) => {
           name: "Visibility Control",
           node: (
             <div>
-              {renderControlRow("Доска")}
-              {renderControlRow("Таблица")}
-              {renderControlRow("Заглушка")}
+              {renderControlRow("Board")}
+              {renderControlRow("BreakResults")}
+              {renderControlRow("WaitScreen")}
             </div>
           ),
         },
