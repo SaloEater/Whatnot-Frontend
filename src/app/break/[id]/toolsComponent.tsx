@@ -11,10 +11,8 @@ export default function ToolsComponent({
   };
 }) {
   const [showSwap, setShowSwap] = useState(false);
-  const [swapMode, setSwapMode] = useState<"standard" | "free">("standard");
 
-  function switchSwap(mode: "standard" | "free") {
-    setSwapMode(mode);
+  function switchSwap() {
     setShowSwap(true);
   }
 
@@ -25,7 +23,7 @@ export default function ToolsComponent({
           params={{
             swapTeams: params.swapTeams,
             events: params.events,
-            swapMode,
+
             onClose: () => {
               setShowSwap(false);
             },
@@ -37,16 +35,9 @@ export default function ToolsComponent({
         <button
           type="button"
           className="btn btn-primary"
-          onClick={() => switchSwap("standard")}
+          onClick={() => switchSwap()}
         >
           Swap teams
-        </button>
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={() => switchSwap("free")}
-        >
-          Swap free teams
         </button>
       </div>
     </div>

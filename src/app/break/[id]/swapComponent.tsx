@@ -14,7 +14,6 @@ export default function SwapComponent({
   params: {
     swapTeams: (a: Event[], b: Event[]) => void;
     events: Event[];
-    swapMode: "standard" | "free";
     onClose: () => void;
   };
 }) {
@@ -26,16 +25,16 @@ export default function SwapComponent({
   //     setTargetTeams([])
   // }, [params.events]);
 
-  let sortedTeams = sortByTeamName(filterOnlyTakenTeams(params.events));
+  let sortedTeams = sortByTeamName(params.events);
 
   let sourceTeamsAll =
     sourceTeams.length > 0
-      ? sortedTeams.filter((e) => e.customer == sourceTeams[0].customer)
-      : sortedTeams;
+      ? filterOnlyTakenTeams(
+          sortedTeams.filter((e) => e.customer == sourceTeams[0].customer)
+        )
+      : filterOnlyTakenTeams(sortedTeams);
   let targetTeamsAll =
-    params.swapMode === "free"
-      ? params.events.filter((e) => e.customer == "")
-      : targetTeams.length > 0
+    targetTeams.length > 0
       ? sortedTeams.filter((e) => e.customer == targetTeams[0].customer)
       : sourceTeams.length > 0
       ? sortedTeams.filter((e) => e.customer != sourceTeams[0].customer)
