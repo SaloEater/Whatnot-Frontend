@@ -39,6 +39,10 @@ export const HighBidOptions = [
     ...Teams
 ]
 
-export function IsNone(team: string) {
+export function IsNone(team: string): string {
     return team == "" ? "None" : team
+}
+
+export function IsTeam(team: string): boolean {
+    return Teams.indexOf(team) != -1
 }

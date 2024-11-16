@@ -7,6 +7,7 @@ import OrderChangingComponent from "@/app/break/[id]/orderChangingComponent";
 import './eventComponent.css'
 import SwapComponent from "@/app/break/[id]/swapComponent";
 import {TextInputWithSuggestions} from "@/app/common/textInputWithSuggestions";
+import {IsTeam} from "@/app/common/teams";
 
 interface EventProps {
     event: Event,
@@ -31,8 +32,12 @@ export const EventComponent: FC<EventProps> = (props) => {
         setNewCustomer(props.event.customer)
     }, [props.event.customer, props.event.price]);
 
-    function getTeamImageSrc(team: string) {
-        return `/images/teams/${team}.webp`;
+    function getEventImage(team: string) {
+        if (IsTeam(team)) {
+            return `/images/teams/${team}.webp`;
+        } else {
+            return `/images/events/${team.toLowerCase()}.png`;
+        }
     }
 
     function updateCustomer(value: string) {
@@ -111,9 +116,12 @@ export const EventComponent: FC<EventProps> = (props) => {
         borderColor = 'border-green'
     }
 
-    let splitted = props.event.team.split(' ')
-    let firstPart = splitted.length > 2 ? `${splitted[0]} ${splitted[1]}` : splitted[0]
-    let secondPart = splitted.length > 2 ? `${splitted[2]}` : splitted[1]
+    let split = props.event.team.split(' ')
+    if (split.length == 1) {
+        split.push('...')
+    }
+    let firstPart = split.length > 2 ? `${split[0]} ${split[1]}` : split[0]
+    let secondPart = split.length > 2 ? `${split[2]}` : split[1]
 
     return (
         <div className={`w-125p position-relative border border-1 rounded rounded-3 ${borderColor}`} >
@@ -127,7 +135,7 @@ export const EventComponent: FC<EventProps> = (props) => {
             }
             <div style={{opacity: hasIndex() ? 0.5 : 1}}>
                 <div className='w-100p d-flex flex-column justify-content-center align-items-center p-1'>
-                    <Image src={getTeamImageSrc(props.event.team)} alt={props.event.team} height="75" width="75"/>
+                    <Image src={getEventImage(props.event.team)} alt={props.event.team} height="75" width="75"/>
                     <div>{firstPart}</div>
                     <div>{secondPart}</div>
                     <div className='w-100p d-flex gap-2 flex-column hidden'>

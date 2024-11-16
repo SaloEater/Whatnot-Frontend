@@ -29,6 +29,8 @@ import {ToolsTabComponent} from "@/app/break/[id]/toolsTabComponent";
 import {arrayUnique, sortStringsAlphabetically} from "@/app/common/helpers";
 import {EventPlaceholdersTabsComponent} from "@/app/break/[id]/eventPlaceholdersTabsComponent";
 import {DataComponent} from "@/app/break/[id]/dataComponent";
+import {AddNewCardComponent} from "@/app/break/[id]/addNewCardComponent";
+import {IsTeam} from "@/app/common/teams";
 
 const SortIndexAsc = 0
 const SortIndexDesc = 1
@@ -95,11 +97,6 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
                 const updatedEvents = [...breakEvents.events];
                 const teamEvents = updatedEvents.filter(e => !e.is_giveaway)
                 const giveawayEvents = updatedEvents.filter(e => e.is_giveaway)
-                teamEvents.sort((a, b) => {
-                    if (a.team > b.team) return 1
-                    if (a.team < b.team) return -1
-                    return 0
-                })
                 giveawayEvents.sort((a, b) => {
                     if (a.index > b.index) return 1
                     if (a.index < b.index) return -1
@@ -113,8 +110,12 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
                         return (event?.customer ?? NoCustomer) != i.customer
                     })
                     let newEvent = newEvents.length > 0 ? newEvents[0] : null
+                    if (newEvent && newEvent.customer != '') {
+                        setNewEvent({...newEvent})
+                    } else {
+                        setNewEvent(null)
+                    }
 
-                    setNewEvent(newEvent ? {...newEvent} : null)
                 }
                 setEvents(teamEvents)
                 setGiveaways(giveawayEvents)
@@ -395,6 +396,20 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
         })
     }
 
+    function addNewCard(newEvent: Event) {
+        newEvent.index = getNextIndex(newEvent)
+        newEvent.break_id = params.breakObject.id
+        post(getEndpoints().event_add, newEvent)
+            .then(response => {
+                newEvent.id = response.id
+                setEvents((old) => {
+                    let newEvents = [...old]
+                    newEvents.push(newEvent)
+                    return newEvents
+                })
+            })
+    }
+
     return <div className='d-flex m-2 justify-content-evenly'>
             <div className='w-75p'>
                 <div className='d-flex align-items-baseline justify-content-between'>
@@ -420,6 +435,9 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
                             />
                         }
                     )}
+                    {
+                        <AddNewCardComponent addNewCard={addNewCard} events={events}/>
+                    }
                 </div>
             </div>
             <div className='w-15p justify-content-center'>

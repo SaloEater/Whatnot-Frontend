@@ -1,4 +1,5 @@
 import {Event, NoCustomer} from "@/app/entity/entities";
+import {IsTeam} from "@/app/common/teams";
 
 export function filterOnlyTeams(events: Event[]) {
     return events.filter(e => !e.is_giveaway && !e.note)
@@ -19,6 +20,8 @@ export function filterOnlyTakenTeams(events: Event[]) {
 
 export function sortByIndex(events: Event[]) {
     return events.sort((a, b) => {
+        if (!IsTeam(a.team)) return 1;
+        if (!IsTeam(b.team)) return -1;
         if (a.index > b.index) return 1
         if (a.index < b.index) return -1
         return 0
@@ -48,6 +51,8 @@ export function sortByTeamAscIndexDesc(events: Event[]) {
 
 export function sortByTeamName(events: Event[]) {
     return events.sort((a, b) => {
+        if (!IsTeam(a.team)) return 1;
+        if (!IsTeam(b.team)) return -1;
         if (a.team > b.team) return 1
         if (a.team < b.team) return -1
         return 0
