@@ -78,8 +78,6 @@ export default function EventPlaceholderComponent({
     if (params.resetEventPlaceholder == null) {
       return;
     }
-    setNewCustomer("");
-    setNewPrice(0);
     params.resetEventPlaceholder(params.event);
   }
 

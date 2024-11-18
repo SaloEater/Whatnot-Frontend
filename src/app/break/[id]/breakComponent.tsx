@@ -48,6 +48,8 @@ interface BreakComponentProps {
 }
 
 export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
+  const [miscExists, setMiscExists] = useState<boolean>(false);
+
   const [events, setEvents] = useState<Event[]>([]);
   const [giveaways, setGiveaways] = useState<Event[]>([]);
   const [newGiveawayCustomer, setNewGiveawayCustomer] = useState("");
@@ -442,6 +444,25 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
               />
             );
           })}
+
+          {miscExists == false && (
+            <div
+              className={`w-125p position-relative border border-1 rounded rounded-3 border-green d-flex flex-column align-items-center justify-content-center cursor-pointer`}
+              onClick={() => {}}
+              style={{ gap: "20px" }}
+            >
+              <span
+                style={{
+                  fontSize: "70px",
+                  lineHeight: "0.6",
+                  color: "greenyellow",
+                }}
+              >
+                +
+              </span>
+              <span style={{ color: "greenyellow" }}>Miscellaneous</span>
+            </div>
+          )}
         </div>
       </div>
       <div className="w-15p justify-content-center">
