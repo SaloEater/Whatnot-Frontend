@@ -12,6 +12,7 @@ import {filterOnlyEmptyTeams, filterOnlyTakenTeams, getEventWithHighestPrice} fr
 import EventComponent from "@/app/obs/teams/[id]/eventComponent";
 import {useChannel} from "@/app/hooks/useChannel";
 import {useDemoById} from "@/app/hooks/useDemoById";
+import {IsTeam} from "@/app/common/teams";
 
 export default function Page({params} : {params: {id: string}}) {
     const channelId = parseInt(params.id)
@@ -70,7 +71,7 @@ export default function Page({params} : {params: {id: string}}) {
                     if (a.team < b.team) return -1
                     return 0
                 })
-                let teamEvents = events.events.filter(e => !e.is_giveaway && !e.note)
+                let teamEvents = events.events.filter(e => !e.is_giveaway && !e.note && IsTeam(e.team))
                 setEvents(teamEvents)
             })
     }
