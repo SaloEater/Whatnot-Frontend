@@ -1,6 +1,7 @@
 import {Event, NoCustomer} from "@/app/entity/entities";
 import Image from "next/image";
 import './eventComponent.css'
+import {Teams} from "@/app/common/teams";
 
 interface HighlightColors {
     backgroundColor: string,
@@ -44,8 +45,12 @@ export default function EventComponent(
         return teamEvents.length
     }
 
+    function hasImage(team: string) {
+        return Teams.indexOf(team) != -1
+    }
+
     return <div className={`max-height d-flex dimmed-overlay max-width align-items-center gap-2 `}>
-        <img className='image' src={getTeamImageSrc(params.event.team)} alt={params.event.team}/>
+        {hasImage(params.event.team) && <img className='image' src={getTeamImageSrc(params.event.team)} alt={params.event.team}/> || params.event.team}
         <div className={`d-flex overflow-hidden align-items-center justify-content-center customer-text customer-border h-75p w-100p ${bgColors.backgroundColor} ${bgColors.textColor}`}>
             <div className='overflow-hidden whitespace-nowrap'>
                 <span>{params.event.customer}</span> <span>{params.event.customer != "" && <b>[{getTeamsAmount()}]</b>}</span>

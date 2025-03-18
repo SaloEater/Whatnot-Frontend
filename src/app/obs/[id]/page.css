@@ -73,8 +73,8 @@ body {
 }
 
 .big-font-size {
-    line-height: 6.5vw;
-    font-size: 6.5vw;
+    line-height: 4.5vw;
+    font-size: 4.5vw;
     color: white;
     text-shadow:
             -2px -2px 0 black,
@@ -98,6 +98,7 @@ body {
 .team-bg {
     background-image: url('/images/board.png');
     background-size: cover;
+    background-repeat: no-repeat;
 }
 
 .hb-fontsize {
@@ -108,4 +109,8 @@ body {
     border-width: 3px;
     border-style: solid;
     border-color: #FECB62;
+}
+
+.p-45 {
+    padding:1.95rem!important
 }

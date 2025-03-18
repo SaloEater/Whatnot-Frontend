@@ -8,11 +8,17 @@ import {Stream, WNBreak, Event, SelectedBreak, Demo, GetEventsByBreakResponse} f
 import {useRouter} from "next/navigation";
 import './page.css'
 import Image from "next/image";
-import {filterOnlyEmptyTeams, filterOnlyTakenTeams, getEventWithHighestPrice} from "@/app/common/event_filter";
+import {
+    filterOnlyEmptyTeams,
+    filterOnlyOther,
+    filterOnlyTakenTeams,
+    getEventWithHighestPrice
+} from "@/app/common/event_filter";
 import EventComponent from "@/app/obs/teams/[id]/eventComponent";
 import {useChannel} from "@/app/hooks/useChannel";
 import {useDemoById} from "@/app/hooks/useDemoById";
 import {IsTeam} from "@/app/common/teams";
+import OtherSpotComponent from "@/app/obs/teams/[id]/otherSpotComponent";
 
 export default function Page({params} : {params: {id: string}}) {
     const channelId = parseInt(params.id)
@@ -21,6 +27,7 @@ export default function Page({params} : {params: {id: string}}) {
     const demo = useDemoById(demoId)
     const [breakObject, setBreakObject] = useState<WNBreak|null>(null)
     const [events, setEvents] = useState<Event[]>([])
+    const [otherSpots, setOtherSpots] = useState<Event[]>([])
 
     function refreshBreakObject(demo: Demo|null) {
         if (!demo) {
@@ -73,6 +80,7 @@ export default function Page({params} : {params: {id: string}}) {
                 })
                 let teamEvents = events.events.filter(e => !e.is_giveaway && !e.note && IsTeam(e.team))
                 setEvents(teamEvents)
+                setOtherSpots(filterOnlyOther(events.events))
             })
     }
 
@@ -104,16 +112,35 @@ export default function Page({params} : {params: {id: string}}) {
         }
     }
 
+    let otherSpotsItems = []
+    for (let i = 0; i < otherSpots.length; i++) {
+        let eventObject = otherSpots[i]
+        let eventParams = {
+            event: eventObject,
+            index: i,
+            length: otherSpots.length,
+        }
+        let colKey = `other-${i}`
+        otherSpotsItems.push(<OtherSpotComponent key={colKey} params={eventParams}/>)
+    }
+
     return (
         <div className='main'>
-            <div className='w-100 h-100 dimmed-bg p-5'>
+            <div className='w-100 h-100 dimmed-bg p-2'>
                 {
-                     demo ? <div className='w-100 h-100'>
+                     demo ? <div className='w-100 h-100 d-flex justify-content-center gap-1'>
                         <div className='max-height overflow-hidden d-flex justify-content-center my-flex gap-2 teams-container'>
                             <div className='demo-container teams-bg minw'>
                                 {items.length > 0 && items}
                             </div>
                         </div>
+                         {
+                             otherSpotsItems.length > 0 && <div className="max-height d-flex flex-column align-content-center justify-content-center">
+                                 <div className='other-spots-container teams-bg pt-2 pb-2'>
+                                     {otherSpotsItems}
+                                 </div>
+                             </div>
+                         }
                      </div> : <div>
                          Demo is not set
                      </div>

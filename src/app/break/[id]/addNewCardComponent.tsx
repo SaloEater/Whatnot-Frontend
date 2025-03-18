@@ -15,7 +15,7 @@ interface AddNewCardProps {
 
 const NEW_CARD_TYPE_NONE = 0
 const NEW_CARD_TYPE_MISCELLANEOUS = 1
-const TYPE_NAMES = ['', 'Miscellaneous']
+export const TYPE_NAMES = ['', 'Miscellaneous']
 
 export const AddNewCardComponent: FC<AddNewCardProps> = (props) => {
     const [newType, setNewType] = useState(NEW_CARD_TYPE_NONE)

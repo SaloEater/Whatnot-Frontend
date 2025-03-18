@@ -9,10 +9,16 @@ import {useRouter} from "next/navigation";
 import './page.css'
 import EventComponent from "@/app/demo/[id]/eventComponent";
 import Image from "next/image";
-import {filterOnlyEmptyTeams, filterOnlyTakenTeams, getEventWithHighestPrice} from "@/app/common/event_filter";
+import {
+    filterOnlyEmptyTeams, filterOnlyOther,
+    filterOnlyTakenTeams,
+    filterOnlyTeams,
+    getEventWithHighestPrice
+} from "@/app/common/event_filter";
 import {useDemo} from "@/app/hooks/useDemo";
 import {useChannel} from "@/app/hooks/useChannel";
 import {useDemoById} from "@/app/hooks/useDemoById";
+import OtherSpotComponent from "@/app/demo/[id]/otherSpotComponent";
 
 export default function Page({params} : {params: {id: string}}) {
     const channelId = parseInt(params.id)
@@ -25,6 +31,7 @@ export default function Page({params} : {params: {id: string}}) {
     const [highestBidEvent, setHighestBidEvent] = useState<Event|null>(null)
     const demoRef = useRef<Demo|null>(null)
     const [infoShown, setInfoShown] = useState(true)
+    const [otherSpots, setOtherSpots] = useState<Event[]>([])
 
     useEffect(() => {
         if (channel) {
@@ -75,12 +82,16 @@ export default function Page({params} : {params: {id: string}}) {
                     if (a.team < b.team) return -1
                     return 0
                 })
-                let teamEvents = events.events.filter(e => !e.is_giveaway && !e.note)
+                let teamEvents = filterOnlyTeams(events.events)
                 setEvents(teamEvents)
                 setGiveaways(events.events.filter(e => e.is_giveaway))
                 setHighestBidEvent(getEventWithHighestPrice(teamEvents))
+
+                setOtherSpots(filterOnlyOther(events.events))
             })
     }
+
+    let allEvents = [...events, ...otherSpots]
 
     let items = []
     if (events.length > 0 && demo) {
@@ -93,7 +104,7 @@ export default function Page({params} : {params: {id: string}}) {
                 highlight_username: demo.highlight_username,
                 highBidTeam: breakObject?.high_bid_team ?? '',
                 giveawayTeam: breakObject?.giveaway_team ?? '',
-                events: events
+                events: allEvents
             }
             let colKey = `col-${index}`
             items.push(<EventComponent key={colKey} params={eventParams}/>)
@@ -105,11 +116,24 @@ export default function Page({params} : {params: {id: string}}) {
                 highlight_username: demo.highlight_username,
                 highBidTeam: breakObject?.high_bid_team ?? '',
                 giveawayTeam: breakObject?.giveaway_team ?? '',
-                events: events
+                events: allEvents
             }
             colKey = `col-${i}-${index}`
             items.push(<EventComponent key={colKey} params={eventParams}/>)
         }
+    }
+
+    let otherSpotsItems = []
+    for (let i = 0; i < otherSpots.length; i++) {
+        let eventObject = otherSpots[i]
+        let eventParams = {
+            event: eventObject,
+            events: allEvents,
+            index: i,
+            length: otherSpots.length,
+        }
+        let colKey = `other-${i}`
+        otherSpotsItems.push(<OtherSpotComponent key={colKey} params={eventParams}/>)
     }
 
     function launchFullScreen() {
@@ -149,7 +173,7 @@ export default function Page({params} : {params: {id: string}}) {
                     infoShown && <div className='d-flex flex-column align-items-center justify-content-center gap-2 position-absolute end-0 top-0 h-100 w-25p'>
                         {
                             <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center w-75p fs-2 text-black'>
-                                Teams
+                                Teams:
                                 <div className='giveaway-winner'>Left: {getLeftTeamsAmount()}</div>
                                 <div className='giveaway-winner'>Taken: {filterOnlyTakenTeams(events).length}</div>
                             </div>
@@ -159,6 +183,13 @@ export default function Page({params} : {params: {id: string}}) {
                                 <div className='fs-2 text-black'>Highest bid:</div>
                                 <div className='fs-3 text-black giveaway-winner w-95p overflow-hidden d-flex justify-content-center'>{highestBidEvent.customer}</div>
                                 <div className='fs-3 text-black giveaway-winner overflow-hidden'>{highestBidEvent.price}$</div>
+                            </div>
+                        }
+                        {
+                            otherSpotsItems.length > 0 &&
+                            <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center w-75p fs-2 text-black'>
+                                Other spots:
+                                {otherSpotsItems}
                             </div>
                         }
                     </div>
