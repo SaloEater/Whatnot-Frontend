@@ -98,7 +98,6 @@ body {
 .team-bg {
     background-image: url('/images/board.png');
     background-size: cover;
-    background-repeat: no-repeat;
 }
 
 .hb-fontsize {

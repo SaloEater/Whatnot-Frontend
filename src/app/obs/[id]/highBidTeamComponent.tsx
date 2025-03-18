@@ -21,6 +21,6 @@ export const HighBidTeamComponent: FC<HighBidTeamProps> = (props) => {
     }
 
     return <div className='hbt-container'>
-        {props.highBigTeam != '' && <Image src={getHighBidImageSrc(props.highBigTeam)} alt={props.highBigTeam} height="175" width="175"/>}
+        {props.highBigTeam != '' && <Image src={getHighBidImageSrc(props.highBigTeam)} alt={props.highBigTeam} height="100" width="100"/>}
     </div>
 }
