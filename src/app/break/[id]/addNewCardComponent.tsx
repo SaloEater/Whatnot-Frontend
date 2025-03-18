@@ -7,7 +7,7 @@ interface AddNewCardProps {
 }
 
 const NEW_CARD_TYPE_MISCELLANEOUS = 1
-const TYPE_NAMES: Record<number, string> = {
+export const TYPE_NAMES: Record<number, string> = {
     [NEW_CARD_TYPE_MISCELLANEOUS]: 'Miscellaneous',
 }
 

@@ -168,25 +168,29 @@ export default function Page({params}: {params: {id: string}}) {
         return e.team == giveawayTeam;
     }
 
-    return <main className='teams-container grid-container team-bg p-5'>
-        <div className="position-relative grid-middle-item logo h-100p">
-            {
-                highBidTeam != "" ? <div className='d-flex flex-column align-items-center h-100p justify-content-center gap-2'>
-                    <div className='bigboz-font big-font-size hb-fontsize w-75p d-flex align-items-center justify-content-center'>
-                        <div>HIGH BID</div>
-                    </div>
-                    <div className={`d-flex align-items-center w-75p ${highBid >= highBidFloor ? 'justify-content-between' : 'justify-content-center'}`}>
-                        <HighBidTeamComponent highBigTeam={highBidTeam}/>
-                        {highBid >= highBidFloor && <HighBidComponent highBid={highBid} />}
-                    </div>
-                </div> : <div className='h-100p bigboz-font big-font-size d-flex flex-column align-items-center justify-content-center'>
-                    <div>MOUNT</div>
-                    <div>OLYMPUS</div>
-                    <div>BREAKS</div>
+    return <div className="d-flex flex-column align-items-center justify-content-center pt-5 overflow-hidden">
+        <div className="w-75p">
+            <main className='teams-container grid-container team-bg p-45'>
+                <div className="position-relative grid-middle-item logo h-100p">
+                    {
+                        highBidTeam != "" ? <div className='d-flex flex-column align-items-center h-100p justify-content-center gap-2'>
+                            <div className='bigboz-font big-font-size hb-fontsize w-75p d-flex align-items-center justify-content-center'>
+                                <div>HIGH BID</div>
+                            </div>
+                            <div className={`d-flex align-items-center w-75p ${highBid >= highBidFloor ? 'justify-content-between' : 'justify-content-center'}`}>
+                                <HighBidTeamComponent highBigTeam={highBidTeam}/>
+                                {highBid >= highBidFloor && <HighBidComponent highBid={highBid} />}
+                            </div>
+                        </div> : <div className='h-100p bigboz-font big-font-size d-flex flex-column align-items-center justify-content-center'>
+                            <div>MOUNT</div>
+                            <div>OLYMPUS</div>
+                            <div>RIPS</div>
+                        </div>
+                    }
+                        <img className='overlay' src='/images/mount_golden.png'/>
                 </div>
-            }
-            <img className='overlay' src='/images/mount_golden.png'/>
+                {teamEvents.map(e => <EventComponent key={e.team} event={e} initEvent={initEvent} resetEvent={resetEvent} isGiveawayTeam={isGiveawayTeam(e)}/>)}
+            </main>
         </div>
-        {teamEvents.map(e => <EventComponent key={e.team} event={e} initEvent={initEvent} resetEvent={resetEvent} isGiveawayTeam={isGiveawayTeam(e)}/>)}
-    </main>
+    </div>
 }

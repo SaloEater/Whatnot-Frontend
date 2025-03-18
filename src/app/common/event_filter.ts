@@ -1,8 +1,17 @@
 import {Event, NoCustomer} from "@/app/entity/entities";
 import {IsTeam} from "@/app/common/teams";
+import {TYPE_NAMES} from "@/app/break/[id]/addNewCardComponent";
 
 export function filterOnlyTeams(events: Event[]) {
-    return events.filter(e => !e.is_giveaway && !e.note)
+    return events.filter(e => !e.is_giveaway && !e.note && !isMiscellaneous(e))
+}
+
+export function filterOnlyOther(events: Event[]) {
+    return events.filter(e => isMiscellaneous(e))
+}
+
+function isMiscellaneous(e: Event) {
+    return e.team != '' && !IsTeam(e.team)
 }
 
 export function filterOnlyGiveaways(events: Event[]) {
