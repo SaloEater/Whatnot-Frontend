@@ -46,10 +46,16 @@ export function getEndpoints()  {
     }
 }
 
+let cachedEnvVar: string | null = null;
+
 async function getEnvVar(): Promise<string> {
+    if (cachedEnvVar) {
+        return cachedEnvVar;
+    }
     const response = await fetch('/api/get-env-var');
     const data = await response.json() as EnvVarResponse;
-    return data.value;
+    cachedEnvVar = data.value;
+    return cachedEnvVar;
 }
 
 export async function post(endpoint: string, data: {}) {
