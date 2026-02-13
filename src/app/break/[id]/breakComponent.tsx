@@ -319,19 +319,15 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
 
     function swapTeams(a: Event[], b: Event[]) {
         let aCustomer = a[0].customer
-        let aPrice = Math.floor(a.reduce((acc, i) => acc + i.price, 0)/b.length)
         let bCustomer = b[0].customer
-        let bPrice = Math.floor(b.reduce((acc, i) => acc + i.price, 0)/a.length)
         let aUpdated = a.map(e => {
             let newE = {...e}
             newE.customer = bCustomer
-            newE.price = bPrice
             return newE
         })
         let bUpdated = b.map(e => {
             let newE = {...e}
             newE.customer = aCustomer
-            newE.price = aPrice
             return newE
         })
 
