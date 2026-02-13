@@ -16,7 +16,7 @@ body, .main {
 .demo-container {
     display: grid;
     grid-template-columns: 50% 50%;
-    grid-template-rows: repeat(16, calc((100% - 105px)/16)); /* Adjusted for Safari */
+    grid-template-rows: repeat(var(--rows), minmax(0, 1fr));
     border-radius: 60px;
     padding: 20px;
     gap: 7px;

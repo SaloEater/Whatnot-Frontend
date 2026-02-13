@@ -448,7 +448,7 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
                         }
                     )}
                     {
-                        <AddNewCardComponent addNewCard={addNewCard} events={events}/>
+                        <AddNewCardComponent addNewCard={addNewCard}/>
                     }
                 </div>
             </div>

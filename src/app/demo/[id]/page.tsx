@@ -13,6 +13,7 @@ import {filterOnlyEmptyTeams, filterOnlyTakenTeams, getEventWithHighestPrice} fr
 import {useDemo} from "@/app/hooks/useDemo";
 import {useChannel} from "@/app/hooks/useChannel";
 import {useDemoById} from "@/app/hooks/useDemoById";
+import {IsTeam} from "@/app/common/teams";
 
 export default function Page({params} : {params: {id: string}}) {
     const channelId = parseInt(params.id)
@@ -71,6 +72,10 @@ export default function Page({params} : {params: {id: string}}) {
         post(getEndpoints().break_events, eventsBody)
             .then((events: {events: Event[]}) => {
                 events.events.sort((a, b) => {
+                    const aIsTeam = IsTeam(a.team)
+                    const bIsTeam = IsTeam(b.team)
+                    if (aIsTeam && !bIsTeam) return -1
+                    if (!aIsTeam && bIsTeam) return 1
                     if (a.team > b.team) return 1
                     if (a.team < b.team) return -1
                     return 0
@@ -83,32 +88,30 @@ export default function Page({params} : {params: {id: string}}) {
     }
 
     let items = []
+    let rowsAmount = Math.ceil(events.length / 2)
     if (events.length > 0 && demo) {
-        let rowsAmount = 16
         for (let i = 0; i < rowsAmount; i++) {
             let index = i
             let eventObject = events[index]
-            let eventParams = {
+            items.push(<EventComponent key={`col-${index}`} params={{
                 event: eventObject,
                 highlight_username: demo.highlight_username,
                 highBidTeam: breakObject?.high_bid_team ?? '',
                 giveawayTeam: breakObject?.giveaway_team ?? '',
                 events: events
-            }
-            let colKey = `col-${index}`
-            items.push(<EventComponent key={colKey} params={eventParams}/>)
+            }}/>)
 
             index = i + rowsAmount
-            eventObject = events[index]
-            eventParams = {
-                event: eventObject,
-                highlight_username: demo.highlight_username,
-                highBidTeam: breakObject?.high_bid_team ?? '',
-                giveawayTeam: breakObject?.giveaway_team ?? '',
-                events: events
+            if (index < events.length) {
+                eventObject = events[index]
+                items.push(<EventComponent key={`col-${i}-${index}`} params={{
+                    event: eventObject,
+                    highlight_username: demo.highlight_username,
+                    highBidTeam: breakObject?.high_bid_team ?? '',
+                    giveawayTeam: breakObject?.giveaway_team ?? '',
+                    events: events
+                }}/>)
             }
-            colKey = `col-${i}-${index}`
-            items.push(<EventComponent key={colKey} params={eventParams}/>)
         }
     }
 
@@ -137,31 +140,31 @@ export default function Page({params} : {params: {id: string}}) {
                      demo ? <div className='w-100 h-100 z-1 position-relative'>
                         <Image className='position-absolute top-0 start-0 bg-img' src='/images/full_screen.png' alt={'fullscreen'} onClick={launchFullScreen} width='50' height='50'/>
                         <div className='max-height overflow-hidden d-flex justify-content-center my-flex gap-2 teams-container'>
-                            <div className='demo-container white-overlay minw'>
+                            <div className='demo-container white-overlay minw' style={{'--rows': rowsAmount} as React.CSSProperties}>
                                 {items.length > 0 && items}
                             </div>
+                            {
+                                infoShown && <div className='d-flex flex-column align-items-center justify-content-center gap-2'>
+                                    {
+                                        <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center fs-2 text-black'>
+                                            Teams
+                                            <div className='giveaway-winner'>Left: {getLeftTeamsAmount()}</div>
+                                            <div className='giveaway-winner'>Taken: {filterOnlyTakenTeams(events).length}</div>
+                                        </div>
+                                    }
+                                    {
+                                        highestBidEvent && <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center'>
+                                            <div className='fs-2 text-black'>Highest bid:</div>
+                                            <div className='fs-3 text-black giveaway-winner overflow-hidden d-flex justify-content-center'>{highestBidEvent.customer}</div>
+                                            <div className='fs-3 text-black giveaway-winner overflow-hidden'>{highestBidEvent.price}$</div>
+                                        </div>
+                                    }
+                                </div>
+                            }
                         </div>
                      </div> : <div>
                          Demo is not set
                      </div>
-                }
-                {
-                    infoShown && <div className='d-flex flex-column align-items-center justify-content-center gap-2 position-absolute end-0 top-0 h-100 w-25p'>
-                        {
-                            <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center w-75p fs-2 text-black'>
-                                Teams
-                                <div className='giveaway-winner'>Left: {getLeftTeamsAmount()}</div>
-                                <div className='giveaway-winner'>Taken: {filterOnlyTakenTeams(events).length}</div>
-                            </div>
-                        }
-                        {
-                            highestBidEvent && <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center w-75p'>
-                                <div className='fs-2 text-black'>Highest bid:</div>
-                                <div className='fs-3 text-black giveaway-winner w-95p overflow-hidden d-flex justify-content-center'>{highestBidEvent.customer}</div>
-                                <div className='fs-3 text-black giveaway-winner overflow-hidden'>{highestBidEvent.price}$</div>
-                            </div>
-                        }
-                    </div>
                 }
             </div>
             <div className='position-absolute top-0 end-0' style={{width: 100, height: 100}} onClick={_ => setInfoShown(!infoShown)}></div>

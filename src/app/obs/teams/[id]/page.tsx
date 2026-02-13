@@ -67,50 +67,52 @@ export default function Page({params} : {params: {id: string}}) {
         post(getEndpoints().break_events, eventsBody)
             .then((events: GetEventsByBreakResponse) => {
                 events.events.sort((a, b) => {
+                    const aIsTeam = IsTeam(a.team)
+                    const bIsTeam = IsTeam(b.team)
+                    if (aIsTeam && !bIsTeam) return -1
+                    if (!aIsTeam && bIsTeam) return 1
                     if (a.team > b.team) return 1
                     if (a.team < b.team) return -1
                     return 0
                 })
-                let teamEvents = events.events.filter(e => !e.is_giveaway && !e.note && IsTeam(e.team))
+                let teamEvents = events.events.filter(e => !e.is_giveaway && !e.note)
                 setEvents(teamEvents)
             })
     }
 
     let items = []
+    let rowsAmount = Math.ceil(events.length / 2)
     if (events.length > 0 && demo) {
-        let rowsAmount = 16
         for (let i = 0; i < rowsAmount; i++) {
             let index = i
             let eventObject = events[index]
-            let eventParams = {
+            items.push(<EventComponent key={`col-${index}`} params={{
                 event: eventObject,
                 highlight_username: demo.highlight_username,
                 highBidTeam: breakObject?.high_bid_team ?? '',
                 giveawayTeam: breakObject?.giveaway_team ?? ''
-            }
-            let colKey = `col-${index}`
-            items.push(<EventComponent key={colKey} params={eventParams}/>)
+            }}/>)
 
             index = i + rowsAmount
-            eventObject = events[index]
-            eventParams = {
-                event: eventObject,
-                highlight_username: demo.highlight_username,
-                highBidTeam: breakObject?.high_bid_team ?? '',
-                giveawayTeam: breakObject?.giveaway_team ?? ''
+            if (index < events.length) {
+                eventObject = events[index]
+                items.push(<EventComponent key={`col-${i}-${index}`} params={{
+                    event: eventObject,
+                    highlight_username: demo.highlight_username,
+                    highBidTeam: breakObject?.high_bid_team ?? '',
+                    giveawayTeam: breakObject?.giveaway_team ?? ''
+                }}/>)
             }
-            colKey = `col-${i}-${index}`
-            items.push(<EventComponent key={colKey} params={eventParams}/>)
         }
     }
 
     return (
         <div className='main'>
-            <div className='w-100 h-100 dimmed-bg p-5'>
+            <div className='w-100 h-100 dimmed-bg p-1'>
                 {
                      demo ? <div className='w-100 h-100'>
                         <div className='max-height overflow-hidden d-flex justify-content-center my-flex gap-2 teams-container'>
-                            <div className='demo-container teams-bg minw'>
+                            <div className='demo-container teams-bg minw' style={{'--rows': rowsAmount} as React.CSSProperties}>
                                 {items.length > 0 && items}
                             </div>
                         </div>

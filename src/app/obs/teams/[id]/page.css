@@ -4,7 +4,7 @@ body, .main {
 }
 
 .main {
-    background-color: #30ff00;
+    /*background-color: #30ff00;*/
 }
 
 .my-flex {
@@ -15,11 +15,12 @@ body, .main {
 .demo-container {
     display: grid;
     grid-template-columns: 50% 50%;
-    grid-template-rows: repeat(16, calc((100% - 105px)/16)); /* Adjusted for Safari */
+    grid-template-rows: repeat(var(--rows), minmax(0, 1fr));
     border-radius: 60px;
     padding: 20px;
     gap: 7px;
     border: black solid 2px;
+    margin: 0 auto;
 }
 
 .dimmed-overlay {
@@ -28,7 +29,7 @@ body, .main {
 }
 
 .teams-bg {
-    background-color: #001b2e;
+    background-color: #5e5e5e;
     border: black solid 2px;
 }
 

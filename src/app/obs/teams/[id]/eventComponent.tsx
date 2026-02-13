@@ -1,6 +1,7 @@
 import {Event} from "@/app/entity/entities";
 import Image from "next/image";
 import './eventComponent.css'
+import {IsTeam} from "@/app/common/teams";
 
 interface HighlightColors {
     backgroundColor: string,
@@ -18,7 +19,10 @@ export default function EventComponent(
     }
 ) {
     function getTeamImageSrc(team: string) {
-        return `/images/teams/${team}.webp`;
+        if (IsTeam(team)) {
+            return `/images/teams/${team}.webp`;
+        }
+        return `/images/${team}.webp`;
     }
 
     let isHighBidTeam = params.highBidTeam == params.event.team
@@ -40,7 +44,7 @@ export default function EventComponent(
 
     return <div className={`max-height d-flex dimmed-overlay max-width align-items-center gap-2 `}>
         <img className='image' src={getTeamImageSrc(params.event.team)} alt={params.event.team}/>
-        <div className={`d-flex overflow-hidden align-items-center justify-content-center customer-text customer-border h-75p w-100p ${bgColors.backgroundColor} ${bgColors.textColor}`}>
+        <div className={`d-flex align-items-center justify-content-center customer-text customer-border h-75p ${bgColors.backgroundColor} ${bgColors.textColor}`}>
             <div className='overflow-hidden teams-customer'>
                 {params.event.customer}
             </div>

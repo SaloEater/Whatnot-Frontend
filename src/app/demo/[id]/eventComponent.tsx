@@ -1,6 +1,7 @@
 import {Event, NoCustomer} from "@/app/entity/entities";
 import Image from "next/image";
 import './eventComponent.css'
+import {IsTeam} from "@/app/common/teams";
 
 interface HighlightColors {
     backgroundColor: string,
@@ -19,7 +20,10 @@ export default function EventComponent(
     }
 ) {
     function getTeamImageSrc(team: string) {
-        return `/images/teams/${team}.webp`;
+        if (IsTeam(team)) {
+            return `/images/teams/${team}.webp`;
+        }
+        return `/images/${team}.webp`;
     }
 
     let isHighBidTeam = params.highBidTeam == params.event.team
