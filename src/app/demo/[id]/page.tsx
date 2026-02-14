@@ -84,31 +84,39 @@ export default function Page({params} : {params: {id: string}}) {
             })
     }
 
-    let items = []
-    let rowsAmount = Math.ceil(events.length / 2)
-    if (events.length > 0 && demo) {
-        for (let i = 0; i < rowsAmount; i++) {
-            let index = i
-            let eventObject = events[index]
-            items.push(<EventComponent key={`col-${index}`} params={{
-                event: eventObject,
+    let teamEvents = events.filter(e => IsTeam(e.team))
+    let otherEvents = events.filter(e => !IsTeam(e.team))
+
+    // Reorder: teams fill first 16 rows (left col then right col), others follow after
+    let orderedEvents: Event[] = []
+    let teamRows = Math.ceil(teamEvents.length / 2)
+    for (let i = 0; i < teamRows; i++) {
+        orderedEvents.push(teamEvents[i])
+        let rightIndex = i + teamRows
+        if (rightIndex < teamEvents.length) {
+            orderedEvents.push(teamEvents[rightIndex])
+        }
+    }
+    let otherRows = Math.ceil(otherEvents.length / 2)
+    for (let i = 0; i < otherRows; i++) {
+        orderedEvents.push(otherEvents[i])
+        let rightIndex = i + otherRows
+        if (rightIndex < otherEvents.length) {
+            orderedEvents.push(otherEvents[rightIndex])
+        }
+    }
+
+    let rowsAmount = teamRows + otherRows
+    let items: React.ReactNode[] = []
+    if (orderedEvents.length > 0 && demo) {
+        for (let i = 0; i < orderedEvents.length; i++) {
+            items.push(<EventComponent key={`col-${i}`} params={{
+                event: orderedEvents[i],
                 highlight_username: demo.highlight_username,
                 highBidTeam: breakObject?.high_bid_team ?? '',
                 giveawayTeam: breakObject?.giveaway_team ?? '',
                 events: events
             }}/>)
-
-            index = i + rowsAmount
-            if (index < events.length) {
-                eventObject = events[index]
-                items.push(<EventComponent key={`col-${i}-${index}`} params={{
-                    event: eventObject,
-                    highlight_username: demo.highlight_username,
-                    highBidTeam: breakObject?.high_bid_team ?? '',
-                    giveawayTeam: breakObject?.giveaway_team ?? '',
-                    events: events
-                }}/>)
-            }
         }
     }
 

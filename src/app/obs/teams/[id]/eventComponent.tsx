@@ -43,7 +43,7 @@ export default function EventComponent(
 
     return <div className={`d-flex dimmed-overlay max-width align-items-center gap-2 `}>
         <img className='image' src={getTeamImageSrc(params.event.team)} alt={params.event.team}/>
-        <div className={`d-flex align-items-center justify-content-center customer-text customer-border h-75p ${bgColors.backgroundColor} ${bgColors.textColor}`}>
+        <div className={`d-flex align-items-center customer-text customer-border h-75p ${bgColors.backgroundColor} ${bgColors.textColor}`}>
             <div className='overflow-hidden teams-customer'>
                 {params.event.customer}
             </div>

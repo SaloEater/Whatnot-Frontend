@@ -1,14 +1,9 @@
 'use client'
 
-import {createRef, Dispatch, SetStateAction, useCallback, useEffect, useRef, useState} from "react";
+import {useEffect, useState} from "react";
 import {getEndpoints, post} from "@/app/lib/backend";
-import {TuiDateTimePicker} from "nextjs-tui-date-picker";
-import moment, {max} from "moment";
-import {Stream, WNBreak, Event, SelectedBreak, Demo, GetEventsByBreakResponse} from "@/app/entity/entities";
-import {useRouter} from "next/navigation";
+import {Demo, Event, GetEventsByBreakResponse, WNBreak} from "@/app/entity/entities";
 import './page.css'
-import Image from "next/image";
-import {filterOnlyEmptyTeams, filterOnlyTakenTeams, getEventWithHighestPrice} from "@/app/common/event_filter";
 import EventComponent from "@/app/obs/teams/[id]/eventComponent";
 import {useChannel} from "@/app/hooks/useChannel";
 import {useDemoById} from "@/app/hooks/useDemoById";
@@ -80,29 +75,37 @@ export default function Page({params} : {params: {id: string}}) {
             })
     }
 
-    let items = []
-    let rowsAmount = Math.ceil(events.length / 2)
-    if (events.length > 0 && demo) {
-        for (let i = 0; i < rowsAmount; i++) {
-            let index = i
-            let eventObject = events[index]
-            items.push(<EventComponent key={`col-${index}`} params={{
-                event: eventObject,
+    let teamOnlyEvents = events.filter(e => IsTeam(e.team))
+    let otherEvents = events.filter(e => !IsTeam(e.team))
+
+    let orderedEvents: Event[] = []
+    let teamRows = Math.ceil(teamOnlyEvents.length / 2)
+    for (let i = 0; i < teamRows; i++) {
+        orderedEvents.push(teamOnlyEvents[i])
+        let rightIndex = i + teamRows
+        if (rightIndex < teamOnlyEvents.length) {
+            orderedEvents.push(teamOnlyEvents[rightIndex])
+        }
+    }
+    let otherRows = Math.ceil(otherEvents.length / 2)
+    for (let i = 0; i < otherRows; i++) {
+        orderedEvents.push(otherEvents[i])
+        let rightIndex = i + otherRows
+        if (rightIndex < otherEvents.length) {
+            orderedEvents.push(otherEvents[rightIndex])
+        }
+    }
+
+    let rowsAmount = teamRows + otherRows
+    let items: React.ReactNode[] = []
+    if (orderedEvents.length > 0 && demo) {
+        for (let i = 0; i < orderedEvents.length; i++) {
+            items.push(<EventComponent key={`col-${i}`} params={{
+                event: orderedEvents[i],
                 highlight_username: demo.highlight_username,
                 highBidTeam: breakObject?.high_bid_team ?? '',
                 giveawayTeam: breakObject?.giveaway_team ?? ''
             }}/>)
-
-            index = i + rowsAmount
-            if (index < events.length) {
-                eventObject = events[index]
-                items.push(<EventComponent key={`col-${i}-${index}`} params={{
-                    event: eventObject,
-                    highlight_username: demo.highlight_username,
-                    highBidTeam: breakObject?.high_bid_team ?? '',
-                    giveawayTeam: breakObject?.giveaway_team ?? ''
-                }}/>)
-            }
         }
     }
 
