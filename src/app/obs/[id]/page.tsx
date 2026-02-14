@@ -1,17 +1,9 @@
 'use client'
 
 import './page.css'
-import {useCallback, useEffect, useRef, useState} from "react";
+import {useEffect, useState} from "react";
 import {getEndpoints, post} from "@/app/lib/backend";
-import {
-    GetEventsByBreakResponse,
-    Event,
-    NoCustomer,
-    Demo,
-    NoDemoBreak,
-    WNBreak,
-    WNChannel
-} from "@/app/entity/entities";
+import {Demo, Event, GetEventsByBreakResponse, NoCustomer, NoDemoBreak, WNBreak} from "@/app/entity/entities";
 import {filterOnlyTeams, getEventWithHighestPrice} from "@/app/common/event_filter";
 import {EventComponent} from "@/app/obs/[id]/eventComponent";
 import {HighBidComponent} from "@/app/obs/[id]/highBidComponent";
@@ -177,7 +169,7 @@ export default function Page({params}: {params: {id: string}}) {
                             <div className='bigboz-font big-font-size hb-fontsize w-75p d-flex align-items-center justify-content-center'>
                                 <div>HIGH BID</div>
                             </div>
-                            <div className={`d-flex align-items-center w-75p ${highBid >= highBidFloor ? 'justify-content-between' : 'justify-content-center'}`}>
+                            <div className={`d-flex w-75p ${highBid >= highBidFloor ? 'justify-content-between' : 'justify-content-center'}`}>
                                 <HighBidTeamComponent highBigTeam={highBidTeam}/>
                                 {highBid >= highBidFloor && <HighBidComponent highBid={highBid} />}
                             </div>

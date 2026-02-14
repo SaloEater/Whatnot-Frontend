@@ -1,11 +1,8 @@
 'use client'
 
-import {createRef, Dispatch, SetStateAction, useCallback, useEffect, useRef, useState} from "react";
+import {useEffect, useRef, useState} from "react";
 import {getEndpoints, post} from "@/app/lib/backend";
-import {TuiDateTimePicker} from "nextjs-tui-date-picker";
-import moment, {max} from "moment";
-import {Stream, WNBreak, Event, SelectedBreak, Demo} from "@/app/entity/entities";
-import {useRouter} from "next/navigation";
+import {Demo, Event, WNBreak} from "@/app/entity/entities";
 import './page.css'
 import EventComponent from "@/app/demo/[id]/eventComponent";
 import Image from "next/image";
@@ -146,7 +143,7 @@ export default function Page({params} : {params: {id: string}}) {
                             {
                                 infoShown && <div className='d-flex flex-column align-items-center justify-content-center gap-2'>
                                     {
-                                        <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center fs-2 text-black'>
+                                        <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center fs-2'>
                                             Teams
                                             <div className='giveaway-winner'>Left: {getLeftTeamsAmount()}</div>
                                             <div className='giveaway-winner'>Taken: {filterOnlyTakenTeams(events).length}</div>
@@ -154,9 +151,9 @@ export default function Page({params} : {params: {id: string}}) {
                                     }
                                     {
                                         highestBidEvent && <div className='white-overlay round-overlay p-2 d-flex flex-column align-items-center'>
-                                            <div className='fs-2 text-black'>Highest bid:</div>
-                                            <div className='fs-3 text-black giveaway-winner overflow-hidden d-flex justify-content-center'>{highestBidEvent.customer}</div>
-                                            <div className='fs-3 text-black giveaway-winner overflow-hidden'>{highestBidEvent.price}$</div>
+                                            <div className='fs-2'>Highest bid:</div>
+                                            <div className='fs-3 giveaway-winner overflow-hidden d-flex justify-content-center'>{highestBidEvent.customer.length > 15 ? highestBidEvent.customer.substring(0, 15) + '…' : highestBidEvent.customer}</div>
+                                            <div className='fs-3 giveaway-winner overflow-hidden'>{highestBidEvent.price}$</div>
                                         </div>
                                     }
                                 </div>

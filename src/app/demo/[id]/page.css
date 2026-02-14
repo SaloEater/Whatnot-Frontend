@@ -29,7 +29,7 @@ body, .main {
 }
 
 .white-overlay {
-    background-color: rgb(206, 206, 206);
+    background-color: #001b2e;
     border: black solid 2px;
 }
 
@@ -51,4 +51,9 @@ body, .main {
 
 .dimmed-bg {
     background-color: rgba(0,0,0,0.25);
+}
+
+.teams-customer {
+    color: #eef3f9;
+    min-width: 25vw;
 }

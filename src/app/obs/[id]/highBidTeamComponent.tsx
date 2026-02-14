@@ -1,5 +1,3 @@
-import {Event} from "@/app/entity/entities";
-import {getEventWithHighestPrice} from "@/app/common/event_filter";
 import './highBidComponent.css'
 import {FC} from "react";
 import Image from "next/image";
@@ -21,6 +19,6 @@ export const HighBidTeamComponent: FC<HighBidTeamProps> = (props) => {
     }
 
     return <div className='hbt-container'>
-        {props.highBigTeam != '' && <Image src={getHighBidImageSrc(props.highBigTeam)} alt={props.highBigTeam} height="175" width="175"/>}
+        {props.highBigTeam != '' && <Image src={getHighBidImageSrc(props.highBigTeam)} alt={props.highBigTeam} height="150" width="150"/>}
     </div>
 }

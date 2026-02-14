@@ -1,5 +1,4 @@
-import {Event, NoCustomer} from "@/app/entity/entities";
-import Image from "next/image";
+import {Event} from "@/app/entity/entities";
 import './eventComponent.css'
 import {IsTeam} from "@/app/common/teams";
 
@@ -48,10 +47,10 @@ export default function EventComponent(
         return teamEvents.length
     }
 
-    return <div className={`max-height d-flex dimmed-overlay max-width align-items-center gap-2 `}>
+    return <div className={`d-flex dimmed-overlay max-width align-items-center gap-2 `}>
         <img className='image' src={getTeamImageSrc(params.event.team)} alt={params.event.team}/>
         <div className={`d-flex overflow-hidden align-items-center justify-content-center customer-text customer-border h-75p w-100p ${bgColors.backgroundColor} ${bgColors.textColor}`}>
-            <div className='overflow-hidden whitespace-nowrap'>
+            <div className='overflow-hidden whitespace-nowrap teams-customer'>
                 <span>{params.event.customer}</span> <span>{params.event.customer != "" && <b>[{getTeamsAmount()}]</b>}</span>
             </div>
         </div>
