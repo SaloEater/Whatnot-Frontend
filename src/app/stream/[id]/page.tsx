@@ -15,6 +15,7 @@ export default function Page({params} : {params: {id: string}}) {
     const [breaks, setBreaks] = useState<WNBreak[]>([])
     const [newBreakName, setNewBreakName] = useState("")
     const [newBreaksAmount, setNewBreaksAmount] = useState(1)
+    const [toastMessage, setToastMessage] = useState<string | null>(null)
     let router = useRouter()
 
     useEffect(() => {
@@ -49,29 +50,33 @@ export default function Page({params} : {params: {id: string}}) {
         return post(getEndpoints().break_add, body)
             .then((response: AddBreakResponse) => {
                 setNewBreakName("")
-                let promises: any[] = []
+                let chain = Promise.resolve()
                 Teams.forEach((teamName, j) => {
-                    let eventAddBody: Event = {
-                        id: 0,
-                        index: j,
-                        giveaway_type: GiveawayTypeNone,
-                        break_id: response.id,
-                        customer: '',
-                        price: 0,
-                        team: teamName,
-                        is_giveaway: false,
-                        note: '',
-                        quantity: 0
-
-                    }
-                    promises.push(post(getEndpoints().event_add, eventAddBody)
-                        .then(() => {
-                            console.log(`Team ${teamName} added`)
-                        })
-                    )
+                    chain = chain.then(() => {
+                        let eventAddBody: Event = {
+                            id: 0,
+                            index: j,
+                            giveaway_type: GiveawayTypeNone,
+                            break_id: response.id,
+                            customer: '',
+                            price: 0,
+                            team: teamName,
+                            is_giveaway: false,
+                            note: '',
+                            quantity: 0
+                        }
+                        return post(getEndpoints().event_add, eventAddBody)
+                            .then(() => {
+                                console.log(`Team ${teamName} added`)
+                            })
+                    })
                 })
                 body.id = response.id
-                return Promise.all(promises).then(_ => addBreak(body))
+                return chain.then(_ => {
+                    addBreak(body)
+                    setToastMessage(`All events added for ${body.name}`)
+                    setTimeout(() => setToastMessage(null), 3000)
+                })
             })
     }
 
@@ -105,6 +110,9 @@ export default function Page({params} : {params: {id: string}}) {
 
     return (
         <main>
+            {toastMessage && <div className='position-fixed top-0 start-50 translate-middle-x mt-3 alert alert-success z-3'>
+                {toastMessage}
+            </div>}
             <div className="d-flex justify-content-center">
                 <div className='pe-3'>
                     <div>
