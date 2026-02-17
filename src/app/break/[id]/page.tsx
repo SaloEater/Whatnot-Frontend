@@ -1,21 +1,27 @@
 'use client'
 
 import {BreakComponent} from "@/app/break/[id]/breakComponent";
-import {TuiDateTimePicker} from "nextjs-tui-date-picker";
-import moment from "moment/moment";
 import React, {useEffect, useState} from "react";
-import {WNBreak} from "@/app/entity/entities";
+import {Event, WNBreak} from "@/app/entity/entities";
 import {getEndpoints, post} from "@/app/lib/backend";
-import {useRouter} from "next/navigation";
 import {HighBidOptions, IsNone, Teams} from "@/app/common/teams";
 import {BreakSwitchComponent} from "@/app/break/[id]/breakSwitchComponent";
+import {ImportBreakComponent} from "@/app/break/[id]/importBreakComponent";
 
 export default function Page({params} : {params: {id: string}}) {
     const breakId = parseInt(params.id)
     const [breakObject, setBreakObject] = useState<WNBreak|null>(null);
     const [newName, setNewName] = useState("")
+    const [events, setEvents] = useState<Event[]>([])
 
     const dateTimeFormat = "YYYY-MM-dd hh:mm a"
+
+    function refreshEvents() {
+        post(getEndpoints().break_events, {break_id: breakId})
+            .then((resp: {events: Event[]}) => {
+                setEvents(resp.events.filter(e => !e.is_giveaway))
+            })
+    }
 
     useEffect(() => {
         const body = {
@@ -26,6 +32,7 @@ export default function Page({params} : {params: {id: string}}) {
                 setBreakObject(breakData)
                 setNewName(breakData.name)
             })
+        refreshEvents()
     }, [])
 
     function setNewBreakObject(newBreak: WNBreak) {
@@ -161,7 +168,8 @@ export default function Page({params} : {params: {id: string}}) {
                             </div>
                         </div>
                     </div>
-                    <div>
+                    <div className="d-flex align-items-end gap-2">
+                        <ImportBreakComponent breakId={breakId} events={events} onImported={refreshEvents}/>
                         {breakObject && <BreakSwitchComponent currentBreak={breakObject}/>}
                     </div>
                 </div>
