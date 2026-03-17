@@ -50,7 +50,7 @@ function validateBreaks(rows: ParsedRow[]): BreakValidation[] {
     }
 
     const results: BreakValidation[] = []
-    for (const [breakName, breakRows] of grouped) {
+    for (const [breakName, breakRows] of Array.from(grouped)) {
         const presentTeams = new Set(breakRows.filter(r => r.team !== 'Miscellaneous').map(r => r.team))
         const missingTeams = Teams.filter(t => !presentTeams.has(t))
         const miscCount = breakRows.filter(r => r.team === 'Miscellaneous').length
