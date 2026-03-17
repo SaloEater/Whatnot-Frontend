@@ -2,10 +2,9 @@
 
 import React, {useEffect, useState} from "react";
 import {Teams} from "@/app/common/teams";
-import {get, getEndpoints, post} from "@/app/lib/backend";
-import {Event, WNBreak, GetStreamsResponse, AddBreakResponse, GiveawayTypeNone} from "@/app/entity/entities";
+import {getEndpoints, post} from "@/app/lib/backend";
+import {AddBreakResponse, Event, GiveawayTypeNone, WNBreak} from "@/app/entity/entities";
 import {useRouter} from "next/navigation";
-import {sortByIndex} from "@/app/common/event_filter";
 import {sortBreaksById} from "@/app/common/breaks";
 import {useStream} from "@/app/hooks/useStream";
 
@@ -130,6 +129,16 @@ export default function Page({params} : {params: {id: string}}) {
                                 post(getEndpoints().notify_stream_ended, {stream_id: streamId}).then(refreshStream)
                             }
                         }>{!!stream && !stream.is_ended ? 'End stream' : 'Stream ended'}
+                        </button>
+                    </div>
+                    <div>
+                        <button type="button" className="btn btn-secondary" onClick={() => router.push(`/stream/${streamId}/import`)}>
+                            Import livestream
+                        </button>
+                    </div>
+                    <div>
+                        <button type="button" className="btn btn-secondary" onClick={() => router.push(`/stream/${streamId}/import-giveaways`)}>
+                            Import giveaways
                         </button>
                     </div>
                 </div>
