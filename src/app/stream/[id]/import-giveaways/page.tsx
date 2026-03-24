@@ -29,11 +29,11 @@ function parseAndCluster(content: string, breaks: WNBreak[]): Cluster[] {
     const rows = result.data
 
     const giveaways: GiveawayRow[] = rows
-        .filter(r => isGiveaway(r['product name']) && !r['cancelled or failed'])
+        .filter(r => isGiveaway(r.product_name) && !r.cancelled_or_failed)
         .map(r => ({
-            productName: r['product name'],
-            buyer: r['buyer'],
-            placedAt: new Date(r['placed at']),
+            productName: r.product_name,
+            buyer: r.buyer,
+            placedAt: new Date(r.placed_at),
             clusterIndex: 0,
             breakOverride: null,
         }))
