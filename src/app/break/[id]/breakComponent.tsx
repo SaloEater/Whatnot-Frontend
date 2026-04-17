@@ -1,23 +1,19 @@
 'use client'
 
-import React, {createRef, Dispatch, SetStateAction, useEffect, useRef, useState} from "react";
+import React, {useEffect, useRef, useState} from "react";
 import {getEndpoints, post} from "@/app/lib/backend";
 import {
-    Stream,
-    WNBreak,
     Event,
-    SelectedBreak,
     GetStreamUsernamesResponse,
+    GiveawayTypeNone,
+    GiveawayTypeSlab,
     NoCustomer,
-    GiveawayTypeNone, GiveawayTypeSlab
+    WNBreak
 } from "@/app/entity/entities";
 import {EventComponent} from "@/app/break/[id]/eventComponent";
-import {useRouter} from "next/navigation";
 import GiveawayComponent from "@/app/break/[id]/giveawayComponent";
 import {TextInput} from "@/app/common/textInput";
-import EventPlaceholderComponent from "@/app/break/[id]/eventPlaceholderComponent";
 import './breakComponent.css'
-import TeamsListComponent from "@/app/break/[id]/teamsListComponent";
 import ToolsComponent from "@/app/break/[id]/toolsComponent";
 import {
     sortByIndexAscTeamAsc,
@@ -28,9 +24,7 @@ import {
 import {ToolsTabComponent} from "@/app/break/[id]/toolsTabComponent";
 import {arrayUnique, sortStringsAlphabetically} from "@/app/common/helpers";
 import {EventPlaceholdersTabsComponent} from "@/app/break/[id]/eventPlaceholdersTabsComponent";
-import {DataComponent} from "@/app/break/[id]/dataComponent";
 import {AddNewCardComponent} from "@/app/break/[id]/addNewCardComponent";
-import {IsTeam} from "@/app/common/teams";
 
 const SortIndexAsc = 0
 const SortIndexDesc = 1
@@ -54,6 +48,7 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
     const [sortDir, setSortDir] = useState<number|null>(SortTeamFirst)
     const [usernames, setUsernames] = useState<string[]>([])
     const [newEvent, setNewEvent] = useState<Event|null>(null)
+    const [autoFill, setAutoFill] = useState(false)
 
     function getUsernames() {
         let body = {
@@ -396,6 +391,12 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
         })
     }
 
+    function autoFillTeamEvent(teamName: string, customer: string, price: number) {
+        const event = events.find(e => e.team === teamName)
+        if (!event) return
+        updateEvent({...event, customer, price})
+    }
+
     function addNewCard(newEvent: Event) {
         newEvent.index = getNextIndex(newEvent)
         newEvent.break_id = params.breakObject.id
@@ -441,12 +442,24 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
                 </div>
             </div>
             <div className='w-15p justify-content-center'>
+                <div className="form-check mb-1">
+                    <input
+                        className="form-check-input"
+                        type="checkbox"
+                        id="autoFillCheck"
+                        checked={autoFill}
+                        onChange={e => setAutoFill(e.target.checked)}
+                    />
+                    <label className="form-check-label" htmlFor="autoFillCheck">Auto-fill</label>
+                </div>
                 <EventPlaceholdersTabsComponent
                     realEventPlaceholder={{...eventPlaceholder}}
                     updateRealEventPlaceholder={updateEventPlaceholder}
                     resetRealEventPlaceholder={resetEventPlaceholder}
                     length={4}
                     saveNewGiveawayCustomer={saveNewGiveawayCustomer}
+                    autoFill={autoFill}
+                    onAutoFill={autoFillTeamEvent}
                 />
                 <div className='border border-primary rounded rounded-3 border-1 d-flex flex-column align-items-center'>
                     <div>Giveaways:</div>

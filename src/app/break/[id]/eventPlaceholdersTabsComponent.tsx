@@ -1,12 +1,9 @@
-import TeamsListComponent from "@/app/break/[id]/teamsListComponent";
-import {Event, EventData, GiveawayTypeNone, GiveawayTypePack, GiveawayTypeSlab} from "@/app/entity/entities";
+import {Event, EventData, GiveawayTypeNone} from "@/app/entity/entities";
 import {FC, useEffect, useState} from "react";
-import DemoSettingsComponent from "@/app/break/[id]/demoSettingsComponent";
-import {arrayUnique} from "@/app/common/helpers";
-import {onlyWithUsernames} from "@/app/common/event_filter";
 import {EventPlaceholdersComponent} from "@/app/break/[id]/eventPlaceholdersComponent";
 import {WhatnotSoldEventPlaceholdersComponent} from "@/app/break/[id]/whatnotSoldEventPlaceholdersComponent";
 import {getGiveawayType, isGiveaway} from "@/app/utils/whatnot_product";
+import {Teams} from "@/app/common/teams";
 
 const Tabs = [
     'Events',
@@ -21,6 +18,8 @@ interface EventPlaceholdersTabsProps {
     updateRealEventPlaceholder: (event: Event) => void,
     resetRealEventPlaceholder: () => void,
     length: number,
+    autoFill?: boolean,
+    onAutoFill?: (teamName: string, customer: string, price: number) => void,
 }
 
 const WhatnotSoldEventName = 'new_event_event'
@@ -57,13 +56,20 @@ export const EventPlaceholdersTabsComponent: FC<EventPlaceholdersTabsProps> = (p
             if (isGiveaway(newEvent.name)) {
                 props.saveNewGiveawayCustomer(newEvent.customer, getGiveawayType(newEvent.name))
             } else {
-                setWhatnotEvents((old) => {
-                    let newE = [...old]
-                    let nextId = id
-                    setId((old) => old + 1)
-                    newE.push({customer: newEvent.customer, price: newEvent.price, id: nextId})
-                    return newE
-                })
+                const matchedTeam = props.autoFill
+                    ? Teams.find(t => newEvent.name.includes(t))
+                    : undefined
+                if (matchedTeam && props.onAutoFill) {
+                    props.onAutoFill(matchedTeam, newEvent.customer, newEvent.price)
+                } else {
+                    setWhatnotEvents((old) => {
+                        let newE = [...old]
+                        let nextId = id
+                        setId((old) => old + 1)
+                        newE.push({customer: newEvent.customer, price: newEvent.price, id: nextId})
+                        return newE
+                    })
+                }
             }
             setNewEvent(null)
         }
