@@ -152,18 +152,18 @@ export default function Page({params} : {params: {id: string}}) {
                                             <div className="col-1">{index + 1})</div>
                                             <div className="col" onClick={() => redirectToBreak(breakObject.id)}>{breakObject.name}</div>
                                             <div className="col-3">
-                                                <img src="/images/bin_static_sm.png" className="img-fluid float-right" alt="" onClick={
-                                                    async e => {
-                                                        const body = {
-                                                            id: breakObject.id,
-                                                            name: breakObject,
-                                                        };
-                                                        post(getEndpoints().break_delete, body)
-                                                            .then(response => {
-                                                                removeBreak(index)
-                                                            })
-                                                    }
-                                                }/>
+                                                {/*<img src="/images/bin_static_sm.png" className="img-fluid float-right" alt="" onClick={*/}
+                                                {/*    async e => {*/}
+                                                {/*        const body = {*/}
+                                                {/*            id: breakObject.id,*/}
+                                                {/*            name: breakObject,*/}
+                                                {/*        };*/}
+                                                {/*        post(getEndpoints().break_delete, body)*/}
+                                                {/*            .then(response => {*/}=
+                                                {/*                removeBreak(index)*/}
+                                                {/*            })*/}
+                                                {/*    }*/}
+                                                {/*}/>*/}
                                             </div>
                                         </div>
                                     </div>

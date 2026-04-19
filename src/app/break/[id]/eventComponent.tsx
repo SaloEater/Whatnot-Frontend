@@ -2,10 +2,8 @@ import {Event} from "@/app/entity/entities";
 import Image from "next/image";
 import {TextInput} from "@/app/common/textInput";
 import {FC, useEffect, useState} from "react";
-import {getEndpoints, post} from "@/app/lib/backend";
 import OrderChangingComponent from "@/app/break/[id]/orderChangingComponent";
 import './eventComponent.css'
-import SwapComponent from "@/app/break/[id]/swapComponent";
 import {TextInputWithSuggestions} from "@/app/common/textInputWithSuggestions";
 import {IsTeam} from "@/app/common/teams";
 
@@ -175,7 +173,7 @@ export const EventComponent: FC<EventProps> = (props) => {
                             setNewPrice(0)
                             props.resetEvent(props.event)
                         }}>
-                            <Image className='bg-secondary p-1 rounded rounded-3' alt='Delete' src="/images/bin_static_sm.png" width='30' height='30'/>
+                            {/*<Image className='bg-secondary p-1 rounded rounded-3' alt='Delete' src="/images/bin_static_sm.png" width='30' height='30'/>*/}
                         </div>
                     }
                 {

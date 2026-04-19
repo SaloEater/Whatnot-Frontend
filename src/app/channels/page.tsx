@@ -2,10 +2,8 @@
 
 import {get, getEndpoints, post} from "@/app/lib/backend";
 import {useEffect, useState} from "react";
-import moment from "moment/moment";
-import {TuiDateTimePicker} from "nextjs-tui-date-picker";
 import {useRouter} from "next/navigation";
-import {GetStreamsResponse, GetChannelsChannel, GetChannelsResponse} from "@/app/entity/entities";
+import {GetChannelsChannel, GetChannelsResponse} from "@/app/entity/entities";
 import {TextInputAction} from "@/app/component/textInputAction";
 
 export default function Page() {
@@ -71,18 +69,18 @@ export default function Page() {
                                                 router.push(`/channel/${channel.id}`)
                                             }}>{channel.name}</div>
                                             <div className="col-2">
-                                                <img src="/images/bin_static_sm.png" className="img-fluid float-right" alt="" onClick={
-                                                    _ => {
-                                                        const body = {
-                                                            id: channel.id
-                                                        };
-                                                        post(getEndpoints().channel_delete, body).then(response => {
-                                                            if (response.success) {
-                                                                removeChannel(channel)
-                                                            }
-                                                        });
-                                                    }
-                                                }/>
+                                                {/*<img src="/images/bin_static_sm.png" className="img-fluid float-right" alt="" onClick={*/}
+                                                {/*    _ => {*/}
+                                                {/*        const body = {*/}
+                                                {/*            id: channel.id*/}
+                                                {/*        };*/}
+                                                {/*        post(getEndpoints().channel_delete, body).then(response => {*/}
+                                                {/*            if (response.success) {*/}
+                                                {/*                removeChannel(channel)*/}
+                                                {/*            }*/}
+                                                {/*        });*/}
+                                                {/*    }*/}
+                                                {/*}/>*/}
                                             </div>
                                         </div>
                                     </div>

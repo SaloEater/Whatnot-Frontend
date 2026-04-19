@@ -1,11 +1,10 @@
 'use client'
 
-import {get, getEndpoints, post} from "@/app/lib/backend";
+import {getEndpoints, post} from "@/app/lib/backend";
 import React, {useEffect, useState} from "react";
 import moment from "moment/moment";
-import {TuiDateTimePicker} from "nextjs-tui-date-picker";
 import {useRouter} from "next/navigation";
-import {StreamResponse, GetStreamsResponse, GetChannelsChannel, WNChannel} from "@/app/entity/entities";
+import {GetStreamsResponse, StreamResponse, WNChannel} from "@/app/entity/entities";
 import {TextInputAction} from "@/app/component/textInputAction";
 import {useChannel} from "@/app/hooks/useChannel";
 import {ChannelPropertiesComponent} from "@/app/channel/[id]/channelPropertiesComponent";
@@ -124,18 +123,18 @@ export default function Page({params}: {params: {id: string}}) {
                                                         className='text-secondary'>{` at ${moment(new Date(stream.created_at)).format("YYYY/MM/DD")}`}</span>
                                                 </div>
                                                 <div className="col-2">
-                                                    <img src="/images/bin_static_sm.png"
-                                                         className="img-fluid float-right" alt="" onClick={
-                                                        async e => {
-                                                            const body = {
-                                                                id: stream.id
-                                                            };
-                                                            const response = await post((await getEndpoints()).stream_delete, body);
-                                                            if (response.success) {
-                                                                removeStream(stream)
-                                                            }
-                                                        }
-                                                    }/>
+                                                    {/*<img src="/images/bin_static_sm.png"*/}
+                                                    {/*     className="img-fluid float-right" alt="" onClick={*/}
+                                                    {/*    async e => {*/}
+                                                    {/*        const body = {*/}
+                                                    {/*            id: stream.id*/}
+                                                    {/*        };*/}
+                                                    {/*        const response = await post((await getEndpoints()).stream_delete, body);*/}
+                                                    {/*        if (response.success) {*/}
+                                                    {/*            removeStream(stream)*/}
+                                                    {/*        }*/}
+                                                    {/*    }*/}
+                                                    {/*}/>*/}
                                                 </div>
                                             </div>
                                         </div>
