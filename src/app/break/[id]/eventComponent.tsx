@@ -173,7 +173,7 @@ export const EventComponent: FC<EventProps> = (props) => {
                             setNewPrice(0)
                             props.resetEvent(props.event)
                         }}>
-                            {/*<Image className='bg-secondary p-1 rounded rounded-3' alt='Delete' src="/images/bin_static_sm.png" width='30' height='30'/>*/}
+                            <Image className='bg-secondary p-1 rounded rounded-3' alt='Delete' src="/images/bin_static_sm.png" width='30' height='30'/>
                         </div>
                     }
                 {
