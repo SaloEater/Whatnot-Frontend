@@ -50,9 +50,12 @@ export default function EventComponent(
 
     return <div className={`d-flex dimmed-overlay max-width align-items-center gap-2 `}>
         <img className='image' src={getTeamImageSrc(params.event.team)} alt={params.event.team}/>
-        <div className={`d-flex overflow-hidden align-items-center customer-text customer-border h-75p w-100p ${bgColors.backgroundColor} ${bgColors.textColor}`}>
+        <div
+            className={`d-flex overflow-hidden align-items-center customer-text customer-border h-75p w-100p ${bgColors.backgroundColor} ${bgColors.textColor}`}
+            style={params.buyerColor && bgColors.backgroundColor === '' && params.event.customer !== '' ? {backgroundColor: params.buyerColor + '30'} : undefined}
+        >
             <div className='overflow-hidden whitespace-nowrap teams-customer'>
-                {params.buyerColor && params.event.customer !== '' && <span style={{color: params.buyerColor, marginRight: 4}}>●</span>}<span>{params.event.customer.length > 20 ? params.event.customer.substring(0, 20) + "..." : params.event.customer}</span> <span>{params.event.customer != "" && <b>[{getTeamsAmount()}]</b>}</span>
+                <span>{params.event.customer.length > 20 ? params.event.customer.substring(0, 20) + "..." : params.event.customer}</span> <span>{params.event.customer != "" && <b>[{getTeamsAmount()}]</b>}</span>
             </div>
         </div>
     </div>
