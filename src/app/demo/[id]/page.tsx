@@ -7,10 +7,16 @@ import './page.css'
 import EventComponent from "@/app/demo/[id]/eventComponent";
 import Image from "next/image";
 import {filterOnlyEmptyTeams, filterOnlyTakenTeams, getEventWithHighestPrice} from "@/app/common/event_filter";
-import {useDemo} from "@/app/hooks/useDemo";
 import {useChannel} from "@/app/hooks/useChannel";
 import {useDemoById} from "@/app/hooks/useDemoById";
 import {IsTeam} from "@/app/common/teams";
+
+const BUYER_PALETTE = [
+    '#e74c3c', '#3498db', '#2ecc71', '#f39c12',
+    '#9b59b6', '#1abc9c', '#e67e22', '#e91e63',
+    '#00bcd4', '#8bc34a', '#ff5722', '#607d8b',
+    '#ff9800', '#673ab7', '#009688', '#f06292',
+]
 
 export default function Page({params} : {params: {id: string}}) {
     const channelId = parseInt(params.id)
@@ -23,6 +29,9 @@ export default function Page({params} : {params: {id: string}}) {
     const [highestBidEvent, setHighestBidEvent] = useState<Event|null>(null)
     const demoRef = useRef<Demo|null>(null)
     const [infoShown, setInfoShown] = useState(true)
+    const [sortMode, setSortMode] = useState<'alpha' | 'buyer'>(() =>
+        (localStorage.getItem('demo-sort-mode') as 'alpha' | 'buyer') ?? 'alpha'
+    )
 
     useEffect(() => {
         if (channel) {
@@ -84,8 +93,32 @@ export default function Page({params} : {params: {id: string}}) {
             })
     }
 
-    let teamEvents = events.filter(e => IsTeam(e.team))
-    let otherEvents = events.filter(e => !IsTeam(e.team))
+    const displayEvents = sortMode === 'alpha'
+        ? events
+        : [...events].sort((a, b) => {
+            const aEmpty = a.customer === ''
+            const bEmpty = b.customer === ''
+            if (aEmpty && !bEmpty) return -1
+            if (!aEmpty && bEmpty) return 1
+            if (aEmpty && bEmpty) return a.team < b.team ? -1 : a.team > b.team ? 1 : 0
+            return a.customer < b.customer ? -1 : a.customer > b.customer ? 1 : 0
+        })
+
+    const buyerColorMap = new Map<string, string>()
+    const counts = new Map<string, number>()
+    for (const e of displayEvents) {
+        if (e.customer) counts.set(e.customer, (counts.get(e.customer) ?? 0) + 1)
+    }
+    let colorIdx = 0
+    for (const [buyer, count] of Array.from(counts.entries())) {
+        if (count > 1) {
+            buyerColorMap.set(buyer, BUYER_PALETTE[colorIdx % BUYER_PALETTE.length])
+            colorIdx++
+        }
+    }
+
+    let teamEvents = displayEvents.filter(e => IsTeam(e.team))
+    let otherEvents = displayEvents.filter(e => !IsTeam(e.team))
 
     // Reorder: teams fill first 16 rows (left col then right col), others follow after
     let orderedEvents: Event[] = []
@@ -115,7 +148,8 @@ export default function Page({params} : {params: {id: string}}) {
                 highlight_username: demo.highlight_username,
                 highBidTeam: breakObject?.high_bid_team ?? '',
                 giveawayTeam: breakObject?.giveaway_team ?? '',
-                events: events
+                events: events,
+                buyerColor: buyerColorMap.get(orderedEvents[i].customer),
             }}/>)
         }
     }
@@ -144,6 +178,16 @@ export default function Page({params} : {params: {id: string}}) {
                 {
                      demo ? <div className='w-100 h-100 z-1 position-relative'>
                         <Image className='position-absolute top-0 start-0 bg-img' src='/images/full_screen.png' alt={'fullscreen'} onClick={launchFullScreen} width='50' height='50'/>
+                        <button
+                            className='position-absolute top-0 end-0 btn btn-sm btn-outline-light m-1 z-2'
+                            onClick={() => setSortMode(m => {
+                                const next = m === 'alpha' ? 'buyer' : 'alpha'
+                                localStorage.setItem('demo-sort-mode', next)
+                                return next
+                            })}
+                        >
+                            {sortMode === 'alpha' ? 'Sort by buyer' : 'Sort A–Z'}
+                        </button>
                         <div className='max-height overflow-hidden d-flex justify-content-center my-flex gap-2 teams-container'>
                             <div className='demo-container white-overlay minw' style={{'--rows': rowsAmount} as React.CSSProperties}>
                                 {items.length > 0 && items}
