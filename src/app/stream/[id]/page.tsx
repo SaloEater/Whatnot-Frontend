@@ -141,6 +141,16 @@ export default function Page({params} : {params: {id: string}}) {
                             Import giveaways
                         </button>
                     </div>
+                    <div>
+                        <button type="button" className="btn btn-secondary" onClick={() => router.push(`/stream/${streamId}/verify-teams`)}>
+                            Verify teams
+                        </button>
+                    </div>
+                    <div>
+                        <button type="button" className="btn btn-secondary" onClick={() => router.push(`/stream/${streamId}/verify-giveaways`)}>
+                            Verify giveaways
+                        </button>
+                    </div>
                 </div>
                 <ul className="list-group">
                     {

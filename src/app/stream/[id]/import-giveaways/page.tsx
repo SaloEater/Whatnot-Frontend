@@ -11,6 +11,7 @@ import {sortBreaksById} from "@/app/common/breaks";
 const GAP_THRESHOLD_MS = 10 * 60 * 1000
 
 interface GiveawayRow {
+    orderId: string
     productName: string
     buyer: string
     placedAt: Date
@@ -31,8 +32,9 @@ function parseAndCluster(content: string, breaks: WNBreak[]): Cluster[] {
     const giveaways: GiveawayRow[] = rows
         .filter(r => isGiveaway(r.product_name) && !r.cancelled_or_failed)
         .map(r => ({
+            orderId: r.order_id ?? '',
             productName: r.product_name,
-            buyer: r.buyer,
+            buyer: r.buyer_username ?? r.buyer,
             placedAt: new Date(r.placed_at),
             clusterIndex: 0,
             breakOverride: null,
@@ -76,6 +78,7 @@ export default function Page({params}: {params: {id: string}}) {
 
     const [breaks, setBreaks] = useState<WNBreak[]>([])
     const [clusters, setClusters] = useState<Cluster[] | null>(null)
+    const [fileErrors, setFileErrors] = useState<{orderId: string; error: string}[] | null>(null)
     const [progress, setProgress] = useState<string | null>(null)
     const [done, setDone] = useState(false)
 
@@ -90,7 +93,15 @@ export default function Page({params}: {params: {id: string}}) {
         const reader = new FileReader()
         reader.onload = (ev) => {
             const content = ev.target?.result as string
-            setClusters(parseAndCluster(content, breaks))
+            const parsed = parseAndCluster(content, breaks)
+            const emptyBuyerRows = parsed.flatMap(c => c.rows).filter(r => !r.buyer)
+            if (emptyBuyerRows.length > 0) {
+                setFileErrors(emptyBuyerRows.map(r => ({orderId: r.orderId || '—', error: `No buyer for "${r.productName}"`})))
+                setClusters(null)
+                return
+            }
+            setFileErrors(null)
+            setClusters(parsed)
         }
         reader.readAsText(file)
         e.target.value = ''
@@ -155,6 +166,22 @@ export default function Page({params}: {params: {id: string}}) {
         <main className="d-flex justify-content-center mt-4">
             <div style={{minWidth: 700}}>
                 <h4>Import giveaways</h4>
+
+                {fileErrors && (
+                    <table className="table table-bordered table-sm mb-3">
+                        <thead>
+                            <tr><th>Order ID</th><th>Error</th></tr>
+                        </thead>
+                        <tbody>
+                            {fileErrors.map((e, i) => (
+                                <tr key={i} className="text-danger">
+                                    <td>{e.orderId}</td>
+                                    <td>{e.error}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
 
                 {!clusters && (
                     <div className="mb-3">

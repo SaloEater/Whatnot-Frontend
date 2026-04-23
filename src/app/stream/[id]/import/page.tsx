@@ -6,12 +6,14 @@ import {Teams} from "@/app/common/teams";
 import {getEndpoints, post} from "@/app/lib/backend";
 import {AddBreakResponse, Event, GiveawayTypeNone, WNBreak} from "@/app/entity/entities";
 
+const COL_ORDER_ID = 0
 const COL_TITLE = 1
 const COL_TEAM = 2
 const COL_USERNAME = 4
 const COL_PRICE = 6
 
 interface ParsedRow {
+    orderId: string
     breakName: string
     team: string
     username: string
@@ -22,6 +24,7 @@ interface BreakValidation {
     breakName: string
     valid: boolean
     missingTeams: string[]
+    teamsWithoutBuyer: {team: string; orderId: string}[]
     miscCount: number
     buyerCount: number
     rows: ParsedRow[]
@@ -33,12 +36,13 @@ function parseCsv(content: string): ParsedRow[] {
     lines = lines.slice(1)
     return lines.map(line => {
         const cols = line.split(',')
+        const orderId = (cols[COL_ORDER_ID] ?? '').trim()
         const breakName = (cols[COL_TITLE] ?? '').trim()
         const team = (cols[COL_TEAM] ?? '').trim()
         const username = (cols[COL_USERNAME] ?? '').trim()
         const priceStr = (cols[COL_PRICE] ?? '').replace('$', '').trim()
         const price = parseFloat(priceStr) || 0
-        return {breakName, team, username, price}
+        return {orderId, breakName, team, username, price}
     }).filter(r => r.breakName !== '' && r.team !== '')
 }
 
@@ -53,12 +57,14 @@ function validateBreaks(rows: ParsedRow[]): BreakValidation[] {
     for (const [breakName, breakRows] of Array.from(grouped)) {
         const presentTeams = new Set(breakRows.filter(r => r.team !== 'Miscellaneous').map(r => r.team))
         const missingTeams = Teams.filter(t => !presentTeams.has(t))
+        const teamsWithoutBuyer = breakRows.filter(r => r.team !== 'Miscellaneous' && r.username === '').map(r => ({team: r.team, orderId: r.orderId}))
         const miscCount = breakRows.filter(r => r.team === 'Miscellaneous').length
         const uniqueBuyers = new Set(breakRows.filter(r => r.username !== '').map(r => r.username))
         results.push({
             breakName,
-            valid: missingTeams.length === 0,
+            valid: missingTeams.length === 0 && teamsWithoutBuyer.length === 0,
             missingTeams,
+            teamsWithoutBuyer,
             miscCount,
             buyerCount: uniqueBuyers.size,
             rows: breakRows,
@@ -222,9 +228,7 @@ export default function Page({params}: {params: {id: string}}) {
                                         <td>
                                             {v.valid
                                                 ? <span className="text-success">Valid</span>
-                                                : <span className="text-danger">
-                                                    Invalid — missing: {v.missingTeams.join(', ')}
-                                                  </span>
+                                                : <span className="text-danger">Invalid</span>
                                             }
                                         </td>
                                         <td>{v.buyerCount}</td>
@@ -233,6 +237,28 @@ export default function Page({params}: {params: {id: string}}) {
                                 ))}
                             </tbody>
                         </table>
+
+                        {!allValid && (() => {
+                            const errors = validations.flatMap(v => [
+                                ...v.missingTeams.map(t => ({orderId: '', error: `${v.breakName}: missing team "${t}"`})),
+                                ...v.teamsWithoutBuyer.map(t => ({orderId: t.orderId, error: `${v.breakName}: no buyer for "${t.team}"`})),
+                            ])
+                            return (
+                                <table className="table table-bordered table-sm mt-2">
+                                    <thead>
+                                        <tr><th>Order ID</th><th>Error</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        {errors.map((e, i) => (
+                                            <tr key={i} className="text-danger">
+                                                <td>{e.orderId || '—'}</td>
+                                                <td>{e.error}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )
+                        })()}
 
                         {progress && (
                             <div className="alert alert-info">{progress}</div>
