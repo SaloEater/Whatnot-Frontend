@@ -23,6 +23,7 @@ interface EventPlaceholdersTabsProps {
 }
 
 const WhatnotSoldEventName = 'new_event_event'
+const WhatnotBreakOverviewEvent = 'break_overview_event'
 
 interface WhatnotSoldEvent {
     price: number

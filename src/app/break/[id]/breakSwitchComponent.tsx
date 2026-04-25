@@ -1,11 +1,11 @@
 import React, {FC, useEffect, useState} from "react";
 import {WNBreak} from "@/app/entity/entities";
-import {Teams} from "@/app/common/teams";
 import {getEndpoints, post} from "@/app/lib/backend";
 import {useRouter} from "next/navigation";
 
 interface BreakSwitchComponentProps {
     currentBreak: WNBreak
+    hasPending?: boolean
 }
 
 export const BreakSwitchComponent: FC<BreakSwitchComponentProps> = (props) => {
@@ -23,7 +23,7 @@ export const BreakSwitchComponent: FC<BreakSwitchComponentProps> = (props) => {
         <div>
             <div>Go to Break:</div>
             <div className="dropdown">
-                <button className="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton1"
+                <button className={`btn dropdown-toggle ${props.hasPending ? 'btn-warning' : 'btn-secondary'}`} type="button" id="dropdownMenuButton1"
                         data-bs-auto-close="true" data-bs-toggle="dropdown" aria-expanded="false">
                     {props.currentBreak.name}
                 </button>

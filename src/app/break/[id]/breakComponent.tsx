@@ -26,6 +26,17 @@ import {arrayUnique, sortStringsAlphabetically} from "@/app/common/helpers";
 import {EventPlaceholdersTabsComponent} from "@/app/break/[id]/eventPlaceholdersTabsComponent";
 import {AddNewCardComponent} from "@/app/break/[id]/addNewCardComponent";
 
+interface WNBreakOverview {
+    data: {
+        getBreak: {
+            id: string
+            spots: {title: string; buyer: {username: string} | null}[]
+        }
+    }
+}
+
+let pendingBreakOverview: WNBreakOverview | null = null
+
 const SortIndexAsc = 0
 const SortIndexDesc = 1
 const SortTeamFirst = 2
@@ -33,6 +44,7 @@ const SortTeamFirst = 2
 interface BreakComponentProps {
     breakObject: WNBreak
     updateHighBidFloor: (value: number) => void
+    onPendingChange?: (hasPending: boolean) => void
 }
 
 export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
@@ -40,6 +52,8 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
     const [giveaways, setGiveaways] = useState<Event[]>([])
     const [newGiveawayCustomer, setNewGiveawayCustomer] = useState("")
     const eventsRef = useRef(events)
+    const currentWNBreakIdRef = useRef<string | null>(null)
+    const applyOverviewRef = useRef<(o: WNBreakOverview) => void>(() => {})
     const [toDemo, setToDemo] = useState(false)
     let emptyEvent: Event = {
         break_id: 0, customer: "", id: 0, index: 0, is_giveaway: false, note: "", price: 0, quantity: 0, team: "", giveaway_type: GiveawayTypeNone,
@@ -82,6 +96,41 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
     useEffect(() => {
         eventsRef.current = events
     }, [events]);
+
+    applyOverviewRef.current = (overview: WNBreakOverview) => {
+        const spots = overview.data.getBreak.spots
+        for (const event of eventsRef.current) {
+            if (event.is_giveaway) continue
+            const spot = spots.find(s => s.title === event.team)
+            const newCustomer = spot?.buyer?.username ?? ''
+            if (event.customer !== newCustomer) {
+                updateEvent({...event, customer: newCustomer})
+            }
+        }
+    }
+
+    useEffect(() => {
+        if (pendingBreakOverview) {
+            currentWNBreakIdRef.current = pendingBreakOverview.data.getBreak.id
+            applyOverviewRef.current(pendingBreakOverview)
+            pendingBreakOverview = null
+        }
+
+        function handleBreakOverview(e: CustomEvent) {
+            const overview = e.detail as WNBreakOverview
+            const incomingId = overview.data.getBreak.id
+            if (currentWNBreakIdRef.current === null || currentWNBreakIdRef.current === incomingId) {
+                currentWNBreakIdRef.current = incomingId
+                applyOverviewRef.current(overview)
+            } else {
+                pendingBreakOverview = overview
+                params.onPendingChange?.(true)
+            }
+        }
+
+        window.addEventListener('break_overview_event', handleBreakOverview as EventListener)
+        return () => window.removeEventListener('break_overview_event', handleBreakOverview as EventListener)
+    }, [])
 
     function refreshEvents() {
         let eventsBody = {

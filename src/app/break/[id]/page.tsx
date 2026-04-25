@@ -13,6 +13,7 @@ export default function Page({params} : {params: {id: string}}) {
     const [breakObject, setBreakObject] = useState<WNBreak|null>(null);
     const [newName, setNewName] = useState("")
     const [events, setEvents] = useState<Event[]>([])
+    const [hasPendingOverview, setHasPendingOverview] = useState(false)
 
     const dateTimeFormat = "YYYY-MM-dd hh:mm a"
 
@@ -170,10 +171,10 @@ export default function Page({params} : {params: {id: string}}) {
                     </div>
                     <div className="d-flex align-items-end gap-2">
                         <ImportBreakComponent breakId={breakId} events={events} onImported={refreshEvents}/>
-                        {breakObject && <BreakSwitchComponent currentBreak={breakObject}/>}
+                        {breakObject && <BreakSwitchComponent currentBreak={breakObject} hasPending={hasPendingOverview}/>}
                     </div>
                 </div>
-                <BreakComponent breakObject={breakObject} updateHighBidFloor={updateHighBidFloor}/>
+                <BreakComponent breakObject={breakObject} updateHighBidFloor={updateHighBidFloor} onPendingChange={setHasPendingOverview}/>
             </div>
         }
     </div>
