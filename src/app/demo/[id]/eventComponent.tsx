@@ -4,14 +4,12 @@ import {IsTeam} from "@/app/common/teams";
 
 interface HighlightColors {
     backgroundColor: string,
-    textColor: string,
 }
 
 export default function EventComponent(
     {params}: {
         params: {
             event: Event,
-            highlight_username: string,
             highBidTeam: string,
             giveawayTeam: string,
             events: Event[],
@@ -31,13 +29,9 @@ export default function EventComponent(
 
     let bgColors: HighlightColors = {
         backgroundColor: params.event.customer == '' ? 'bg-empty' : '',
-        textColor: '',
     }
 
-    if (params.highlight_username != '' && params.event.customer == params.highlight_username) {
-        bgColors.backgroundColor = 'bg-green'
-        bgColors.textColor = 'text-white'
-    } else if (isHighBidTeam) {
+    if (isHighBidTeam) {
         bgColors.backgroundColor = 'bg-high-bid'
     } else if (isGiveawayTeam) {
         bgColors.backgroundColor = 'bg-giveaway'
@@ -51,7 +45,7 @@ export default function EventComponent(
     return <div className={`d-flex dimmed-overlay max-width align-items-center gap-2 `}>
         <img className='image' src={getTeamImageSrc(params.event.team)} alt={params.event.team}/>
         <div
-            className={`d-flex overflow-hidden align-items-center customer-text customer-border h-75p w-100p ${bgColors.backgroundColor} ${bgColors.textColor}`}
+            className={`d-flex overflow-hidden align-items-center customer-text customer-border h-75p w-100p ${bgColors.backgroundColor}`}
             style={params.buyerColor && bgColors.backgroundColor === '' && params.event.customer !== '' ? {backgroundColor: params.buyerColor + '30'} : undefined}
         >
             <div className='overflow-hidden whitespace-nowrap teams-customer'>

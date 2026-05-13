@@ -2,13 +2,13 @@
 
 import {useEffect, useRef, useState} from "react";
 import {getEndpoints, post} from "@/app/lib/backend";
-import {Demo, Event, WNBreak} from "@/app/entity/entities";
+import {Event, WNBreak, WNStream} from "@/app/entity/entities";
 import './page.css'
 import EventComponent from "@/app/demo/[id]/eventComponent";
 import Image from "next/image";
 import {filterOnlyEmptyTeams, filterOnlyTakenTeams, getEventWithHighestPrice} from "@/app/common/event_filter";
 import {useChannel} from "@/app/hooks/useChannel";
-import {useDemoById} from "@/app/hooks/useDemoById";
+import {useActiveStream} from "@/app/hooks/useActiveStream";
 import {IsTeam} from "@/app/common/teams";
 
 const BUYER_PALETTE = [
@@ -21,61 +21,47 @@ const BUYER_PALETTE = [
 export default function Page({params} : {params: {id: string}}) {
     const channelId = parseInt(params.id)
     const [channel, setChannel] = useChannel(channelId)
-    const [demoId, setDemoId] = useState<number|null>(null)
-    const demo = useDemoById(demoId)
+    const stream = useActiveStream(channel)
     const [breakObject, setBreakObject] = useState<WNBreak|null>(null)
     const [events, setEvents] = useState<Event[]>([])
     const [giveaways, setGiveaways] = useState<Event[]>([])
     const [highestBidEvent, setHighestBidEvent] = useState<Event|null>(null)
-    const demoRef = useRef<Demo|null>(null)
+    const streamRef = useRef<WNStream|null>(null)
     const [infoShown, setInfoShown] = useState(true)
     const [sortMode, setSortMode] = useState<'alpha' | 'buyer'>(() =>
         (localStorage.getItem('demo-sort-mode') as 'alpha' | 'buyer') ?? 'alpha'
     )
 
-    useEffect(() => {
-        if (channel) {
-            setDemoId(channel.demo_id)
-        }
-    }, [channel]);
-
-    function refreshBreakObject(demo: Demo|null) {
-        if (!demo) {
+    function refreshBreakObject(stream: WNStream|null) {
+        if (!stream?.active_break_id) {
             return
         }
-        let body = {
-            id: demo.break_id
-        }
-        post(getEndpoints().break_get, body)
+        post(getEndpoints().break_get, {id: stream.active_break_id})
             .then((breakO: WNBreak) => {
                 setBreakObject(breakO)
             })
     }
 
     useEffect(() => {
-        refreshBreakObject(demo)
-        refreshEvents(demo)
+        refreshBreakObject(stream)
+        refreshEvents(stream)
         let idBreak = setInterval(() => {
-            refreshBreakObject(demo)
+            refreshBreakObject(stream)
         }, 300000)
         let idEvent = setInterval(() => {
-            refreshEvents(demo)
+            refreshEvents(stream)
         }, 60000)
         return () => {
             clearInterval(idBreak)
             clearInterval(idEvent)
         }
-    }, [demo]);
+    }, [stream]);
 
-    function refreshEvents(demo: Demo|null) {
-        if (!demo) {
+    function refreshEvents(stream: WNStream|null) {
+        if (!stream?.active_break_id) {
             return
         }
-        let eventsBody = { //@ts-ignore
-            break_id: demo.break_id
-        };
-
-        post(getEndpoints().break_events, eventsBody)
+        post(getEndpoints().break_events, {break_id: stream.active_break_id})
             .then((events: {events: Event[]}) => {
                 events.events.sort((a, b) => {
                     const aIsTeam = IsTeam(a.team)
@@ -120,7 +106,6 @@ export default function Page({params} : {params: {id: string}}) {
     let teamEvents = displayEvents.filter(e => IsTeam(e.team))
     let otherEvents = displayEvents.filter(e => !IsTeam(e.team))
 
-    // Reorder: teams fill first 16 rows (left col then right col), others follow after
     let orderedEvents: Event[] = []
     let teamRows = Math.ceil(teamEvents.length / 2)
     for (let i = 0; i < teamRows; i++) {
@@ -141,11 +126,10 @@ export default function Page({params} : {params: {id: string}}) {
 
     let rowsAmount = teamRows + otherRows
     let items: React.ReactNode[] = []
-    if (orderedEvents.length > 0 && demo) {
+    if (orderedEvents.length > 0 && stream) {
         for (let i = 0; i < orderedEvents.length; i++) {
             items.push(<EventComponent key={`col-${i}`} params={{
                 event: orderedEvents[i],
-                highlight_username: demo.highlight_username,
                 highBidTeam: breakObject?.high_bid_team ?? '',
                 giveawayTeam: breakObject?.giveaway_team ?? '',
                 events: events,
@@ -176,7 +160,7 @@ export default function Page({params} : {params: {id: string}}) {
         <div className='main'>
             <div className='w-100 h-100 dimmed-bg p-1'>
                 {
-                     demo ? <div className='w-100 h-100 z-1 position-relative'>
+                     stream ? <div className='w-100 h-100 z-1 position-relative'>
                         <Image className='position-absolute top-0 start-0 bg-img' src='/images/full_screen.png' alt={'fullscreen'} onClick={launchFullScreen} width='50' height='50'/>
                         <button
                             className='position-absolute top-0 end-0 btn btn-sm btn-outline-light m-1 z-2'
@@ -212,7 +196,7 @@ export default function Page({params} : {params: {id: string}}) {
                             }
                         </div>
                      </div> : <div>
-                         Demo is not set
+                         Active stream is not set
                      </div>
                 }
             </div>

@@ -24,7 +24,7 @@ export function getEndpoints()  {
         stream_get: "/api/stream",
         stream_breaks: "/api/stream/breaks",
         stream_usernames: "/api/stream/usernames",
-        stream_demo: "/api/stream/demo",
+        stream_set_active_break: "/api/stream/set_active_break",
 
         break_get: "/api/break",
         break_add: "/api/break/add",
@@ -38,8 +38,7 @@ export function getEndpoints()  {
         event_delete: "/api/event/delete",
         event_move: "/api/event/move",
 
-        demo_update: "/api/demo/update",
-        demo_get: "/api/demo",
+        channel_set_active_stream: "/api/channel/set_active_stream",
 
         notify_stream_ended: "/api/notification/stream_ended",
         notify_stream_packaging_finished: "/api/notification/stream_packaging_finished",

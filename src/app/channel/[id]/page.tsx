@@ -69,7 +69,7 @@ export default function Page({params}: {params: {id: string}}) {
         let body: WNChannel = {
             id: updatedChannel.id,
             name: updatedChannel.name,
-            demo_id: updatedChannel.demo_id,
+            active_stream_id: updatedChannel.active_stream_id,
             default_high_bid_floor: updatedChannel.default_high_bid_floor,
             default_high_bid_team: updatedChannel.default_high_bid_team
         }

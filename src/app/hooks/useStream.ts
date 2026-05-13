@@ -1,5 +1,5 @@
 import {Dispatch, SetStateAction, useEffect, useMemo, useState} from "react";
-import {Stream, Demo, GetChannelsChannel, WNChannel, StreamResponse, WNStream} from "@/app/entity/entities";
+import {StreamResponse, WNStream} from "@/app/entity/entities";
 import {getEndpoints, post} from "@/app/lib/backend";
 
 export const NoInterval = -1

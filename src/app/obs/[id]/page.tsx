@@ -3,31 +3,24 @@
 import './page.css'
 import {useEffect, useState} from "react";
 import {getEndpoints, post} from "@/app/lib/backend";
-import {Demo, Event, GetEventsByBreakResponse, NoCustomer, NoDemoBreak, WNBreak} from "@/app/entity/entities";
+import {Event, GetEventsByBreakResponse, NoCustomer, WNBreak, WNStream} from "@/app/entity/entities";
 import {filterOnlyTeams, getEventWithHighestPrice} from "@/app/common/event_filter";
 import {EventComponent} from "@/app/obs/[id]/eventComponent";
 import {HighBidComponent} from "@/app/obs/[id]/highBidComponent";
 import {HighBidTeamComponent} from "@/app/obs/[id]/highBidTeamComponent";
 import {useChannel} from "@/app/hooks/useChannel";
-import {useDemoById} from "@/app/hooks/useDemoById";
+import {useActiveStream} from "@/app/hooks/useActiveStream";
 
 export default function Page({params}: {params: {id: string}}) {
     const channelId = parseInt(params.id)
     const [channel, setChannel] = useChannel(channelId, 30000)
-    const [demoId, setDemoId] = useState<number|null>(null)
-    const demo = useDemoById(demoId)
+    const stream = useActiveStream(channel)
     const [teamEvents, setTeamsCards] = useState<Event[]>([])
     const [breakObject, setBreakObject] = useState<WNBreak|null>(null);
     const [highBidTeam, setHighBidTeam] = useState('')
     const [giveawayTeam, setGiveawayTeam] = useState('')
     const [highBid, setHighBid] = useState(0)
     const [highBidFloor, setHighBidFloor] = useState(Number.MAX_SAFE_INTEGER)
-
-    useEffect(() => {
-        if (channel) {
-            setDemoId(channel.demo_id)
-        }
-    }, [channel]);
 
     useEffect(() => {
         let amount = getEventWithHighestPrice(teamEvents)?.price ?? 0
@@ -42,29 +35,25 @@ export default function Page({params}: {params: {id: string}}) {
         }
     }, [breakObject]);
 
-    function refreshBreak(demo: Demo|null) {
-        if (!demo) {
+    function refreshBreak(stream: WNStream|null) {
+        if (!stream?.active_break_id) {
             return
         }
-
-        const body = {
-            id: demo.break_id
-        }
-        post(getEndpoints().break_get, body)
+        post(getEndpoints().break_get, {id: stream.active_break_id})
             .then((breakData: WNBreak) => {
                 setBreakObject(breakData)
         })
     }
 
     useEffect(() => {
-        refreshEvents(demo)
-        refreshBreak(demo)
+        refreshEvents(stream)
+        refreshBreak(stream)
 
         let idEvents = setInterval(() => {
-            refreshEvents(demo)
+            refreshEvents(stream)
         }, 5000)
         let idBreak = setInterval(() => {
-            refreshBreak(demo)
+            refreshBreak(stream)
         }, 30000)
 
         return () => {
@@ -72,17 +61,14 @@ export default function Page({params}: {params: {id: string}}) {
             clearInterval(idBreak)
         }
 
-    }, [demo]);
+    }, [stream]);
 
-    function refreshEvents(demo: Demo|null) {
-        if (!demo || demo.break_id == NoDemoBreak) {
+    function refreshEvents(stream: WNStream|null) {
+        if (!stream?.active_break_id) {
             return
         }
 
-        let body = {
-            break_id: demo.break_id
-        }
-        post(getEndpoints().break_events, body)
+        post(getEndpoints().break_events, {break_id: stream.active_break_id})
             .then((events: GetEventsByBreakResponse) => {
                 setTeamsCards(filterOnlyTeams(events.events).sort((a, b) => {
                     if (a.team > b.team) return 1

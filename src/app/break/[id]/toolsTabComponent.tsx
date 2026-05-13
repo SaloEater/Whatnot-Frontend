@@ -2,8 +2,6 @@ import TeamsListComponent from "@/app/break/[id]/teamsListComponent";
 import {Event, WNBreak} from "@/app/entity/entities";
 import React, {FC, useState} from "react";
 import DemoSettingsComponent from "@/app/break/[id]/demoSettingsComponent";
-import {arrayUnique} from "@/app/common/helpers";
-import {onlyWithUsernames} from "@/app/common/event_filter";
 import {DataComponent} from "@/app/break/[id]/dataComponent";
 
 const Tabs = [
@@ -28,10 +26,6 @@ interface ToolsTabProps {
 export const ToolsTabComponent: FC<ToolsTabProps> = (props) => {
     const [selectedTabIndex, setSelectedTabIndex] = useState(DemoIndex)
 
-    function getUsernames() {
-        return arrayUnique(onlyWithUsernames(props.events).map(i => i.customer));
-    }
-
     return <div>
         <div className='d-flex flex-wrap gap-1 w-100p'>
             {Tabs.map((tabName, j) => <div key={j} className={`p-2 border border-dashed  ${selectedTabIndex == j ? 'bg-primary' : ''}`} onClick={_ => {
@@ -41,7 +35,7 @@ export const ToolsTabComponent: FC<ToolsTabProps> = (props) => {
             </div>)}
         </div>
         {selectedTabIndex == TeamsListIndex && <TeamsListComponent params={{events: props.events, changeIndex: props.changeIndex}} />}
-        {selectedTabIndex == DemoIndex && <DemoSettingsComponent params={{streamId: props.streamId, breakId: props.breakO.id, usernames: getUsernames()}} />}
+        {selectedTabIndex == DemoIndex && <DemoSettingsComponent params={{streamId: props.streamId, breakId: props.breakO.id}} />}
         {selectedTabIndex == DataIndex && <DataComponent events={props.events} highBidTeam={props.highBidTeam} giveawayTeam={props.giveawayTeam} highBidFloor={props.breakO.high_bid_floor} updateHighBidFloor={props.updateHighBidFloor}/>}
     </div>
 }

@@ -50,6 +50,7 @@ export interface WNStream {
     created_at: number
     name: string
     is_ended: boolean
+    active_break_id: number | null
 }
 
 export interface StreamResponse extends WNStream {}
@@ -79,16 +80,10 @@ export interface GetEventsByBreakResponse {
     events: Event[]
 }
 
-export interface Demo {
-    id: number
-    highlight_username: string
-    break_id: number
-}
-
 export interface WNChannel {
     id: number
     name: string
-    demo_id: number|null
+    active_stream_id: number | null
     default_high_bid_floor: number
     default_high_bid_team: string
 }
@@ -98,7 +93,6 @@ export interface GetStreamUsernamesResponse {
 }
 
 export const NoCustomer = '?'
-export const NoDemoBreak = 0
 export const GiveawayTypeNone = 0
 export const GiveawayTypePack = 1
 export const GiveawayTypeSlab = 2

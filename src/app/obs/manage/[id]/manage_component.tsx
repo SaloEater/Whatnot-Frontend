@@ -4,19 +4,19 @@ import {Logger} from "@/app/entity/logger";
 import {Teams} from "@/app/common/teams";
 import {SetupLogoComponent} from "@/app/obs/manage/[id]/SetupLogoComponent";
 import {
-    WNBreak, Demo,
+    WNBreak,
     EmptyID,
     Event, NoCustomer,
     ObsItem,
     ObsScene,
     TeamAnimations,
+    WNStream,
 } from "@/app/entity/entities";
 import {ManageTeamComponent} from "@/app/obs/manage/[id]/manage_team_component";
 import {getEndpoints, post} from "@/app/lib/backend";
 import {filterOnlyTeams} from "@/app/common/event_filter";
-import {useDemo} from "@/app/hooks/useDemo";
 import {useChannel} from "@/app/hooks/useChannel";
-import {useDemoById} from "@/app/hooks/useDemoById";
+import {useActiveStream} from "@/app/hooks/useActiveStream";
 
 interface ManageProps {
     obs: MyOBSWebsocket
@@ -29,33 +29,26 @@ interface ManageProps {
 export const ManageComponent: FC<ManageProps> = (props) => {
     const channelId = props.channelId
     const [channel, setChannel] = useChannel(channelId)
-    const [demoId, setDemoId] = useState<number|null>(null)
-    const demo = useDemoById(demoId)
+    const stream = useActiveStream(channel)
     const [teamEvents, setTeamEvents] = useState<Map<string, Event>>(new Map<string, Event>())
 
     useEffect(() => {
-        if (channel) {
-            setDemoId(channel.demo_id)
-        }
-    }, [channel]);
-
-    useEffect(() => {
-        if (demo) {
-            getEvents(demo)
+        if (stream) {
+            getEvents(stream)
             let idEvent = setInterval(() => {
-                getEvents(demo)
+                getEvents(stream)
             }, 60000)
             return () => {
                 clearInterval(idEvent)
             }
         }
-    }, [demo]);
+    }, [stream]);
 
-    function getEvents(demo: Demo) {
-        let body = {
-            break_id: demo.break_id
+    function getEvents(stream: WNStream) {
+        if (!stream.active_break_id) {
+            return
         }
-        post(getEndpoints().break_events, body)
+        post(getEndpoints().break_events, {break_id: stream.active_break_id})
             .then((breakEvents: {events: Event[]}) => {
                 let newMap = new Map<string, Event>()
                 filterOnlyTeams(breakEvents.events).forEach(i => {

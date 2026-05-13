@@ -2,64 +2,50 @@
 
 import {useEffect, useState} from "react";
 import {getEndpoints, post} from "@/app/lib/backend";
-import {Demo, Event, GetEventsByBreakResponse, WNBreak} from "@/app/entity/entities";
+import {Event, GetEventsByBreakResponse, WNBreak, WNStream} from "@/app/entity/entities";
 import './page.css'
 import EventComponent from "@/app/obs/teams/[id]/eventComponent";
 import {useChannel} from "@/app/hooks/useChannel";
-import {useDemoById} from "@/app/hooks/useDemoById";
+import {useActiveStream} from "@/app/hooks/useActiveStream";
 import {IsTeam} from "@/app/common/teams";
 
 export default function Page({params} : {params: {id: string}}) {
     const channelId = parseInt(params.id)
     const [channel, setChannel] = useChannel(channelId)
-    const [demoId, setDemoId] = useState<number|null>(null)
-    const demo = useDemoById(demoId)
+    const stream = useActiveStream(channel)
     const [breakObject, setBreakObject] = useState<WNBreak|null>(null)
     const [events, setEvents] = useState<Event[]>([])
 
-    function refreshBreakObject(demo: Demo|null) {
-        if (!demo) {
+    function refreshBreakObject(stream: WNStream|null) {
+        if (!stream?.active_break_id) {
             return
         }
-        let body = {
-            id: demo.break_id
-        }
-        post(getEndpoints().break_get, body)
+        post(getEndpoints().break_get, {id: stream.active_break_id})
             .then((breakO: WNBreak) => {
                 setBreakObject(breakO)
             })
     }
 
     useEffect(() => {
-        refreshBreakObject(demo)
-        refreshEvents(demo)
+        refreshBreakObject(stream)
+        refreshEvents(stream)
         let idBreak = setInterval(() => {
-            refreshBreakObject(demo)
+            refreshBreakObject(stream)
         }, 300000)
         let idEvent = setInterval(() => {
-            refreshEvents(demo)
+            refreshEvents(stream)
         }, 60000)
         return () => {
             clearInterval(idBreak)
             clearInterval(idEvent)
         }
-    }, [demo]);
+    }, [stream]);
 
-    useEffect(() => {
-        if (channel) {
-            setDemoId(channel.demo_id)
-        }
-    }, [channel]);
-
-    function refreshEvents(demo: Demo|null) {
-        if (!demo) {
+    function refreshEvents(stream: WNStream|null) {
+        if (!stream?.active_break_id) {
             return
         }
-        let eventsBody = { //@ts-ignore
-            break_id: demo.break_id
-        };
-
-        post(getEndpoints().break_events, eventsBody)
+        post(getEndpoints().break_events, {break_id: stream.active_break_id})
             .then((events: GetEventsByBreakResponse) => {
                 events.events.sort((a, b) => {
                     const aIsTeam = IsTeam(a.team)
@@ -98,11 +84,10 @@ export default function Page({params} : {params: {id: string}}) {
 
     let rowsAmount = teamRows + otherRows
     let items: React.ReactNode[] = []
-    if (orderedEvents.length > 0 && demo) {
+    if (orderedEvents.length > 0 && stream) {
         for (let i = 0; i < orderedEvents.length; i++) {
             items.push(<EventComponent key={`col-${i}`} params={{
                 event: orderedEvents[i],
-                highlight_username: demo.highlight_username,
                 highBidTeam: breakObject?.high_bid_team ?? '',
                 giveawayTeam: breakObject?.giveaway_team ?? ''
             }}/>)
@@ -113,14 +98,14 @@ export default function Page({params} : {params: {id: string}}) {
         <div className='main'>
             <div className='w-100 h-100 dimmed-bg p-1'>
                 {
-                     demo ? <div className='w-100 h-100'>
+                     stream ? <div className='w-100 h-100'>
                         <div className='max-height overflow-hidden d-flex justify-content-center my-flex gap-2 teams-container'>
                             <div className='demo-container teams-bg minw' style={{'--rows': rowsAmount} as React.CSSProperties}>
                                 {items.length > 0 && items}
                             </div>
                         </div>
                      </div> : <div>
-                         Demo is not set
+                         Active stream is not set
                      </div>
                 }
             </div>
