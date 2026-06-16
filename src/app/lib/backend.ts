@@ -1,8 +1,6 @@
 'use client'
 
-import {cleanAuth, requestClientAuthClean} from "@/app/lib/auth_storage";
 import {EnvVarResponse} from "@/pages/api/get-env-var";
-import {useRouter} from "next/navigation";
 
 interface Credentials {
     username: string
@@ -42,6 +40,24 @@ export function getEndpoints()  {
 
         notify_stream_ended: "/api/notification/stream_ended",
         notify_stream_packaging_finished: "/api/notification/stream_packaging_finished",
+
+        series_list:           "/api/series/list",
+        series_get:            "/api/series/get",
+        series_update:         "/api/series/update",
+        series_close:          "/api/series/close",
+        series_delete:         "/api/series/delete",
+
+        photo_list:            "/api/photo/list",
+        photo_delete:          "/api/photo/delete",
+        photo_update:          "/api/photo/update",
+        photo_mark_sold:       "/api/photo/mark_sold",
+        photo_board:           "/api/photo/board",
+
+        break_set_series:      "/api/break/set_series",
+
+        series_team_prices:             "/api/series/team_prices",
+        series_team_price_set:          "/api/series/team_price/set",
+        series_team_price_last_prices:  "/api/series/team_price/last_prices",
     }
 }
 
@@ -119,14 +135,6 @@ function getUrl(host: string, endpoint: string) {
 
 async function handleResponse(response: Response) {
     var resp = response.text()
-    if (response.status == 401) {
-        // eslint-disable-next-line
-        const router= useRouter()
-        requestClientAuthClean()
-        cleanAuth()
-        router.push('/login')
-    }
-
     var json = await resp
     if (json === "") {
         return {}

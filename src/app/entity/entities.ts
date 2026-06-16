@@ -43,6 +43,33 @@ export interface WNBreak {
     high_bid_team: string
     giveaway_team: string
     high_bid_floor: number
+    series_id?: number | null
+}
+
+export interface Series {
+    id: number
+    name: string
+    status: 'open' | 'closed'
+    created_at: string
+    is_deleted: boolean
+}
+
+export interface Photo {
+    id: number
+    series_id: number
+    name: string
+    team: string
+    url: string
+    is_sold: boolean
+    created_at: string
+    is_deleted: boolean
+}
+
+export interface SeriesTeamPrice {
+    id: number
+    series_id: number
+    team: string
+    price: number
 }
 
 export interface WNStream {

@@ -7,6 +7,7 @@ import {getEndpoints, post} from "@/app/lib/backend";
 import {HighBidOptions, IsNone, Teams} from "@/app/common/teams";
 import {BreakSwitchComponent} from "@/app/break/[id]/breakSwitchComponent";
 import {ImportBreakComponent} from "@/app/break/[id]/importBreakComponent";
+import {BreakSeriesComponent} from "@/app/break/[id]/breakSeriesComponent";
 
 export default function Page({params} : {params: {id: string}}) {
     const breakId = parseInt(params.id)
@@ -168,6 +169,11 @@ export default function Page({params} : {params: {id: string}}) {
                                 </ul>
                             </div>
                         </div>
+                        <BreakSeriesComponent
+                            breakId={breakId}
+                            seriesId={breakObject.series_id}
+                            onSeriesSet={(id) => setBreakObject({...breakObject, series_id: id})}
+                        />
                     </div>
                     <div className="d-flex align-items-end gap-2">
                         <ImportBreakComponent breakId={breakId} events={events} onImported={refreshEvents}/>

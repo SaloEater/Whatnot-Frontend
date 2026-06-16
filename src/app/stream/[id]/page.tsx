@@ -2,8 +2,8 @@
 
 import React, {useEffect, useState} from "react";
 import {Teams} from "@/app/common/teams";
-import {getEndpoints, post} from "@/app/lib/backend";
-import {AddBreakResponse, Event, GiveawayTypeNone, WNBreak} from "@/app/entity/entities";
+import {getEndpoints, get, post} from "@/app/lib/backend";
+import {AddBreakResponse, Event, GetChannelsChannel, GiveawayTypeNone, Series, WNBreak} from "@/app/entity/entities";
 import {useRouter} from "next/navigation";
 import {sortBreaksById} from "@/app/common/breaks";
 import {useStream} from "@/app/hooks/useStream";
@@ -14,6 +14,9 @@ export default function Page({params} : {params: {id: string}}) {
     let [stream, refreshStream] = useStream(streamId)
     const [breaks, setBreaks] = useState<WNBreak[]>([])
     const [toastMessage, setToastMessage] = useState<string | null>(null)
+    const [closedSeries, setClosedSeries] = useState<Series[]>([])
+    const [selectedSeriesId, setSelectedSeriesId] = useState<number | null>(null)
+    const [channelId, setChannelId] = useState<number | null>(null)
     let router = useRouter()
 
     useEffect(() => {
@@ -24,6 +27,12 @@ export default function Page({params} : {params: {id: string}}) {
             .then((breaks: WNBreak[]) => {
                 setBreaks(sortBreaksById(breaks))
             })
+        get(getEndpoints().series_list).then((data: Series[]) => {
+            setClosedSeries(data ?? [])
+        })
+        post(getEndpoints().channel_by_stream, {stream_id: streamId}).then((data: GetChannelsChannel) => {
+            if (data) setChannelId(data.id)
+        })
     }, []);
 
     async function addNewBreak(name: string, customSpots: string[] = []) {
@@ -92,50 +101,67 @@ export default function Page({params} : {params: {id: string}}) {
         router.push(`/break/${id}`)
     }
 
+    async function setSeriesForAllBreaks() {
+        if (!selectedSeriesId) return
+        for (const b of breaks) {
+            await post(getEndpoints().break_set_series, {break_id: b.id, series_id: selectedSeriesId})
+        }
+        const name = closedSeries.find((s) => s.id === selectedSeriesId)?.name ?? ''
+        setToastMessage(`Series "${name}" set for all breaks`)
+        setTimeout(() => setToastMessage(null), 3000)
+    }
+
     return (
         <main>
             {toastMessage && <div className='position-fixed top-0 start-50 translate-middle-x mt-3 alert alert-success z-3'>
                 {toastMessage}
             </div>}
             <div className="d-flex justify-content-center">
-                <div className='pe-3'>
-                    <div>
-                        <button type="button" className="btn btn-primary" onClick={
-                            e => {
-                                let href = `/package/${streamId}`
-                                router.push(href)
-                            }
-                        }>Package all
+                <div className='pe-3 d-flex flex-column gap-2'>
+                    <button type="button" className="btn btn-primary" onClick={() => router.push(`/package/${streamId}`)}>
+                        Package all
+                    </button>
+                    <button type="button" className="btn btn-secondary" onClick={() => router.push(`/stream/${streamId}/import`)}>
+                        Import livestream
+                    </button>
+                    <button type="button" className="btn btn-secondary" onClick={() => router.push(`/stream/${streamId}/import-giveaways`)}>
+                        Import giveaways
+                    </button>
+                    <button type="button" className="btn btn-secondary" onClick={() => router.push(`/stream/${streamId}/verify-teams`)}>
+                        Verify teams
+                    </button>
+                    <button type="button" className="btn btn-secondary" onClick={() => router.push(`/stream/${streamId}/verify-giveaways`)}>
+                        Verify giveaways
+                    </button>
+                    <div className="d-flex gap-1">
+                        <select
+                            className="form-select form-select-sm"
+                            value={selectedSeriesId ?? ''}
+                            onChange={(e) => setSelectedSeriesId(parseInt(e.target.value) || null)}
+                        >
+                            <option value="">Select series...</option>
+                            {closedSeries.map((s) => (
+                                <option key={s.id} value={s.id}>{s.name}</option>
+                            ))}
+                        </select>
+                        <button
+                            type="button"
+                            className="btn btn-sm btn-primary"
+                            disabled={!selectedSeriesId}
+                            onClick={setSeriesForAllBreaks}
+                        >
+                            Set for all
                         </button>
                     </div>
-                    <div>
-                        <button type="button" className={`btn ${!!stream && !stream.is_ended ? 'btn-primary' : 'btn-danger'}`} disabled={!!stream && stream.is_ended} onClick={
-                            _ => {
-                                post(getEndpoints().notify_stream_ended, {stream_id: streamId}).then(refreshStream)
-                            }
-                        }>{!!stream && !stream.is_ended ? 'End stream' : 'Stream ended'}
+                    {channelId && (
+                        <button
+                            type="button"
+                            className="btn btn-secondary"
+                            onClick={() => window.open(`/channel/${channelId}/photos`, '_blank')}
+                        >
+                            Cards Board ↗
                         </button>
-                    </div>
-                    <div>
-                        <button type="button" className="btn btn-secondary" onClick={() => router.push(`/stream/${streamId}/import`)}>
-                            Import livestream
-                        </button>
-                    </div>
-                    <div>
-                        <button type="button" className="btn btn-secondary" onClick={() => router.push(`/stream/${streamId}/import-giveaways`)}>
-                            Import giveaways
-                        </button>
-                    </div>
-                    <div>
-                        <button type="button" className="btn btn-secondary" onClick={() => router.push(`/stream/${streamId}/verify-teams`)}>
-                            Verify teams
-                        </button>
-                    </div>
-                    <div>
-                        <button type="button" className="btn btn-secondary" onClick={() => router.push(`/stream/${streamId}/verify-giveaways`)}>
-                            Verify giveaways
-                        </button>
-                    </div>
+                    )}
                 </div>
                 <div className="d-flex flex-column">
                     <ul className="list-group">

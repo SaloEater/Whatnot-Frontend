@@ -23,7 +23,7 @@ export const ChannelPropertiesComponent: FC<ChannelPropertiesComponentProps> = (
     }, [props.channel.default_high_bid_floor]);
 
     useEffect(() => {
-        if (defaultTeam == '' || defaultTeam == props.channel.default_high_bid_team) {
+        if (defaultTeam == props.channel.default_high_bid_team) {
             return
         }
         let updatedChannel = {...props.channel}

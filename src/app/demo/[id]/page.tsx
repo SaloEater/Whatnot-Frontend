@@ -28,9 +28,10 @@ export default function Page({params} : {params: {id: string}}) {
     const [highestBidEvent, setHighestBidEvent] = useState<Event|null>(null)
     const streamRef = useRef<WNStream|null>(null)
     const [infoShown, setInfoShown] = useState(true)
-    const [sortMode, setSortMode] = useState<'alpha' | 'buyer'>(() =>
-        (localStorage.getItem('demo-sort-mode') as 'alpha' | 'buyer') ?? 'alpha'
-    )
+    const [sortMode, setSortMode] = useState<'alpha' | 'buyer'>(() => {
+        if (typeof window === 'undefined') return 'alpha'
+        return (localStorage.getItem('demo-sort-mode') as 'alpha' | 'buyer') ?? 'alpha'
+    })
 
     function refreshBreakObject(stream: WNStream|null) {
         if (!stream?.active_break_id) {
