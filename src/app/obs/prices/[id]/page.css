@@ -1,6 +1,5 @@
 body {
     margin: 0;
-    background-color: #30ff00;
 }
 
 .prices-root {
@@ -8,7 +7,7 @@ body {
     flex-direction: column;
     width: 100%;
     height: 100vh;
-    border-radius: 25px;
+    border-radius: 50px;
     overflow: hidden;
 }
 
@@ -26,47 +25,29 @@ body {
 }
 
 .prices-row:last-child { border-bottom: none; }
-
-.prices-row--best,
-.prices-row--good,
-.prices-row--regular { border-bottom-color: #404040; }
+.prices-row--best, .prices-row--good, .prices-row--regular { border-bottom-color: #404040; }
 
 /* ── Cell base ── */
 .prices-cell {
-    flex: 1 0 max-content;
+    flex: 1 1 0;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
     gap: 6px;
-    padding: 10px 14px;
+    padding-top: 40px;
     border-right: 1px solid;
 }
 
-.prices-cell:last-child {
-    border-right: none;
-}
+.prices-cell:last-child { border-right: none; }
+.prices-cell { border-color: #404040; }
 
 /* ── Dim light panel — static backgrounds ── */
-.prices-cell { border-color: #404040; }
 
 .prices-cell--best    { background: radial-gradient(ellipse at center, #632437 0%, #4b1e2e 55%, #2a0e18 100%); }
 .prices-cell--good    { background: radial-gradient(ellipse at center, #293d56 0%, #1f2b3f 55%, #0d1520 100%); }
 .prices-cell--regular { background: radial-gradient(ellipse at center, #3d3d10 0%, #2f2f0d 55%, #141400 100%); }
 
-/* ── Price number glow pulse ── */
-@keyframes price-glow--best {
-    0%, 45%, 55%, 100% { text-shadow: 0 0 2px rgba(217, 76, 155, 0.25); }
-    50%                { text-shadow: 0 0 6px rgba(217, 76, 155, 0.5), 0 0 12px rgba(217, 76, 155, 0.25); }
-}
-@keyframes price-glow--good {
-    0%, 45%, 55%, 100% { text-shadow: 0 0 2px rgba(118, 215, 216, 0.25); }
-    50%                { text-shadow: 0 0 6px rgba(118, 215, 216, 0.5), 0 0 12px rgba(118, 215, 216, 0.25); }
-}
-@keyframes price-glow--regular {
-    0%, 45%, 55%, 100% { text-shadow: 0 0 2px rgba(255, 255, 160, 0.2); }
-    50%                { text-shadow: 0 0 6px rgba(255, 255, 160, 0.5), 0 0 12px rgba(255, 255, 160, 0.2); }
-}
 
 /* ── Team name ── */
 .prices-cell__name {
@@ -89,20 +70,20 @@ body {
 }
 
 /* Tier-specific font sizes — prefix always half the last-word size */
-.prices-cell--best    .prices-cell__name-prefix { font-size: 0.9rem; }
-.prices-cell--best    .prices-cell__name-last   { font-size: 1.7rem; }
+.prices-cell--best    .prices-cell__name-prefix { font-size: 2.2rem; }
+.prices-cell--best    .prices-cell__name-last   { font-size: 3rem; }
 
-.prices-cell--good    .prices-cell__name-prefix { font-size: 0.8rem; }
-.prices-cell--good    .prices-cell__name-last   { font-size: 1.6rem; }
+.prices-cell--good    .prices-cell__name-prefix { font-size: 1.95rem; }
+.prices-cell--good    .prices-cell__name-last   { font-size: 2.75rem; }
 
-.prices-cell--regular .prices-cell__name-prefix { font-size: 0.7rem; }
-.prices-cell--regular .prices-cell__name-last   { font-size: 1.1rem; }
+.prices-cell--regular .prices-cell__name-prefix { font-size: 1.7rem; }
+.prices-cell--regular .prices-cell__name-last   { font-size: 2.5rem; }
 
 /* ── Price — main color, bottom-left ── */
 .prices-cell__price {
     font-weight: 700;
 }
 
-.prices-cell--best    .prices-cell__price { color: #d93957; font-size: 1.85rem; animation: price-glow--best    30s ease-in-out infinite; }
-.prices-cell--good    .prices-cell__price { color: #76d7d8; font-size: 1.75rem; animation: price-glow--good    30s ease-in-out infinite; }
-.prices-cell--regular .prices-cell__price { color: #ffffa0; font-size: 1.25rem; animation: price-glow--regular 30s ease-in-out infinite; }
+.prices-cell--best    .prices-cell__price { color: #d93957; font-size: 3.5rem;  text-shadow: 0 0 6px rgba(217, 76, 155, 0.5), 0 0 14px rgba(217, 76, 155, 0.2); }
+.prices-cell--good    .prices-cell__price { color: #76d7d8; font-size: 3.25rem; text-shadow: 0 0 6px rgba(118, 215, 216, 0.5), 0 0 14px rgba(118, 215, 216, 0.2); }
+.prices-cell--regular .prices-cell__price { color: #ffffa0; font-size: 2.5rem;  text-shadow: 0 0 6px rgba(255, 255, 160, 0.4), 0 0 14px rgba(255, 255, 160, 0.15); }

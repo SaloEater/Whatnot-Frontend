@@ -11,7 +11,7 @@ import './page.css'
 
 const BEST_COUNT        = 3
 const GOOD_COUNT        = 5
-const DEFAULT_PRICE     = 150
+const DEFAULT_PRICE     = '$100-$200'
 const MIN_CELL_WIDTH_PX = 120
 
 type Tier = 'best' | 'good' | 'regular'
@@ -19,7 +19,7 @@ type Tier = 'best' | 'good' | 'regular'
 
 interface TeamCell {
     team: string
-    displayPrice: number
+    displayPrice: string
     tier: Tier
 }
 
@@ -44,7 +44,7 @@ function assignTiers(teamNames: string[], prices: SeriesTeamTotal[]): TeamCell[]
         if (idx < BEST_COUNT) tier = 'best'
         else if (idx < BEST_COUNT + GOOD_COUNT) tier = 'good'
         else tier = 'regular'
-        cells.push({team, displayPrice: price, tier})
+        cells.push({team, displayPrice: `$${price}`, tier})
     })
 
     noPrice.forEach((team) => {
@@ -55,28 +55,43 @@ function assignTiers(teamNames: string[], prices: SeriesTeamTotal[]): TeamCell[]
 }
 
 function buildRows(cells: TeamCell[]): TeamCell[][] {
-    const byPrice = (a: TeamCell, b: TeamCell) => b.displayPrice - a.displayPrice
+    const byPrice = (a: TeamCell, b: TeamCell) => parseFloat(b.displayPrice) - parseFloat(a.displayPrice)
     const best    = cells.filter((c) => c.tier === 'best').sort(byPrice)
     const good    = cells.filter((c) => c.tier === 'good').sort(byPrice)
-    const regular = cells.filter((c) => c.tier === 'regular').sort(byPrice)
+    let   regular = cells.filter((c) => c.tier === 'regular').sort(byPrice)
 
     const rows: TeamCell[][] = []
 
-    if (best.length > 0 || good.length > 0) {
+    const totalRows = 6
+
+    if (best.length >= 2) {
+        rows.push(best)
+        if (good.length > 0) {
+            const availableRows    = Math.max(1, totalRows - rows.length)
+            const cellsPerRow      = Math.ceil(regular.length / availableRows)
+            const regularOnGoodRow = Math.max(0, cellsPerRow - good.length)
+            rows.push([...good, ...regular.slice(0, regularOnGoodRow)])
+            regular = regular.slice(regularOnGoodRow)
+        }
+    } else if (best.length > 0 || good.length > 0) {
         const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920
         const combined = best.length + good.length
         const candidateCellWidth = combined > 0 ? viewportWidth / combined : viewportWidth
 
         if (good.length > 0 && candidateCellWidth < MIN_CELL_WIDTH_PX) {
             if (best.length > 0) rows.push(best)
-            rows.push(good)
+            const availableRows    = Math.max(1, totalRows - rows.length)
+            const cellsPerRow      = Math.ceil(regular.length / availableRows)
+            const regularOnGoodRow = Math.max(0, cellsPerRow - good.length)
+            rows.push([...good, ...regular.slice(0, regularOnGoodRow)])
+            regular = regular.slice(regularOnGoodRow)
         } else {
             rows.push([...best, ...good])
         }
     }
 
     if (regular.length > 0) {
-        const availableRows = Math.max(1, 5 - rows.length)
+        const availableRows = Math.max(1, totalRows - rows.length)
         const cellsPerRow = Math.ceil(regular.length / availableRows)
         for (let i = 0; i < regular.length; i += cellsPerRow) {
             rows.push(regular.slice(i, i + cellsPerRow))
@@ -112,7 +127,7 @@ export default function Page({params}: {params: {id: string}}) {
             post(getEndpoints().break_events, {break_id: breakId})
                 .then((resp: {events: Event[]}) => {
                     setEvents((resp?.events ?? []).filter((e) =>
-                        IsTeam(e.team) && !e.is_giveaway && (e.customer === '' || e.customer === NoCustomer)
+                        !e.is_giveaway && (e.customer === '' || e.customer === NoCustomer)
                     ))
                 })
         }
@@ -168,15 +183,13 @@ export default function Page({params}: {params: {id: string}}) {
                     {row.map((cell) => {
                         const words    = cell.team.trim().split(' ')
                         const lastName = words[words.length - 1]
-                        const prefix   = words.slice(0, -1).join(' ')
                         return (
                             <div key={cell.team}
                                  className={`prices-cell prices-cell--${cell.tier}`}>
                                 <div className="prices-cell__name">
-                                    {prefix && <div className="prices-cell__name-prefix">{prefix}</div>}
                                     <div className="prices-cell__name-last">{lastName}</div>
                                 </div>
-                                <div className="prices-cell__price">${cell.displayPrice}</div>
+                                <div className="prices-cell__price">{cell.displayPrice}</div>
                             </div>
                         )
                     })}
