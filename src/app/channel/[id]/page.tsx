@@ -84,12 +84,15 @@ export default function Page({params}: {params: {id: string}}) {
     return (
         <main>
             <div className='d-flex justify-content-center fs-1'>{channel?.name}</div>
-            <div className='d-flex justify-content-between'>
+            <div style={{display: 'grid', gridTemplateColumns: '1fr auto 1fr'}}>
                 <div>
                     <button type='button' className='btn btn-primary' onClick={redirectToDemo}>Demo</button>
                     <button type='button' className='btn btn-primary' onClick={redirectToOBS}>OBS</button>
                     <button type='button' className='btn btn-primary' onClick={redirectToOBSTeams}>Teams</button>
                     <button type='button' className='btn btn-primary' onClick={redirectToOBSManage}>Manage OBS</button>
+                    <button type='button' className='btn btn-secondary' onClick={() => window.open(`/channel/${channelId}/photos`, '_blank')}>Cards Board ↗</button>
+                    <button type='button' className='btn btn-secondary' onClick={() => router.push(`/channel/${channelId}/photos/controls`)}>Cards Controls</button>
+                    <button type='button' className='btn btn-secondary' onClick={() => window.open(`/obs/prices/${channelId}`, '_blank')}>Prices OBS ↗</button>
                 </div>
                 <div className="d-flex justify-content-center">
                     <ul className="list-group">
@@ -144,7 +147,7 @@ export default function Page({params}: {params: {id: string}}) {
                         }
                     </ul>
                 </div>
-                <div>
+                <div className="d-flex justify-content-end">
                     {channel && <ChannelPropertiesComponent channel={channel} updateChannel={updateChannel}/>}
                 </div>
             </div>

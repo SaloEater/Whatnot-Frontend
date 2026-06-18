@@ -12,9 +12,10 @@ interface PhotoGridComponentProps {
     onDelete: (id: number) => void
     onRestore?: (id: number) => void
     onTeamChange: (id: number, team: string) => void
+    onPriceChange: (id: number, price: number) => void
 }
 
-export const PhotoGridComponent: FC<PhotoGridComponentProps> = ({photos, deletedPhotos = [], isLoading, onDelete, onRestore, onTeamChange}) => {
+export const PhotoGridComponent: FC<PhotoGridComponentProps> = ({photos, deletedPhotos = [], isLoading, onDelete, onRestore, onTeamChange, onPriceChange}) => {
     const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set())
 
     function markLoaded(id: number) {
@@ -30,7 +31,11 @@ export const PhotoGridComponent: FC<PhotoGridComponentProps> = ({photos, deleted
     }
 
     function setTeam(photo: Photo, team: string) {
-        post(getEndpoints().photo_update, {id: photo.id, name: photo.name, team}).then(() => onTeamChange(photo.id, team))
+        post(getEndpoints().photo_update, {id: photo.id, name: photo.name, team, price: photo.price}).then(() => onTeamChange(photo.id, team))
+    }
+
+    function setPrice(photo: Photo, price: number) {
+        post(getEndpoints().photo_update, {id: photo.id, name: photo.name, team: photo.team, price}).then(() => onPriceChange(photo.id, price))
     }
 
     function renderCard(photo: Photo, deleted = false) {
@@ -74,6 +79,16 @@ export const PhotoGridComponent: FC<PhotoGridComponentProps> = ({photos, deleted
                         <option key={t} value={t}>{t}</option>
                     ))}
                 </select>
+                <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    className="form-control form-control-sm mt-1"
+                    defaultValue={photo.price ?? 0}
+                    key={photo.id}
+                    onBlur={(e) => setPrice(photo, parseFloat(e.target.value) || 0)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                />
             </div>
         )
     }

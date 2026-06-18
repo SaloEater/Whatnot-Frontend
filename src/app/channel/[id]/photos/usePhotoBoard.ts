@@ -3,11 +3,11 @@ import {useState, useEffect} from 'react'
 import {Photo} from '@/app/entity/entities'
 import {getEndpoints, post} from '@/app/lib/backend'
 
-export function usePhotoBoard(channelId: number) {
+export function usePhotoBoard(channelId: number, withSold = false) {
     const [photos, setPhotos] = useState<Photo[]>([])
 
     function fetchPhotos() {
-        post(getEndpoints().photo_board, {channel_id: channelId})
+        post(getEndpoints().photo_board, {channel_id: channelId, with_sold: withSold})
             .then((data: Photo[]) => { if (data) setPhotos(data) })
     }
 
@@ -18,9 +18,10 @@ export function usePhotoBoard(channelId: number) {
     }, [channelId])
 
     function markSold(photoId: number, sold: boolean) {
+        const photo = photos.find((p) => p.id === photoId)
         const snapshot = photos
         setPhotos((old) => old.map((p) => p.id === photoId ? {...p, is_sold: sold} : p))
-        post(getEndpoints().photo_mark_sold, {id: photoId, sold})
+        post(getEndpoints().photo_mark_sold, {id: photoId, sold, series_id: photo?.series_id})
             .catch(() => setPhotos(snapshot))
     }
 

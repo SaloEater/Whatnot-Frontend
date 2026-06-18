@@ -56,9 +56,6 @@ export function getEndpoints()  {
 
         break_set_series:      "/api/break/set_series",
 
-        series_team_prices:             "/api/series/team_prices",
-        series_team_price_set:          "/api/series/team_price/set",
-        series_team_price_last_prices:  "/api/series/team_price/last_prices",
     }
 }
 

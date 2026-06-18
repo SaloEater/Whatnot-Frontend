@@ -117,6 +117,7 @@ export default function Page({params}: {params: {id: string}}) {
                 onDelete={removePhoto}
                 onRestore={restorePhoto}
                 onTeamChange={(id, team) => setPhotos((old) => old.map((p) => p.id === id ? {...p, team} : p))}
+                onPriceChange={(id, price) => setPhotos((old) => old.map((p) => p.id === id ? {...p, price} : p))}
             />
         </main>
     )

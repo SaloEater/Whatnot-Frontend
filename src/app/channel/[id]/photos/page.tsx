@@ -30,8 +30,7 @@ export default function Page({params}: {params: {id: string}}) {
 
     const [hoveredId, setHoveredId] = useState<number | null>(null)
     const [elevatedId, setElevatedId] = useState<number | null>(null)
-    const hoverData = useRef<{scale: number; origin: string}>({scale: 1, origin: 'center'})
-    const exitZoomRef = useRef<string>('')
+    const hoverData = useRef<{scale: number; dx: number; dy: number}>({scale: 1, dx: 0, dy: 0})
     const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const elevationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -55,46 +54,62 @@ export default function Page({params}: {params: {id: string}}) {
     }
 
     // Portrait cards first (shuffled within group), landscape cards after (shuffled within group)
+    // Group same-orientation cards together so the packing loop builds clean rows.
     const sortedPhotos = [...displayPhotos].sort(
         (a, b) => Number(isLandscape(b)) - Number(isLandscape(a))
     )
 
     function packRowsWithHeight(portraitH: number): Array<{photos: Photo[]; rowHeight: number; widths: number[]}> {
-        const portraitCards = sortedPhotos.filter((p) => !isLandscape(p) && cardDims[p.id])
-        const landscapeH = portraitCards.length > 0
-            ? portraitCards.reduce((sum, p) => sum + portraitH * getAspect(p), 0) / portraitCards.length
-            : portraitH * FALLBACK_ASPECT
+        const landscapeH = portraitH / 2
 
         const result: Array<{photos: Photo[]; rowHeight: number; widths: number[]}> = []
         let i = 0
 
         while (i < sortedPhotos.length) {
             const firstLandscape = isLandscape(sortedPhotos[i])
-            const targetH = firstLandscape ? landscapeH : portraitH
 
             let totalW = 0
             let j = i
 
-            // Fill-threshold: add cards until the row reaches VIEWPORT_W, then stop.
-            // This ensures the last row doesn't stretch out of proportion.
-            while (j < sortedPhotos.length) {
-                if (j > i && isLandscape(sortedPhotos[j]) !== firstLandscape) break
-                totalW += targetH * getAspect(sortedPhotos[j])
-                j++
-                if (totalW >= VIEWPORT_W) break
+            if (firstLandscape) {
+                // Landscape rows: stop before overflow, render at fixed landscapeH with no stretching.
+                while (j < sortedPhotos.length) {
+                    if (isLandscape(sortedPhotos[j]) !== firstLandscape) break
+                    const nextW = landscapeH * getAspect(sortedPhotos[j])
+                    if (j > i && totalW + nextW > VIEWPORT_W) break
+                    totalW += nextW
+                    j++
+                }
+                result.push({
+                    photos: sortedPhotos.slice(i, j),
+                    rowHeight: landscapeH,
+                    widths: sortedPhotos.slice(i, j).map((p) => landscapeH * getAspect(p)),
+                })
+            } else {
+                // Portrait rows: fill-threshold then stretch; last incomplete row stays natural.
+                while (j < sortedPhotos.length) {
+                    if (isLandscape(sortedPhotos[j]) !== firstLandscape) break
+                    totalW += portraitH * getAspect(sortedPhotos[j])
+                    j++
+                    if (totalW >= VIEWPORT_W) break
+                }
+                const isLastIncomplete = j >= sortedPhotos.length && totalW < VIEWPORT_W
+                const scaleFactor = isLastIncomplete ? 1 : VIEWPORT_W / totalW
+                result.push({
+                    photos: sortedPhotos.slice(i, j),
+                    rowHeight: portraitH * scaleFactor,
+                    widths: sortedPhotos.slice(i, j).map((p) => portraitH * getAspect(p) * scaleFactor),
+                })
             }
 
-            // Don't stretch the last incomplete row — keep cards at natural targetH size.
-            const isLastIncomplete = j >= sortedPhotos.length && totalW < VIEWPORT_W
-            const scaleFactor = isLastIncomplete ? 1 : VIEWPORT_W / totalW
-            const rowHeight = targetH * scaleFactor
-            const widths = sortedPhotos.slice(i, j).map((p) => targetH * getAspect(p) * scaleFactor)
-
-            result.push({photos: sortedPhotos.slice(i, j), rowHeight, widths})
             i = j
         }
 
+        const rowWidth = (r: {widths: number[]}) => r.widths.reduce((s, w) => s + w, 0)
+
         return result
+            .filter((r) => r.photos.length > 0)
+            .sort((a, b) => rowWidth(b) - rowWidth(a))
     }
 
     function totalHeight(rows: Array<{rowHeight: number}>): number {
@@ -104,9 +119,6 @@ export default function Page({params}: {params: {id: string}}) {
     function packRows(): Array<{photos: Photo[]; rowHeight: number; widths: number[]}> {
         if (sortedPhotos.length === 0) return []
 
-        // Binary search for the largest portraitH whose rows still fit in CARD_AREA_H.
-        // With the fill-threshold inner loop, totalHeight is monotonically increasing in portraitH,
-        // so binary search is valid across the full range up to CARD_AREA_H.
         let lo = 10, hi = CARD_AREA_H
         for (let iter = 0; iter < 24; iter++) {
             const mid = (lo + hi) / 2
@@ -118,31 +130,13 @@ export default function Page({params}: {params: {id: string}}) {
 
     function handleMouseEnter(e: React.MouseEvent<HTMLDivElement>, photo: Photo) {
         const rect = e.currentTarget.getBoundingClientRect()
-
-        const mh = VIEWPORT_W * 0.05
-        const mv = VIEWPORT_H * 0.05
-
-        // Space between each card edge and the nearest 5% margin.
-        // Clamped to 0 when the card is already inside the margin.
-        const spaceLeft   = Math.max(0, rect.left - mh)
-        const spaceRight  = Math.max(0, VIEWPORT_W - mh - rect.right)
-        const spaceTop    = Math.max(0, rect.top - mv)
-        const spaceBottom = Math.max(0, VIEWPORT_H - mv - rect.bottom)
-
-        const totalH = spaceLeft + spaceRight
-        const totalV = spaceTop + spaceBottom
-
-        // Max scale: expand until all available space on both sides is consumed.
-        const scaleH = totalH > 0 ? (rect.width + totalH) / rect.width : 1
-        const scaleV = totalV > 0 ? (rect.height + totalV) / rect.height : 1
-        const scale = Math.max(1, Math.min(scaleH, scaleV))
-
-        // Origin distributes growth proportionally to available space on each side.
-        // ox = 0 → grow entirely right; ox = width → grow entirely left; ox = width/2 → grow equally.
-        const ox = totalH > 0 ? rect.width * spaceLeft / totalH : rect.width / 2
-        const oy = totalV > 0 ? rect.height * spaceTop / totalV : rect.height / 2
-
-        hoverData.current = {scale, origin: `${ox}px ${oy}px`}
+        const scale = Math.min(
+            VIEWPORT_W * 0.8 / rect.width,
+            VIEWPORT_H * 0.8 / rect.height,
+        )
+        const dx = VIEWPORT_W / 2 - (rect.left + rect.width / 2)
+        const dy = VIEWPORT_H / 2 - (rect.top + rect.height / 2)
+        hoverData.current = {scale, dx, dy}
 
         if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
         hoverTimerRef.current = setTimeout(() => {
@@ -153,17 +147,14 @@ export default function Page({params}: {params: {id: string}}) {
     }
 
     function handleMouseLeave() {
-        exitZoomRef.current = hoverData.current.origin
         if (hoverTimerRef.current) {
             clearTimeout(hoverTimerRef.current)
             hoverTimerRef.current = null
         }
         setHoveredId(null)
-        // Keep z-index elevated until the shrink transition finishes (200ms).
         if (elevationTimerRef.current) clearTimeout(elevationTimerRef.current)
         elevationTimerRef.current = setTimeout(() => {
             setElevatedId(null)
-            exitZoomRef.current = ''
             elevationTimerRef.current = null
         }, 220)
     }
@@ -184,33 +175,30 @@ export default function Page({params}: {params: {id: string}}) {
                                     style={{
                                         width: `${row.widths[ci]}px`,
                                         height: `${row.rowHeight}px`,
-                                        ...(hovered
-                                            ? {
-                                                transform: `scale(${hoverData.current.scale})`,
-                                                transformOrigin: hoverData.current.origin,
-                                                boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-                                            }
-                                            : elevatedId === photo.id
-                                                ? {transformOrigin: exitZoomRef.current}
-                                                : {}),
-                                        ...(hovered || elevatedId === photo.id
-                                            ? {zIndex: 10}
-                                            : {})
+                                        ...(hovered || elevatedId === photo.id ? {zIndex: 10} : {})
                                     }}
                                     onMouseEnter={(e) => handleMouseEnter(e, photo)}
                                     onMouseLeave={handleMouseLeave}
                                 >
-                                    <img
-                                        src={photo.url}
-                                        alt={photo.name || 'card'}
-                                        onLoad={(e) => {
-                                            const img = e.currentTarget
-                                            setCardDims((prev) => ({
-                                                ...prev,
-                                                [photo.id]: {w: img.naturalWidth, h: img.naturalHeight},
-                                            }))
-                                        }}
-                                    />
+                                    <div
+                                        className="board-card-visual"
+                                        style={hovered ? {
+                                            transform: `translate(${hoverData.current.dx}px, ${hoverData.current.dy}px) scale(${hoverData.current.scale})`,
+                                            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                                        } : {}}
+                                    >
+                                        <img
+                                            src={photo.url}
+                                            alt={photo.name || 'card'}
+                                            onLoad={(e) => {
+                                                const img = e.currentTarget
+                                                setCardDims((prev) => ({
+                                                    ...prev,
+                                                    [photo.id]: {w: img.naturalWidth, h: img.naturalHeight},
+                                                }))
+                                            }}
+                                        />
+                                    </div>
                                 </div>
                             )
                         })}

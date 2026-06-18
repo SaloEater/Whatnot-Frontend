@@ -153,15 +153,6 @@ export default function Page({params} : {params: {id: string}}) {
                             Set for all
                         </button>
                     </div>
-                    {channelId && (
-                        <button
-                            type="button"
-                            className="btn btn-secondary"
-                            onClick={() => window.open(`/channel/${channelId}/photos`, '_blank')}
-                        >
-                            Cards Board ↗
-                        </button>
-                    )}
                 </div>
                 <div className="d-flex flex-column">
                     <ul className="list-group">

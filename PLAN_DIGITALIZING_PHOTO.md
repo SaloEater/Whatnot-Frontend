@@ -78,10 +78,6 @@ photo_board:             "/api/photo/board",           // POST  {channel_id}
 
 // Break–Series link
 break_set_series:        "/api/break/set_series",      // POST  {break_id, series_id}
-
-// Series team prices
-series_team_prices:      "/api/series/team_prices",    // POST  {series_id}
-series_team_price_set:   "/api/series/team_price/set", // POST  {series_id, team, price}
 ```
 
 ---
@@ -115,19 +111,6 @@ series_team_price_set:   "/api/series/team_price/set", // POST  {series_id, team
 - On mount: `post(getEndpoints().photo_list, { series_id })` → `Photo[]`.
 - Renders thumbnails in a responsive Bootstrap grid.
 - Each thumbnail: image preview, optional team badge below, delete icon (calls `photo_delete`).
-
----
-
-## Step 5 — Series Team Prices Page (`/series/[id]/team-prices`)
-
-**File:** `src/app/series/[id]/team-prices/page.tsx`
-
-- On mount: `post(getEndpoints().series_team_prices, { series_id })` → `SeriesTeamPrice[]`.
-- Render a table row per team (use the existing `Teams` constant from `src/app/common/teams.ts` as the source of truth for which teams exist).
-- Each row: team name + price `<input type="number" min="0" step="1">` + "Save" button.
-- "Save" calls `post(getEndpoints().series_team_price_set, { series_id, team, price })`.
-- Pre-fill inputs from the fetched prices; teams with no saved price default to 0.
-- When operator presses on an price input field, under it there are several buttons with "last used" prices on them that automatically update the input and turn focus to the next field 
 
 ---
 
@@ -283,20 +266,19 @@ Optimistic update handled inside the hook; no extra local state needed.
 
 ## Step 9 — OBS Teams Page — Price Variant (FEATURE_REQUEST #3)
 
-> "OBS Teams board should have a variation where team has no logo and has a (dynamic/static) price number under it"
+> "OBS Teams board should have a variation where team has no logo and has a price number in their container"
 
 **File additions:**
-- `src/app/obs/teams/[id]/page.tsx` (existing) — add a `?mode=prices` query param branch
-- Or a new route: `src/app/obs/prices/[id]/page.tsx`
-
-Recommendation: new dedicated route `/obs/prices/[id]` to keep the existing teams page clean.
+- New route: `src/app/obs/prices/[id]/page.tsx`
 
 Behaviour:
 - Fetches active break's events to get team list.
-- Fetches `series_team_prices` for the linked series of the active break.
-- Renders each team as a text label (no logo image) with the price below it.
+- Fetches `/api/series/{series_id}/prices` from BE to get team prices.
+- Renders each team as a text label with price number.
 - Price is dynamic: polls for series price updates or re-fetches when break changes.
-- Styled for OBS overlay: transparent background, large readable font.
+- Prices should be split into 3 groups: `best`, `good`, `regular`. Each group will have a different background gradient color, a text color and a text size. 
+- Board will be a semi-dynamic grid of maximum of 5, for now, rows. First and second row are dedicated to `best` and `good` teams respectively. If there is not enough teams for 2nd row, it's used for regular teams.
+- Board should be filled with something similar to binary search: you dynamically calculate the width of cells and number of cells per row to fit all of them into their desirable rows.
 
 ---
 

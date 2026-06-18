@@ -60,14 +60,13 @@ export interface Photo {
     name: string
     team: string
     url: string
+    price: number
     is_sold: boolean
     created_at: string
     is_deleted: boolean
 }
 
-export interface SeriesTeamPrice {
-    id: number
-    series_id: number
+export interface SeriesTeamTotal {
     team: string
     price: number
 }
