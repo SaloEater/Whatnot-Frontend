@@ -152,7 +152,7 @@ export default function Page({params}: {params: {id: string}}) {
         return <div className="prices-root"><span className="prices-waiting">No active break</span></div>
     }
 
-    const teamNames = [...new Set(events.map((e) => e.team))]
+    const teamNames = [...events.map((e) => e.team)]
     const cells = assignTiers(teamNames, prices)
     const rows = buildRows(cells)
 
