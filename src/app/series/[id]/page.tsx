@@ -12,6 +12,7 @@ export default function Page({params}: {params: {id: string}}) {
 
     const [series, setSeries] = useState<Series | null>(null)
     const [photos, setPhotos] = useState<Photo[]>([])
+    const [deletedPhotos, setDeletedPhotos] = useState<Photo[]>([])
     const [photosLoading, setPhotosLoading] = useState(true)
     const [editingName, setEditingName] = useState(false)
     const [nameInput, setNameInput] = useState('')
@@ -22,7 +23,9 @@ export default function Page({params}: {params: {id: string}}) {
             setNameInput(data.name)
         })
         post(getEndpoints().photo_list, {series_id: seriesId}).then((data: Photo[]) => {
-            setPhotos(data ?? [])
+            const all = data ?? []
+            setPhotos(all.filter((p) => !p.is_deleted))
+            setDeletedPhotos(all.filter((p) => p.is_deleted))
             setPhotosLoading(false)
         })
     }, [])
@@ -51,7 +54,15 @@ export default function Page({params}: {params: {id: string}}) {
     }
 
     function removePhoto(id: number) {
+        const photo = photos.find((p) => p.id === id)
         setPhotos((old) => old.filter((p) => p.id !== id))
+        if (photo) setDeletedPhotos((old) => [...old, {...photo, is_deleted: true}])
+    }
+
+    function restorePhoto(id: number) {
+        const photo = deletedPhotos.find((p) => p.id === id)
+        setDeletedPhotos((old) => old.filter((p) => p.id !== id))
+        if (photo) setPhotos((old) => [...old, {...photo, is_deleted: false}])
     }
 
     if (!series) return null
@@ -101,8 +112,10 @@ export default function Page({params}: {params: {id: string}}) {
 
             <PhotoGridComponent
                 photos={photos}
+                deletedPhotos={deletedPhotos}
                 isLoading={photosLoading}
                 onDelete={removePhoto}
+                onRestore={restorePhoto}
                 onTeamChange={(id, team) => setPhotos((old) => old.map((p) => p.id === id ? {...p, team} : p))}
             />
         </main>

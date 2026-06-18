@@ -49,6 +49,7 @@ export function getEndpoints()  {
 
         photo_list:            "/api/photo/list",
         photo_delete:          "/api/photo/delete",
+        photo_restore:         "/api/photo/restore",
         photo_update:          "/api/photo/update",
         photo_mark_sold:       "/api/photo/mark_sold",
         photo_board:           "/api/photo/board",
