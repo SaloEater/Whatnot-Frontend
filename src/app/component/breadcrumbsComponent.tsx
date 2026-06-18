@@ -74,6 +74,7 @@ export default function BreadcrumbsComponent() {
     const isHidden = pathname === '/'
         || pathname.indexOf('demo') !== -1
         || (pathname.indexOf('obs') !== -1 && !isObsManagePage())
+        || /\/channel\/\d+\/photos/.test(pathname)
 
     return (
         <div>

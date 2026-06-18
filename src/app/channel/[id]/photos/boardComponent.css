@@ -1,0 +1,34 @@
+.board-root {
+    width: 1080px;
+    height: 1920px;
+    position: relative;
+    overflow: hidden;
+    background: transparent;
+}
+
+.board-card-area {
+    position: absolute;
+    bottom: 0;
+    width: 1080px;
+    height: 960px;
+    overflow: visible;
+}
+
+.board-row {
+    display: flex;
+    width: 1080px;
+    justify-content: center;
+}
+
+.board-card {
+    flex-shrink: 0;
+    position: relative;
+    transition: transform 200ms ease-out;
+}
+
+.board-card img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}

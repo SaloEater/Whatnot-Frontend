@@ -160,77 +160,124 @@ Two additions to the stream sidebar:
    - Needs the channel ID for the stream. Fetch it via the existing `channel_by_stream` endpoint or pass it through the navigation state.
    - Button that opens `/channel/[channelId]/photos` in a new tab.
 
----
+---[mod_sys_params_medik.ltx](../../../Downloads/MedikHealthMonitor/src/core/gamedata/configs/mod_sys_params_medik.ltx)
 
-## Step 8 — Cards Board Page (`/channel/[id]/photos`)
+## Step 8 — Cards Board (shared)
 
 **Files:**
-- `src/app/channel/[id]/photos/page.tsx`
-- `src/app/channel/[id]/photos/controls/page.tsx`
-- `src/app/channel/[id]/photos/boardComponent.tsx`
-- `src/app/channel/[id]/photos/boardComponent.css`
-- `src/app/channel/[id]/photos/usePhotoBoard.ts`
+```
+src/app/channel/[id]/photos/
+  usePhotoBoard.ts      ← shared data hook
+  boardComponent.css    ← shared styles
+  page.tsx              ← Step 8a: OBS display
+  controls/
+    page.tsx            ← Step 8b: Operator controls
+```
 
 ### Routes
 
 ```
-/channel/:id/photos           — OBS display (clean, no controls)
-/channel/:id/photos/controls  — Operator mode (standalone page)
+/channel/:id/photos           — OBS display (Step 8a)
+/channel/:id/photos/controls  — Operator mode (Step 8b)
 ```
 
-`id` is the channel's numeric id (matching the existing `/channel/[id]` route convention).
-
-### Target environment for `/channel/:id/photos`
-
-This page is **only ever used as an OBS browser source**, configured as a vertical overlay at **1080×1920 px**. All layout math (row packing, card sizing, viewport fill) must be written against this fixed resolution — do not design for arbitrary viewport sizes or horizontal orientations.
+`id` is the channel's numeric id.
 
 ### Data hook (`usePhotoBoard.ts`)
 
-- Fetches `POST /api/photo/board` with `{ channel_id: id }` → `Photo[]`.
-- Polls every 5 seconds (clean interval on unmount).
-- Returns `{ photos, refresh, markSold }`.
-- `markSold(photoId, sold)`: optimistically updates local state, then calls `photo_mark_sold`; on error, reverts.
-- Shared between both pages.
+Shared between both pages. Follow the existing pattern from `src/app/hooks/`:
 
-### OBS display (`page.tsx`)
+- `POST /api/photo/board` with `{ channel_id }` → `Photo[]`, polls every 5 s (`setInterval` + cleanup).
+- Returns `{ photos, markSold }`.
+- `markSold(id, sold)`: optimistic local update → `photo_mark_sold` call; reverts on error.
 
-Shows only unsold photos. The array is shuffled once on initial load and on every change to the unsold set (card removed = reshuffle). No reshuffle when only zoom changes.
+### Breadcrumbs
 
-**Layout — filling the rectangle:**
-- Viewport's `<div>` should take only bottom half of an available height with `overflow: hidden`.
-- Cards arranged in rows; all cards in a row share the same height.
-- Row packing: for each row, greedily assign cards until the next card would overflow; scale all cards in the row so their total width equals `window.innerWidth`.
-- Last row: if fewer cards than needed to fill naturally, stretch them proportionally to fill the width.
-- Recalculate on load, on set change, and on `window.resize`.
-- Each card rendered as `<img>` with `object-fit: cover; width: 100%; height: 100%`.
-- Each row should be centered in the viewport.
+Both routes sit outside `/obs/` so the existing hide rule doesn't apply. Add to the `isHidden` condition in `src/app/component/breadcrumbsComponent.tsx`:
 
-**Hover-to-zoom:**
-- Managed with a `hoveredId` state (null or photo id).
-- `onMouseEnter` → set `hoveredId`; `onMouseLeave` → clear `hoveredId`.
-- CSS `transform` expands the element's hit area, so `mouseleave` won't fire until the mouse leaves the visually scaled bounds — no extra JS needed to "hold" the zoom while scaling is in progress.
-- Scale factor: `scale = (0.85 * 1080) / card.offsetWidth` — calculated so the card fills 85% of the 1080 px viewport width.
-- `transform-origin`: anchored to the nearest viewport edge so the card expands away from that edge (e.g. bottom row → `transform-origin: bottom center`, top-left card → `transform-origin: top left`). Computed by comparing the card's center coordinates against the viewport midpoint.
-- Hovered card: computed `transform: scale(n)`, `z-index: 10`, `box-shadow: 0 8px 24px rgba(0,0,0,0.5)`, `transition: transform 200ms ease-out`.
-- Grid does not reflow; zoom is a pure CSS overlay.
+```ts
+|| /\/channel\/\d+\/photos/.test(pathname)
+```
 
-### Operator mode (`controls/page.tsx`)
+### No auth required
 
-All photos fetched (both unsold and sold). Rendered in one grid — unsold first, then sold. Sold photos get a visual distinction (e.g., `opacity: 0.4` + greyed overlay).
+Board URLs are treated as secret share links. Basic Auth header is still sent by the `post` helper (existing behaviour); no 401 redirect is enforced on these pages.
 
-**Hover — full-screen preview:**
-- On `mouseenter`: render a `position: fixed; inset: 0` overlay, `background: rgba(0,0,0,0.85)`, containing `<img>` with `max-width: 90vw; max-height: 90vh; object-fit: contain`.
-- On `mouseleave`: remove overlay.
+---
 
-**Click — toggle sold:**
-- Call `markSold(photo.id, !photo.is_sold)` from the hook.
-- Unsold → sold: card moves to sold section.
-- Sold → unsold: card returns to unsold section.
-- On error: toast or inline error message; card reverts.
+## Step 8a — OBS Display (`/channel/[id]/photos`)
 
-### No auth required for board pages
+**File:** `src/app/channel/[id]/photos/page.tsx`
 
-The board URLs are treated as secret share links (per spec). The `post` helper's Basic Auth header is still sent (existing behaviour), but no login redirect is enforced on 401 for these pages.
+### Target environment
+
+**Only ever used as an OBS browser source — vertical overlay at 1080×1920 px.** All layout math targets this fixed resolution exclusively.
+
+### Data
+
+Uses `usePhotoBoard`. Shows only unsold photos (`is_sold === false`). Shuffles the array once on initial load and on every change to the unsold set (compare IDs); never reshuffles on hover changes only.
+
+### Layout — packed rows
+
+Constants: `VIEWPORT_W = 1080`, `CARD_AREA_H = 960` (bottom half of 1920), `CARD_ASPECT = 3/4`, `ROW_HEIGHT = 220`.
+
+Algorithm:
+- `cardW = ROW_HEIGHT * CARD_ASPECT` → cards per row = `Math.floor(VIEWPORT_W / cardW)`
+- Scale all cards in a row so total width = 1080: `scaledW = VIEWPORT_W / perRow`, `scaledH = scaledW / CARD_ASPECT`
+- Last row: same scaled dimensions (stretches to fill)
+- Outer container: `position: absolute; bottom: 0; width: 1080px; height: 960px; overflow: hidden`
+- Each row: `display: flex; width: 1080px`
+- Each card: `<img object-fit: cover>`
+
+### Hover-to-zoom
+
+State: `hoveredId: number | null`.
+
+On `onMouseEnter` of a card, use `getBoundingClientRect()` to:
+1. Compute `scale = (0.85 * 1080) / rect.width`
+2. Compute `transformOrigin`: compare card center to viewport midpoint (540, 960) — near edge becomes the anchor (e.g. bottom card → `'bottom center'`, top-left card → `'top left'`)
+3. Store scale + origin in a ref (no extra re-render)
+
+Hovered card style: `transform: scale(n)`, `transformOrigin`, `zIndex: 10`, `boxShadow: '0 8px 24px rgba(0,0,0,0.5)'`, `transition: 'transform 200ms ease-out'`.
+
+`onMouseLeave` → clear `hoveredId`. Grid does not reflow.
+
+---
+
+## Step 8b — Operator Controls (`/channel/[id]/photos/controls`)
+
+**File:** `src/app/channel/[id]/photos/controls/page.tsx`
+
+### Data & layout
+
+Uses `usePhotoBoard`. Renders all photos — unsold first, then sold. Uses a simple Bootstrap responsive grid (`col-4 col-sm-3 col-md-2`).
+
+Sold cards: `opacity: 0.4` + a grey `position: absolute; inset: 0; background: rgba(128,128,128,0.4)` tint overlay.
+
+### Hover — full-screen preview
+
+State: `previewPhoto: Photo | null`.
+
+`onMouseEnter` → `setPreviewPhoto(photo)`. `onMouseLeave` → `setPreviewPhoto(null)`.
+
+Overlay (rendered at root, `pointerEvents: 'none'` so it doesn't steal `mouseleave`):
+```tsx
+{previewPhoto && (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.85)',
+                 display:'flex',alignItems:'center',justifyContent:'center',
+                 zIndex:50,pointerEvents:'none'}}>
+        <img src={previewPhoto.url} style={{maxWidth:'90vw',maxHeight:'90vh',objectFit:'contain'}} />
+    </div>
+)}
+```
+
+### Click — toggle sold
+
+```tsx
+onClick={() => markSold(photo.id, !photo.is_sold)}
+```
+
+Optimistic update handled inside the hook; no extra local state needed.
 
 ---
 
