@@ -166,18 +166,23 @@ Two additions to the stream sidebar:
 
 **Files:**
 - `src/app/channel/[id]/photos/page.tsx`
+- `src/app/channel/[id]/photos/controls/page.tsx`
 - `src/app/channel/[id]/photos/boardComponent.tsx`
 - `src/app/channel/[id]/photos/boardComponent.css`
 - `src/app/channel/[id]/photos/usePhotoBoard.ts`
 
-### Route
+### Routes
 
 ```
-/channel/:id/photos
-/channel/:id/photos?controls=true
+/channel/:id/photos           — OBS display (clean, no controls)
+/channel/:id/photos/controls  — Operator mode (standalone page)
 ```
 
 `id` is the channel's numeric id (matching the existing `/channel/[id]` route convention).
+
+### Target environment for `/channel/:id/photos`
+
+This page is **only ever used as an OBS browser source**, configured as a vertical overlay at **1080×1920 px**. All layout math (row packing, card sizing, viewport fill) must be written against this fixed resolution — do not design for arbitrary viewport sizes or horizontal orientations.
 
 ### Data hook (`usePhotoBoard.ts`)
 
@@ -185,27 +190,31 @@ Two additions to the stream sidebar:
 - Polls every 5 seconds (clean interval on unmount).
 - Returns `{ photos, refresh, markSold }`.
 - `markSold(photoId, sold)`: optimistically updates local state, then calls `photo_mark_sold`; on error, reverts.
+- Shared between both pages.
 
-### Clean OBS display (no `?controls=true`)
+### OBS display (`page.tsx`)
 
 Shows only unsold photos. The array is shuffled once on initial load and on every change to the unsold set (card removed = reshuffle). No reshuffle when only zoom changes.
 
 **Layout — filling the rectangle:**
-- Full-viewport `<div>` with `overflow: hidden`.
+- Viewport's `<div>` should take only bottom half of an available height with `overflow: hidden`.
 - Cards arranged in rows; all cards in a row share the same height.
 - Row packing: for each row, greedily assign cards until the next card would overflow; scale all cards in the row so their total width equals `window.innerWidth`.
 - Last row: if fewer cards than needed to fill naturally, stretch them proportionally to fill the width.
 - Recalculate on load, on set change, and on `window.resize`.
 - Each card rendered as `<img>` with `object-fit: cover; width: 100%; height: 100%`.
+- Each row should be centered in the viewport.
 
-**Click-to-zoom:**
-- Managed with a `zoomedId` state (null or photo id).
-- Clicking a card sets `zoomedId`; clicking the same card or outside clears it.
-- Zoomed card: `transform: scale(1.75)`, `z-index: 10`, `box-shadow: 0 8px 24px rgba(0,0,0,0.5)`, `transition: transform 150ms ease-out`.
-- `transform-origin: center center` by default; shift toward nearest edge if scaling from center would clip against viewport boundary.
+**Hover-to-zoom:**
+- Managed with a `hoveredId` state (null or photo id).
+- `onMouseEnter` → set `hoveredId`; `onMouseLeave` → clear `hoveredId`.
+- CSS `transform` expands the element's hit area, so `mouseleave` won't fire until the mouse leaves the visually scaled bounds — no extra JS needed to "hold" the zoom while scaling is in progress.
+- Scale factor: `scale = (0.85 * 1080) / card.offsetWidth` — calculated so the card fills 85% of the 1080 px viewport width.
+- `transform-origin`: anchored to the nearest viewport edge so the card expands away from that edge (e.g. bottom row → `transform-origin: bottom center`, top-left card → `transform-origin: top left`). Computed by comparing the card's center coordinates against the viewport midpoint.
+- Hovered card: computed `transform: scale(n)`, `z-index: 10`, `box-shadow: 0 8px 24px rgba(0,0,0,0.5)`, `transition: transform 200ms ease-out`.
 - Grid does not reflow; zoom is a pure CSS overlay.
 
-### Operator mode (`?controls=true`)
+### Operator mode (`controls/page.tsx`)
 
 All photos fetched (both unsold and sold). Rendered in one grid — unsold first, then sold. Sold photos get a visual distinction (e.g., `opacity: 0.4` + greyed overlay).
 
@@ -219,9 +228,9 @@ All photos fetched (both unsold and sold). Rendered in one grid — unsold first
 - Sold → unsold: card returns to unsold section.
 - On error: toast or inline error message; card reverts.
 
-### No auth required for board page
+### No auth required for board pages
 
-The board URL is treated as a secret share link (per spec). The `post` helper's Basic Auth header is still sent (existing behaviour), but no login redirect is enforced on 401 for this page.
+The board URLs are treated as secret share links (per spec). The `post` helper's Basic Auth header is still sent (existing behaviour), but no login redirect is enforced on 401 for these pages.
 
 ---
 
