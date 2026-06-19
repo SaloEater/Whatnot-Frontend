@@ -9,8 +9,8 @@
 }
 
 /* ── Tier neon variables ── */
-.count-cell--unsold    { --neon: #d93957; }
-.count-cell--available { --neon: #ffffa0; }
+.count-cell--unsold    { --neon: #d93957; --cell-bg: #6d1d2c; }
+.count-cell--available { --neon: #ffffa0; --cell-bg: #808050; }
 
 /* ── Cell base ── */
 .count-cell {
@@ -28,7 +28,7 @@
         0 0 6px var(--neon),
         0 0 14px var(--neon),
         inset 0 0 6px var(--neon);
-    background: radial-gradient(ellipse at center, #000000 30%, color-mix(in srgb, var(--neon) 50%, #000000) 100%);
+    background: radial-gradient(ellipse at center, #000000 30%, var(--cell-bg) 100%);
 }
 
 .count-cell__label {
