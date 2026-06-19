@@ -66,17 +66,17 @@ body {
 }
 
 .prices-cell__name-prefix {
-    color: var(--neon);
+    color: #ffffff;
     font-weight: 300;
     line-height: 1.2;
-    text-shadow: var(--neon-glow);
+    text-shadow: 0 0 4px rgba(255,255,255,0.7), 0 0 12px rgba(255,255,255,0.56), 0 0 28px rgba(255,255,255,0.35), 0 0 60px rgba(255,255,255,0.14);
 }
 
 .prices-cell__name-last {
-    color: var(--neon);
+    color: #ffffff;
     font-weight: 300;
     line-height: 1.2;
-    text-shadow: var(--neon-glow);
+    text-shadow: 0 0 4px rgba(255,255,255,0.7), 0 0 12px rgba(255,255,255,0.56), 0 0 28px rgba(255,255,255,0.35), 0 0 60px rgba(255,255,255,0.14);
 }
 
 /* Tier-specific font sizes */
