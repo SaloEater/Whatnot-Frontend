@@ -136,7 +136,7 @@ export default function Page({params}: {params: {id: string}}) {
         fetchEvents()
 
         const idBreak  = setInterval(fetchBreak,  300000)
-        const idEvents = setInterval(fetchEvents,  120000)
+        const idEvents = setInterval(fetchEvents,  15000)
         return () => { clearInterval(idBreak); clearInterval(idEvents) }
     }, [stream?.active_break_id])
 
