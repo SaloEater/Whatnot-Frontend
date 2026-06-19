@@ -21,10 +21,11 @@ body {
     display: flex;
     flex: 1;
     width: 100%;
+    max-height: 200px;
     border-bottom: 1px solid;
 }
 
-.prices-row:first-child { width: 66.67%; }
+.prices-row:first-child { width: 66.67%; border-top-right-radius: 25px; overflow: hidden; }
 .prices-row:last-child  { border-bottom: none; }
 .prices-row--best, .prices-row--good, .prices-row--regular { border-bottom-color: #404040; }
 
