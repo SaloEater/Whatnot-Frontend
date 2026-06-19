@@ -69,7 +69,7 @@ export default function Page({params}: {params: {id: string}}) {
                     type="range"
                     className="form-range"
                     min={40}
-                    max={200}
+                    max={500}
                     value={cardSize}
                     onChange={(e) => updateCardSize(parseInt(e.target.value))}
                 />
