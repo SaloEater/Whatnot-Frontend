@@ -24,7 +24,8 @@ body {
     border-bottom: 1px solid;
 }
 
-.prices-row:last-child { border-bottom: none; }
+.prices-row:first-child { width: 66.67%; }
+.prices-row:last-child  { border-bottom: none; }
 .prices-row--best, .prices-row--good, .prices-row--regular { border-bottom-color: #404040; }
 
 /* ── Cell base ── */
