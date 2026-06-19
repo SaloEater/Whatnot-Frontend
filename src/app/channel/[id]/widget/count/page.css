@@ -5,24 +5,30 @@
     background: transparent;
     overflow: hidden;
     font-family: var(--font-exo2), sans-serif;
+    gap: 1px;
 }
 
+/* ── Tier neon variables ── */
+.count-cell--unsold    { --neon: #d93957; }
+.count-cell--available { --neon: #ffffa0; }
+
+/* ── Cell base ── */
 .count-cell {
+    --neon-glow: 0 0 2px var(--neon), 0 0 5px var(--neon), 0 0 14px var(--neon);
     flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 0.2em;
-}
-
-.count-cell--unsold {
-    background: radial-gradient(ellipse at center, #632437 0%, #4b1e2e 55%, #2a0e18 100%);
-    border-right: 2px solid #404040;
-}
-
-.count-cell--available {
-    background: radial-gradient(ellipse at center, #3d3d10 0%, #2f2f0d 55%, #141400 100%);
+    transform: scale(0.95);
+    border: 1px solid var(--neon);
+    border-radius: 5px;
+    box-shadow:
+        0 0 6px var(--neon),
+        0 0 14px var(--neon),
+        inset 0 0 6px var(--neon);
+    background: radial-gradient(ellipse at center, #000000 30%, color-mix(in srgb, var(--neon) 50%, #000000) 100%);
 }
 
 .count-cell__label {
@@ -31,10 +37,9 @@
     letter-spacing: 0.06em;
     text-transform: uppercase;
     line-height: 1;
+    color: var(--neon);
+    text-shadow: var(--neon-glow);
 }
-
-.count-cell--unsold    .count-cell__label { color: #d93957; text-shadow: 0 0 6px rgba(217, 57, 87, 0.8), 0 0 20px rgba(217, 57, 87, 0.4); }
-.count-cell--available .count-cell__label { color: #ffffa0; text-shadow: 0 0 6px rgba(255, 255, 160, 0.8), 0 0 20px rgba(255, 255, 160, 0.4); }
 
 .count-cell__value--unsold,
 .count-cell__value--available {
