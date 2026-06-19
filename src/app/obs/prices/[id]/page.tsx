@@ -44,7 +44,7 @@ function assignTiers(teamNames: string[], prices: SeriesTeamTotal[]): TeamCell[]
         if (idx < BEST_COUNT) tier = 'best'
         else if (idx < BEST_COUNT + GOOD_COUNT) tier = 'good'
         else tier = 'regular'
-        cells.push({team, displayPrice: `$${price}`, tier})
+        cells.push({team, displayPrice: `$${Math.ceil(price / 25) * 25}`, tier})
     })
 
     noPrice.forEach((team) => {
