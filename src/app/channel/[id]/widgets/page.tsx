@@ -121,7 +121,7 @@ export default function Page({params}: {params: {id: string}}) {
     const deltas = [1, 2, 3, 4]
 
     const available = countData ? countData.total_cards - countData.used_cards : 0
-    const sideCards = countData ? available - countData.sold_count : 0
+    const sideCards = countData ? available - countData.unsold_count : 0
     const unsoldPct = countData && available > 0
         ? Math.round(countData.unsold_count / available * 100)
         : 0
@@ -258,7 +258,7 @@ export default function Page({params}: {params: {id: string}}) {
                                 <div className="text-secondary small mb-1">Side Cards</div>
                                 <div className="fs-2 fw-bold">{sideCards}</div>
                                 <div className="text-secondary small mt-1">
-                                    available ({available}) − sold ({countData.sold_count})
+                                    cards left ({available}) − chasers left ({countData.unsold_count})
                                 </div>
                             </div>
                         </div>
