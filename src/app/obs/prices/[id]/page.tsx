@@ -10,12 +10,13 @@ import {NoCustomer} from '@/app/entity/entities'
 import './page.css'
 
 const BEST_COUNT        = 3
-const GOOD_COUNT        = 5
+const GOOD_COUNT        = 4
+const MID_COUNT         = 5
 const MAX_ROW_CELLS     = 7
 const DEFAULT_PRICE     = '$100-$200'
 const MIN_CELL_WIDTH_PX = 120
 
-type Tier = 'best' | 'good' | 'regular'
+type Tier = 'best' | 'good' | 'mid' | 'regular'
 
 
 interface TeamCell {
@@ -24,28 +25,42 @@ interface TeamCell {
     tier: Tier
 }
 
-function assignTiers(teamNames: string[], prices: SeriesTeamTotal[]): TeamCell[] {
-    const priceMap = new Map(prices.map((p) => [p.team, p.price]))
+function rankTier(idx: number): Tier {
+    if (idx < BEST_COUNT) return 'best'
+    if (idx < BEST_COUNT + GOOD_COUNT) return 'good'
+    if (idx < BEST_COUNT + GOOD_COUNT + MID_COUNT) return 'mid'
+    return 'regular'
+}
 
-    const withPrice: {team: string; price: number}[] = []
+function assignTiers(teamNames: string[], prices: SeriesTeamTotal[]): TeamCell[] {
+    const totalMap  = new Map(prices.map((p) => [p.team, p.total_price]))
+    const unsoldMap = new Map(prices.map((p) => [p.team, p.price_left]))
+
+    const withPrice: {team: string; total: number; unsold: number}[] = []
     const noPrice: string[] = []
 
     for (const team of teamNames) {
-        const price = priceMap.get(team) ?? 0
-        if (price > 0) withPrice.push({team, price})
+        const total = totalMap.get(team) ?? 0
+        if (total > 0) withPrice.push({team, total, unsold: unsoldMap.get(team) ?? 0})
         else noPrice.push(team)
     }
 
-    withPrice.sort((a, b) => b.price - a.price)
+    // Rank by total price to assign base tier (color).
+    withPrice.sort((a, b) => b.total - a.total)
+    const totalTierMap = new Map(withPrice.map(({team}, idx) => [team, rankTier(idx)]))
+
+    // Rank by unsold price to check if unsold value has dropped to regular.
+    const byUnsold = [...withPrice].sort((a, b) => b.unsold - a.unsold)
+    const unsoldTierMap = new Map(byUnsold.map(({team}, idx) => [team, rankTier(idx)]))
 
     const cells: TeamCell[] = []
 
-    withPrice.forEach(({team, price}, idx) => {
-        let tier: Tier
-        if (idx < BEST_COUNT) tier = 'best'
-        else if (idx < BEST_COUNT + GOOD_COUNT) tier = 'good'
-        else tier = 'regular'
-        cells.push({team, displayPrice: `$${Math.ceil(price / 25) * 25}`, tier})
+    withPrice.forEach(({team, unsold}) => {
+        const totalTier  = totalTierMap.get(team)!
+        const unsoldTier = unsoldTierMap.get(team)!
+        const tier: Tier = unsoldTier === 'regular' ? 'regular' : totalTier
+        const displayPrice = unsold > 0 ? `$${Math.ceil(unsold / 25) * 25}` : DEFAULT_PRICE
+        cells.push({team, displayPrice, tier})
     })
 
     noPrice.forEach((team) => {
@@ -59,21 +74,25 @@ function buildRows(cells: TeamCell[]): TeamCell[][] {
     const byPrice = (a: TeamCell, b: TeamCell) => parseFloat(b.displayPrice) - parseFloat(a.displayPrice)
     const best    = cells.filter((c) => c.tier === 'best').sort(byPrice)
     const good    = cells.filter((c) => c.tier === 'good').sort(byPrice)
+    let   mid     = cells.filter((c) => c.tier === 'mid').sort(byPrice)
     let   regular = cells.filter((c) => c.tier === 'regular').sort(byPrice)
 
     const rows: TeamCell[][] = []
 
     const totalRows = 6
 
+    function pushGoodRow() {
+        const availableRows = Math.max(1, totalRows - rows.length)
+        const remaining     = mid.length + regular.length
+        const cellsPerRow   = Math.ceil(remaining / availableRows)
+        const midOnGoodRow  = Math.max(0, cellsPerRow - good.length)
+        rows.push([...good, ...mid.slice(0, midOnGoodRow)])
+        mid = mid.slice(midOnGoodRow)
+    }
+
     if (best.length >= 2) {
         rows.push(best)
-        if (good.length > 0) {
-            const availableRows    = Math.max(1, totalRows - rows.length)
-            const cellsPerRow      = Math.ceil(regular.length / availableRows)
-            const regularOnGoodRow = Math.max(0, cellsPerRow - good.length)
-            rows.push([...good, ...regular.slice(0, regularOnGoodRow)])
-            regular = regular.slice(regularOnGoodRow)
-        }
+        if (good.length > 0) pushGoodRow()
     } else if (best.length > 0 || good.length > 0) {
         const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920
         const combined = best.length + good.length
@@ -81,26 +100,23 @@ function buildRows(cells: TeamCell[]): TeamCell[][] {
 
         if (good.length > 0 && candidateCellWidth < MIN_CELL_WIDTH_PX) {
             if (best.length > 0) rows.push(best)
-            const availableRows    = Math.max(1, totalRows - rows.length)
-            const cellsPerRow      = Math.ceil(regular.length / availableRows)
-            const regularOnGoodRow = Math.max(0, cellsPerRow - good.length)
-            rows.push([...good, ...regular.slice(0, regularOnGoodRow)])
-            regular = regular.slice(regularOnGoodRow)
+            pushGoodRow()
         } else {
             rows.push([...best, ...good])
         }
     }
 
-    if (regular.length > 0) {
+    const remaining = [...mid, ...regular]
+    if (remaining.length > 0) {
         const availableRows = Math.max(1, totalRows - rows.length)
-        const neededRows    = Math.ceil(regular.length / MAX_ROW_CELLS)
+        const neededRows    = Math.ceil(remaining.length / MAX_ROW_CELLS)
         const actualRows    = Math.min(neededRows, availableRows)
-        const base  = Math.floor(regular.length / actualRows)
-        const extra = regular.length % actualRows
+        const base  = Math.floor(remaining.length / actualRows)
+        const extra = remaining.length % actualRows
         let idx = 0
         for (let r = 0; r < actualRows; r++) {
             const count = base + (r < extra ? 1 : 0)
-            rows.push(regular.slice(idx, idx + count))
+            rows.push(remaining.slice(idx, idx + count))
             idx += count
         }
     }
@@ -182,6 +198,7 @@ export default function Page({params}: {params: {id: string}}) {
         <div className="prices-root">
             {rows.map((row, ri) => {
                 const rowTier = row.some((c) => c.tier === 'regular') ? 'regular'
+                              : row.some((c) => c.tier === 'mid')     ? 'mid'
                               : row.some((c) => c.tier === 'good')    ? 'good'
                               : 'best'
 

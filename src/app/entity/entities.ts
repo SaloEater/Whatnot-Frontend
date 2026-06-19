@@ -68,7 +68,8 @@ export interface Photo {
 
 export interface SeriesTeamTotal {
     team: string
-    price: number
+    total_price: number
+    price_left: number
 }
 
 export interface WNStream {

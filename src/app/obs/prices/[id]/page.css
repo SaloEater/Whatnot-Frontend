@@ -27,7 +27,7 @@ body {
 
 .prices-row:first-child { width: 66.67%; border-top-right-radius: 25px; overflow: hidden; }
 .prices-row:last-child  { border-bottom: none; }
-.prices-row--best, .prices-row--good, .prices-row--regular { border-bottom-color: #404040; }
+.prices-row--best, .prices-row--good, .prices-row--mid, .prices-row--regular { border-bottom-color: #404040; }
 
 /* ── Cell base ── */
 .prices-cell {
@@ -48,6 +48,7 @@ body {
 
 .prices-cell--best    { background: radial-gradient(ellipse at center, #632437 0%, #4b1e2e 55%, #2a0e18 100%); }
 .prices-cell--good    { background: radial-gradient(ellipse at center, #293d56 0%, #1f2b3f 55%, #0d1520 100%); }
+.prices-cell--mid     { background: radial-gradient(ellipse at center, #233a13 0%, #1c2e0f 55%, #0b1700 100%); }
 .prices-cell--regular { background: radial-gradient(ellipse at center, #3d3d10 0%, #2f2f0d 55%, #141400 100%); }
 
 
@@ -78,6 +79,9 @@ body {
 .prices-cell--good    .prices-cell__name-prefix { font-size: 1.95rem; }
 .prices-cell--good    .prices-cell__name-last   { font-size: 2.75rem; }
 
+.prices-cell--mid     .prices-cell__name-prefix { font-size: 1.7rem; }
+.prices-cell--mid     .prices-cell__name-last   { font-size: 2.5rem; }
+
 .prices-cell--regular .prices-cell__name-prefix { font-size: 1.7rem; }
 .prices-cell--regular .prices-cell__name-last   { font-size: 2.5rem; }
 
@@ -86,6 +90,7 @@ body {
     font-weight: 700;
 }
 
-.prices-cell--best    .prices-cell__price { color: #d93957; font-size: 3.5rem;  text-shadow: 0 0 6px rgba(217, 76, 155, 0.5), 0 0 14px rgba(217, 76, 155, 0.2); }
-.prices-cell--good    .prices-cell__price { color: #76d7d8; font-size: 3.25rem; text-shadow: 0 0 6px rgba(118, 215, 216, 0.5), 0 0 14px rgba(118, 215, 216, 0.2); }
-.prices-cell--regular .prices-cell__price { color: #ffffa0; font-size: 2.5rem;  text-shadow: 0 0 6px rgba(255, 255, 160, 0.4), 0 0 14px rgba(255, 255, 160, 0.15); }
+.prices-cell--best    .prices-cell__price { color: #d93957; font-size: 3.5rem;  text-shadow: 0 0 6px rgba(217, 76,  155, 0.5),  0 0 14px rgba(217, 76,  155, 0.2); }
+.prices-cell--good    .prices-cell__price { color: #76d7d8; font-size: 3.25rem; text-shadow: 0 0 6px rgba(118, 215, 216, 0.5),  0 0 14px rgba(118, 215, 216, 0.2); }
+.prices-cell--mid     .prices-cell__price { color: #67e85f; font-size: 2.75rem; text-shadow: 0 0 6px rgba(103, 232, 95,  0.5),  0 0 14px rgba(103, 232, 95,  0.2); }
+.prices-cell--regular .prices-cell__price { color: #ffffa0; font-size: 2.5rem;  text-shadow: 0 0 6px rgba(255, 255, 160, 0.4),  0 0 14px rgba(255, 255, 160, 0.15); }

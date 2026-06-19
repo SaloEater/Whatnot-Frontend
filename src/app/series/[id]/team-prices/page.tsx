@@ -35,7 +35,7 @@ export default function Page({params}: {params: {id: string}}) {
                     {totals.map((t) => (
                         <tr key={t.team}>
                             <td>{t.team}</td>
-                            <td>{t.price}</td>
+                            <td>{t.total_price}</td>
                         </tr>
                     ))}
                     {totals.length === 0 && (
