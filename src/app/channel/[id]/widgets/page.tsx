@@ -139,63 +139,80 @@ export default function Page({params}: {params: {id: string}}) {
             <h4 className="mb-4">Widget Settings</h4>
 
             <hr />
-            <h6 className="text-center mb-3">Series: Stash or Pass</h6>
-            <div className="d-flex align-items-center gap-2">
-                <label className="form-label mb-0 text-nowrap">Price</label>
-                <input
-                    type="number"
-                    className="form-control"
-                    style={{width: '140px'}}
-                    value={sopPrice ?? ''}
-                    disabled={sopPrice === null}
-                    onChange={(e) => { setSopPrice(parseInt(e.target.value) || 0); setSopStatus('idle') }}
-                />
-                <button className="btn btn-primary" onClick={saveSop} disabled={sopPrice === null || sopSaving}>
-                    {sopSaving ? 'Saving…' : 'Save'}
-                </button>
-                {sopStatus === 'ok'    && <span className="text-success">Saved</span>}
-                {sopStatus === 'error' && <span className="text-danger">Error</span>}
-            </div>
-
-            <hr />
-            <h6 className="text-center mb-3">Series: Pick 2</h6>
-            <div className="d-flex align-items-center gap-2">
-                <label className="form-label mb-0 text-nowrap">Price</label>
-                <input
-                    type="number"
-                    className="form-control"
-                    style={{width: '140px'}}
-                    value={p2Price ?? ''}
-                    disabled={p2Price === null}
-                    onChange={(e) => { setP2Price(parseInt(e.target.value) || 0); setP2Status('idle') }}
-                />
-                <button className="btn btn-primary" onClick={savePick2} disabled={p2Price === null || p2Saving}>
-                    {p2Saving ? 'Saving…' : 'Save'}
-                </button>
-                {p2Status === 'ok'    && <span className="text-success">Saved</span>}
-                {p2Status === 'error' && <span className="text-danger">Error</span>}
-            </div>
-
-            <hr />
-            <h6 className="text-center mb-3">Series: Boxes per Break</h6>
-            {seriesStatus}
-            {bpbAmount !== null && (
-                <div className="d-flex align-items-center gap-2">
-                    <label className="form-label mb-0 text-nowrap">Amount</label>
-                    <input
-                        type="number"
-                        className="form-control"
-                        style={{width: '140px'}}
-                        value={bpbAmount}
-                        onChange={(e) => { setBpbAmount(parseInt(e.target.value) || 0); setBpbStatus('idle') }}
-                    />
-                    <button className="btn btn-primary" onClick={saveBpb} disabled={bpbSaving}>
-                        {bpbSaving ? 'Saving…' : 'Save'}
-                    </button>
-                    {bpbStatus === 'ok'    && <span className="text-success">Saved</span>}
-                    {bpbStatus === 'error' && <span className="text-danger">Error</span>}
+            <div className="row g-3 mb-2">
+                <div className="col-auto">
+                    <div className="card">
+                        <div className="card-body">
+                            <h6 className="card-title">Series: Stash or Pass</h6>
+                            <div className="d-flex align-items-center gap-2">
+                                <label className="form-label mb-0 text-nowrap">Price</label>
+                                <input
+                                    type="number"
+                                    className="form-control"
+                                    style={{width: '120px'}}
+                                    value={sopPrice ?? ''}
+                                    disabled={sopPrice === null}
+                                    onChange={(e) => { setSopPrice(parseInt(e.target.value) || 0); setSopStatus('idle') }}
+                                />
+                                <button className="btn btn-primary" onClick={saveSop} disabled={sopPrice === null || sopSaving}>
+                                    {sopSaving ? 'Saving…' : 'Save'}
+                                </button>
+                                {sopStatus === 'ok'    && <span className="text-success">Saved</span>}
+                                {sopStatus === 'error' && <span className="text-danger">Error</span>}
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            )}
+
+                <div className="col-auto">
+                    <div className="card">
+                        <div className="card-body">
+                            <h6 className="card-title">Series: Pick 2</h6>
+                            <div className="d-flex align-items-center gap-2">
+                                <label className="form-label mb-0 text-nowrap">Price</label>
+                                <input
+                                    type="number"
+                                    className="form-control"
+                                    style={{width: '120px'}}
+                                    value={p2Price ?? ''}
+                                    disabled={p2Price === null}
+                                    onChange={(e) => { setP2Price(parseInt(e.target.value) || 0); setP2Status('idle') }}
+                                />
+                                <button className="btn btn-primary" onClick={savePick2} disabled={p2Price === null || p2Saving}>
+                                    {p2Saving ? 'Saving…' : 'Save'}
+                                </button>
+                                {p2Status === 'ok'    && <span className="text-success">Saved</span>}
+                                {p2Status === 'error' && <span className="text-danger">Error</span>}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="col-auto">
+                    <div className="card">
+                        <div className="card-body">
+                            <h6 className="card-title">Series: Boxes per Break</h6>
+                            {seriesStatus ?? (bpbAmount !== null ? (
+                                <div className="d-flex align-items-center gap-2">
+                                    <label className="form-label mb-0 text-nowrap">Amount</label>
+                                    <input
+                                        type="number"
+                                        className="form-control"
+                                        style={{width: '120px'}}
+                                        value={bpbAmount}
+                                        onChange={(e) => { setBpbAmount(parseInt(e.target.value) || 0); setBpbStatus('idle') }}
+                                    />
+                                    <button className="btn btn-primary" onClick={saveBpb} disabled={bpbSaving}>
+                                        {bpbSaving ? 'Saving…' : 'Save'}
+                                    </button>
+                                    {bpbStatus === 'ok'    && <span className="text-success">Saved</span>}
+                                    {bpbStatus === 'error' && <span className="text-danger">Error</span>}
+                                </div>
+                            ) : null)}
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <hr />
             <h6 className="text-center mb-3">Series: Count Widget</h6>
