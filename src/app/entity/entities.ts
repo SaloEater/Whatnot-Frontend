@@ -54,6 +54,7 @@ export interface Series {
     is_deleted: boolean
     total_cards: number
     used_cards: number
+    default_price: string
 }
 
 export interface SeriesWithCount extends Series {

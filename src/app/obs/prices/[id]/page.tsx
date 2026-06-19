@@ -1,7 +1,7 @@
 'use client'
 
 import React, {useEffect, useState} from 'react'
-import {Event, SeriesTeamTotal, WNBreak} from '@/app/entity/entities'
+import {Event, Series, SeriesTeamTotal, WNBreak} from '@/app/entity/entities'
 import {get, getEndpoints, post} from '@/app/lib/backend'
 import {useChannel} from '@/app/hooks/useChannel'
 import {useActiveStream} from '@/app/hooks/useActiveStream'
@@ -13,7 +13,7 @@ const BEST_COUNT        = 3
 const GOOD_COUNT        = 4
 const MID_COUNT         = 5
 const MAX_ROW_CELLS     = 7
-const DEFAULT_PRICE     = '$100-$200'
+const DEFAULT_PRICE     = '$100-$299'
 const MIN_CELL_WIDTH_PX = 120
 
 type Tier = 'best' | 'good' | 'mid' | 'regular'
@@ -33,7 +33,7 @@ function rankTier(idx: number): Tier {
     return 'regular'
 }
 
-function assignTiers(teamNames: string[], prices: SeriesTeamTotal[]): TeamCell[] {
+function assignTiers(teamNames: string[], prices: SeriesTeamTotal[], defaultPrice: string): TeamCell[] {
     const totalMap  = new Map(prices.map((p) => [p.team, p.total_price]))
     const unsoldMap = new Map(prices.map((p) => [p.team, p.price_left]))
 
@@ -60,12 +60,12 @@ function assignTiers(teamNames: string[], prices: SeriesTeamTotal[]): TeamCell[]
         const totalTier  = totalTierMap.get(team)!
         const unsoldTier = unsoldTierMap.get(team)!
         const tier: Tier = (unsoldTier === 'regular' || unsold < 200) ? 'regular' : totalTier
-        const displayPrice = unsold > 0 ? `$${Math.ceil(unsold / 25) * 25}` : DEFAULT_PRICE
+        const displayPrice = unsold > 0 ? `$${Math.ceil(unsold / 25) * 25}` : defaultPrice
         cells.push({team, displayPrice, priceLeft: unsold, tier})
     })
 
     noPrice.forEach((team) => {
-        cells.push({team, displayPrice: DEFAULT_PRICE, priceLeft: 0, tier: 'regular'})
+        cells.push({team, displayPrice: defaultPrice, priceLeft: 0, tier: 'regular'})
     })
 
     return cells
@@ -131,6 +131,7 @@ export default function Page({params}: {params: {id: string}}) {
     const stream = useActiveStream(channel)
 
     const [breakObject, setBreakObject] = useState<WNBreak | null>(null)
+    const [series,      setSeries]      = useState<Series | null>(null)
     const [events,      setEvents]      = useState<Event[]>([])
     const [prices,      setPrices]      = useState<SeriesTeamTotal[]>([])
 
@@ -166,11 +167,14 @@ export default function Page({params}: {params: {id: string}}) {
 
     useEffect(() => {
         if (!breakObject?.series_id) {
+            setSeries(null)
             setPrices([])
             return
         }
 
         const seriesId = breakObject.series_id
+
+        post(getEndpoints().series_get, {id: seriesId}).then((s: Series) => setSeries(s))
 
         function fetchPrices() {
             get(`/api/series/${seriesId}/prices`).then((data: SeriesTeamTotal[]) => {
@@ -192,7 +196,8 @@ export default function Page({params}: {params: {id: string}}) {
     }
 
     const teamNames = [...events.map((e) => e.team)]
-    const cells = assignTiers(teamNames, prices)
+    const defaultPrice = series?.default_price || DEFAULT_PRICE
+    const cells = assignTiers(teamNames, prices, defaultPrice)
     const rows = buildRows(cells)
 
     return (
