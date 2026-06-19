@@ -58,7 +58,7 @@ function assignTiers(teamNames: string[], prices: SeriesTeamTotal[]): TeamCell[]
     withPrice.forEach(({team, unsold}) => {
         const totalTier  = totalTierMap.get(team)!
         const unsoldTier = unsoldTierMap.get(team)!
-        const tier: Tier = unsoldTier === 'regular' ? 'regular' : totalTier
+        const tier: Tier = (unsoldTier === 'regular' || unsold < 200) ? 'regular' : totalTier
         const displayPrice = unsold > 0 ? `$${Math.ceil(unsold / 25) * 25}` : DEFAULT_PRICE
         cells.push({team, displayPrice, tier})
     })
