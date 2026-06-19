@@ -22,6 +22,7 @@ type Tier = 'best' | 'good' | 'mid' | 'regular'
 interface TeamCell {
     team: string
     displayPrice: string
+    priceLeft: number
     tier: Tier
 }
 
@@ -60,18 +61,18 @@ function assignTiers(teamNames: string[], prices: SeriesTeamTotal[]): TeamCell[]
         const unsoldTier = unsoldTierMap.get(team)!
         const tier: Tier = (unsoldTier === 'regular' || unsold < 200) ? 'regular' : totalTier
         const displayPrice = unsold > 0 ? `$${Math.ceil(unsold / 25) * 25}` : DEFAULT_PRICE
-        cells.push({team, displayPrice, tier})
+        cells.push({team, displayPrice, priceLeft: unsold, tier})
     })
 
     noPrice.forEach((team) => {
-        cells.push({team, displayPrice: DEFAULT_PRICE, tier: 'regular'})
+        cells.push({team, displayPrice: DEFAULT_PRICE, priceLeft: 0, tier: 'regular'})
     })
 
     return cells
 }
 
 function buildRows(cells: TeamCell[]): TeamCell[][] {
-    const byPrice = (a: TeamCell, b: TeamCell) => parseFloat(b.displayPrice) - parseFloat(a.displayPrice)
+    const byPrice = (a: TeamCell, b: TeamCell) => b.priceLeft - a.priceLeft
     const best    = cells.filter((c) => c.tier === 'best').sort(byPrice)
     const good    = cells.filter((c) => c.tier === 'good').sort(byPrice)
     let   mid     = cells.filter((c) => c.tier === 'mid').sort(byPrice)
