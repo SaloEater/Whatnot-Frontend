@@ -32,11 +32,11 @@ body {
 
 .prices-row:first-child { width: 66.67%; }
 
-/* ── Tier neon variables ── */
-.prices-cell--best    { --neon: #d93957; --neon-mid: #e85f7a; --cell-bg: #6d1d2c; }
-.prices-cell--good    { --neon: #76d7d8; --neon-mid: #9bd7d8; --cell-bg: #3b6b6c; }
-.prices-cell--mid     { --neon: #67e85f; --neon-mid: #98e895; --cell-bg: #337430; }
-.prices-cell--regular { --neon: #ffffa0; --neon-mid: #ffffe8; --cell-bg: #808050; }
+/* ── Tier neon variables + backgrounds (hardcoded to avoid var() inside gradient) ── */
+.prices-cell--best    { --neon: #d93957; --neon-mid: #e85f7a; background: radial-gradient(ellipse at center, #000000 30%, #6d1d2c 100%); }
+.prices-cell--good    { --neon: #76d7d8; --neon-mid: #9bd7d8; background: radial-gradient(ellipse at center, #000000 30%, #3b6b6c 100%); }
+.prices-cell--mid     { --neon: #67e85f; --neon-mid: #98e895; background: radial-gradient(ellipse at center, #000000 30%, #337430 100%); }
+.prices-cell--regular { --neon: #ffffa0; --neon-mid: #ffffe8; background: radial-gradient(ellipse at center, #000000 30%, #808050 100%); }
 
 /* ── Cell base ── */
 .prices-cell {
@@ -55,7 +55,6 @@ body {
         0 0 6px var(--neon),
         0 0 14px var(--neon),
         inset 0 0 6px var(--neon);
-    background: radial-gradient(ellipse at center, #000000 30%, var(--cell-bg) 100%);
 }
 
 /* ── Name ── */
