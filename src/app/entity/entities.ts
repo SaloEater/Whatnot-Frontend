@@ -52,6 +52,13 @@ export interface Series {
     status: 'open' | 'closed'
     created_at: string
     is_deleted: boolean
+    total_cards: number
+    used_cards: number
+}
+
+export interface SeriesWithCount extends Series {
+    unsold_count: number
+    sold_count: number
 }
 
 export interface Photo {

@@ -2,9 +2,14 @@
 
 import React, {useEffect, useState} from 'react'
 import {getEndpoints, post} from '@/app/lib/backend'
+import {SeriesWithCount, WNBreak} from '@/app/entity/entities'
+import {useChannel} from '@/app/hooks/useChannel'
+import {useActiveStream} from '@/app/hooks/useActiveStream'
 
 export default function Page({params}: {params: {id: string}}) {
     const channelId = parseInt(params.id)
+    const [channel] = useChannel(channelId)
+    const stream = useActiveStream(channel)
 
     const [sopPrice, setSopPrice] = useState<number | null>(null)
     const [sopSaving, setSopSaving] = useState(false)
@@ -14,12 +19,43 @@ export default function Page({params}: {params: {id: string}}) {
     const [p2Saving, setP2Saving] = useState(false)
     const [p2Status, setP2Status] = useState<'idle' | 'ok' | 'error'>('idle')
 
+    const [breakObject, setBreakObject] = useState<WNBreak | null>(null)
+    const [countData, setCountData] = useState<SeriesWithCount | null>(null)
+    const [countSaving, setCountSaving] = useState(false)
+    const [customInput, setCustomInput] = useState('')
+
+    const [bpbAmount, setBpbAmount] = useState<number | null>(null)
+    const [bpbSaving, setBpbSaving] = useState(false)
+    const [bpbStatus, setBpbStatus] = useState<'idle' | 'ok' | 'error'>('idle')
+
     useEffect(() => {
         post(getEndpoints().widget_stashorpass_get, {channel_id: channelId})
             .then((data: {price: number}) => setSopPrice(data?.price ?? 0))
         post(getEndpoints().widget_pick2_get, {channel_id: channelId})
             .then((data: {price: number}) => setP2Price(data?.price ?? 0))
     }, [channelId])
+
+    useEffect(() => {
+        if (!stream?.active_break_id) { setBreakObject(null); return }
+        post(getEndpoints().break_get, {id: stream.active_break_id})
+            .then((b: WNBreak) => setBreakObject(b))
+    }, [stream?.active_break_id])
+
+    useEffect(() => {
+        if (!breakObject?.series_id) { setCountData(null); setBpbAmount(null); return }
+        loadCount(breakObject.series_id)
+        loadBpb(breakObject.series_id)
+    }, [breakObject?.series_id])
+
+    function loadCount(seriesId: number) {
+        post(getEndpoints().series_get_with_count, {id: seriesId})
+            .then((d: SeriesWithCount) => { if (d) setCountData(d) })
+    }
+
+    function loadBpb(seriesId: number) {
+        post(getEndpoints().widget_boxes_per_break_get, {series_id: seriesId})
+            .then((d: {amount: number}) => { if (d) setBpbAmount(d.amount) })
+    }
 
     async function saveSop() {
         setSopSaving(true)
@@ -46,6 +82,57 @@ export default function Page({params}: {params: {id: string}}) {
             setP2Saving(false)
         }
     }
+
+    async function saveBpb() {
+        if (!breakObject?.series_id || bpbAmount === null) return
+        setBpbSaving(true)
+        setBpbStatus('idle')
+        try {
+            await post(getEndpoints().widget_boxes_per_break_update, {series_id: breakObject.series_id, amount: bpbAmount})
+            setBpbStatus('ok')
+        } catch {
+            setBpbStatus('error')
+        } finally {
+            setBpbSaving(false)
+        }
+    }
+
+    async function setUsedCards(value: number) {
+        if (!countData || !breakObject?.series_id) return
+        setCountSaving(true)
+        await post(getEndpoints().series_update, {
+            id: breakObject.series_id,
+            name: countData.name,
+            used_cards: value,
+        })
+        setCountSaving(false)
+        loadCount(breakObject.series_id)
+    }
+
+    function bump(delta: number) {
+        if (countData) setUsedCards(countData.used_cards + delta)
+    }
+
+    function handleSet() {
+        const v = parseInt(customInput)
+        if (!isNaN(v)) { setUsedCards(v); setCustomInput('') }
+    }
+
+    const deltas = [1, 2, 3, 4]
+
+    const available = countData ? countData.total_cards - countData.used_cards : 0
+    const sideCards = countData ? available - countData.sold_count : 0
+    const unsoldPct = countData && available > 0
+        ? Math.round(countData.unsold_count / available * 100)
+        : 0
+
+    const seriesStatus = !stream
+        ? <p className="text-secondary">No active stream on this channel.</p>
+        : !stream.active_break_id
+            ? <p className="text-secondary">No active break on current stream.</p>
+            : !breakObject?.series_id
+                ? <p className="text-secondary">Active break has no series assigned.</p>
+                : null
 
     return (
         <main className="container py-3">
@@ -88,6 +175,106 @@ export default function Page({params}: {params: {id: string}}) {
                 {p2Status === 'ok'    && <span className="text-success">Saved</span>}
                 {p2Status === 'error' && <span className="text-danger">Error</span>}
             </div>
+
+            <hr />
+            <h6 className="text-center mb-3">Series: Boxes per Break</h6>
+            {seriesStatus}
+            {bpbAmount !== null && (
+                <div className="d-flex align-items-center gap-2">
+                    <label className="form-label mb-0 text-nowrap">Amount</label>
+                    <input
+                        type="number"
+                        className="form-control"
+                        style={{width: '140px'}}
+                        value={bpbAmount}
+                        onChange={(e) => { setBpbAmount(parseInt(e.target.value) || 0); setBpbStatus('idle') }}
+                    />
+                    <button className="btn btn-primary" onClick={saveBpb} disabled={bpbSaving}>
+                        {bpbSaving ? 'Saving…' : 'Save'}
+                    </button>
+                    {bpbStatus === 'ok'    && <span className="text-success">Saved</span>}
+                    {bpbStatus === 'error' && <span className="text-danger">Error</span>}
+                </div>
+            )}
+
+            <hr />
+            <h6 className="text-center mb-3">Series: Count Widget</h6>
+            {seriesStatus}
+
+            {countData && (
+                <div className="row g-3">
+                    <div className="col-6">
+                        <div className="card h-100">
+                            <div className="card-body">
+                                <div className="text-secondary small mb-1">Used Cards</div>
+                                <div className="fs-2 fw-bold mb-3">{countData.used_cards}</div>
+                                <div className="d-flex flex-wrap gap-1 mb-2">
+                                    {deltas.map((d) => (
+                                        <button key={`+${d}`} className="btn btn-sm btn-outline-success"
+                                                disabled={countSaving} onClick={() => bump(d)}>+{d}</button>
+                                    ))}
+                                    {deltas.map((d) => (
+                                        <button key={`-${d}`} className="btn btn-sm btn-outline-danger"
+                                                disabled={countSaving} onClick={() => bump(-d)}>-{d}</button>
+                                    ))}
+                                </div>
+                                <div className="d-flex gap-2 align-items-center">
+                                    <input
+                                        type="number"
+                                        className="form-control form-control-sm"
+                                        style={{width: '90px'}}
+                                        placeholder="custom"
+                                        value={customInput}
+                                        onChange={(e) => setCustomInput(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleSet()}
+                                    />
+                                    <button className="btn btn-sm btn-primary"
+                                            disabled={countSaving || customInput === ''} onClick={handleSet}>Set</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="col-6">
+                        <div className="card h-100">
+                            <div className="card-body d-flex flex-column justify-content-center">
+                                <div className="text-secondary small mb-1">Side Cards</div>
+                                <div className="fs-2 fw-bold">{sideCards}</div>
+                                <div className="text-secondary small mt-1">
+                                    available ({available}) − sold ({countData.sold_count})
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="col-6">
+                        <div className="card h-100">
+                            <div className="card-body d-flex flex-row p-0">
+                                <div className="d-flex flex-column justify-content-center align-items-center flex-fill p-3" style={{borderRight: '1px solid var(--bs-border-color)'}}>
+                                    <div className="text-secondary small mb-1">Chaser Cards</div>
+                                    <div className="fs-2 fw-bold">{countData.unsold_count}</div>
+                                </div>
+                                <div className="d-flex flex-column justify-content-center align-items-center flex-fill p-3">
+                                    <div className="text-secondary small mb-1">Chance to hit</div>
+                                    <div className="fs-2 fw-bold">{unsoldPct}%</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="col-6">
+                        <div className="card h-100">
+                            <div className="card-body d-flex flex-column justify-content-center">
+                                <div className="text-secondary small mb-1">Available</div>
+                                <div className="fs-2 fw-bold">{available}</div>
+                                <div className="text-secondary small mt-1">
+                                    total ({countData.total_cards}) − used ({countData.used_cards})
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </main>
     )
 }

@@ -4,7 +4,7 @@ import React, {JSX, useEffect, useState} from "react";
 import {usePathname} from "next/navigation";
 import {StreamBreadcrumbsComponent} from "@/app/component/streamBreadcrumbsComponent";
 import {getEndpoints, post} from "@/app/lib/backend";
-import {Series, WNBreak} from "@/app/entity/entities";
+import {Series, WNBreak, WNChannel} from "@/app/entity/entities";
 import {ChannelBreadcrumbsComponent} from "@/app/component/channelBreadcrumbsComponent";
 
 
@@ -66,6 +66,14 @@ export default function BreadcrumbsComponent() {
             newBreadcrumbs.push(<StreamBreadcrumbsComponent key='stream' streamId={streamId}/>)
         } else if (isChannelPage()) {
             newBreadcrumbs.push(slash('c0'), channelsLink)
+            const channelId = parseInt(pathPart[2])
+            if (!isNaN(channelId)) {
+                const ch: WNChannel = await post(getEndpoints().channel_get, {id: channelId})
+                if (ch) {
+                    newBreadcrumbs.push(slash('c1'))
+                    newBreadcrumbs.push(<a key='channel' className="nav-link active" href={`/channel/${channelId}`}>{ch.name}</a>)
+                }
+            }
         }
 
         setBreadcrumbs(newBreadcrumbs)
@@ -74,7 +82,7 @@ export default function BreadcrumbsComponent() {
     const isHidden = pathname === '/'
         || pathname.indexOf('demo') !== -1
         || (pathname.indexOf('obs') !== -1 && !isObsManagePage())
-        || /\/channel\/\d+\/photos/.test(pathname)
+        || /\/channel\/\d+\/photos$/.test(pathname)
         || /\/channel\/\d+\/widget/.test(pathname)
 
     return (

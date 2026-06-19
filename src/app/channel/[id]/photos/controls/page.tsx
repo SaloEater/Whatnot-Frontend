@@ -11,6 +11,7 @@ export default function Page({params}: {params: {id: string}}) {
     const {photos, markSold} = usePhotoBoard(channelId, true)
 
     const [cardSize, setCardSize] = useState(() => {
+        if (typeof localStorage === 'undefined') return 70
         const stored = localStorage.getItem(CARD_SIZE_KEY)
         return stored ? parseInt(stored) : 70
     })

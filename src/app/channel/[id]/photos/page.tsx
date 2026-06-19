@@ -10,13 +10,15 @@ const VIEWPORT_H = 1920
 const CARD_AREA_H = VIEWPORT_H / 2
 const FALLBACK_ASPECT = 3 / 4
 
-function shuffle<T>(arr: T[]): T[] {
-    const a = [...arr]
-    for (let i = a.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [a[i], a[j]] = [a[j], a[i]]
-    }
-    return a
+function centerByPrice(cards: Photo[]): Photo[] {
+    const sorted = [...cards].sort((a, b) => b.price - a.price)
+    const result = new Array<Photo>(sorted.length)
+    const center = Math.floor(sorted.length / 2)
+    sorted.forEach((card, i) => {
+        if (i % 2 === 0) result[center + i / 2] = card
+        else              result[center - Math.ceil(i / 2)] = card
+    })
+    return result
 }
 
 export default function Page({params}: {params: {id: string}}) {
@@ -39,7 +41,7 @@ export default function Page({params}: {params: {id: string}}) {
         const ids = unsold.map((p) => p.id).sort((a, b) => a - b).join(',')
         if (ids !== prevIdsRef.current) {
             prevIdsRef.current = ids
-            setDisplayPhotos(shuffle(unsold))
+            setDisplayPhotos([...unsold].sort((a, b) => b.price - a.price))
         }
     }, [photos])
 
@@ -53,11 +55,12 @@ export default function Page({params}: {params: {id: string}}) {
         return d ? d.w > d.h : false
     }
 
-    // Portrait cards first (shuffled within group), landscape cards after (shuffled within group)
-    // Group same-orientation cards together so the packing loop builds clean rows.
-    const sortedPhotos = [...displayPhotos].sort(
-        (a, b) => Number(isLandscape(b)) - Number(isLandscape(a))
-    )
+    // Group by orientation (landscape first), expensive cards first within each group.
+    const sortedPhotos = [...displayPhotos].sort((a, b) => {
+        const orientDiff = Number(isLandscape(b)) - Number(isLandscape(a))
+        if (orientDiff !== 0) return orientDiff
+        return b.price - a.price
+    })
 
     function packRowsWithHeight(portraitH: number): Array<{photos: Photo[]; rowHeight: number; widths: number[]}> {
         const landscapeH = portraitH / 2
@@ -80,10 +83,11 @@ export default function Page({params}: {params: {id: string}}) {
                     totalW += nextW
                     j++
                 }
+                const centered = centerByPrice(sortedPhotos.slice(i, j))
                 result.push({
-                    photos: sortedPhotos.slice(i, j),
+                    photos: centered,
                     rowHeight: landscapeH,
-                    widths: sortedPhotos.slice(i, j).map((p) => landscapeH * getAspect(p)),
+                    widths: centered.map((p) => landscapeH * getAspect(p)),
                 })
             } else {
                 // Portrait rows: fill-threshold then stretch; last incomplete row stays natural.
@@ -95,21 +99,22 @@ export default function Page({params}: {params: {id: string}}) {
                 }
                 const isLastIncomplete = j >= sortedPhotos.length && totalW < VIEWPORT_W
                 const scaleFactor = isLastIncomplete ? 1 : VIEWPORT_W / totalW
+                const centered = centerByPrice(sortedPhotos.slice(i, j))
                 result.push({
-                    photos: sortedPhotos.slice(i, j),
+                    photos: centered,
                     rowHeight: portraitH * scaleFactor,
-                    widths: sortedPhotos.slice(i, j).map((p) => portraitH * getAspect(p) * scaleFactor),
+                    widths: centered.map((p) => portraitH * getAspect(p) * scaleFactor),
                 })
             }
 
             i = j
         }
 
-        const rowWidth = (r: {widths: number[]}) => r.widths.reduce((s, w) => s + w, 0)
+        const rowMaxPrice = (r: {photos: Photo[]}) => Math.max(...r.photos.map((p) => p.price))
 
         return result
             .filter((r) => r.photos.length > 0)
-            .sort((a, b) => rowWidth(b) - rowWidth(a))
+            .sort((a, b) => rowMaxPrice(b) - rowMaxPrice(a))
     }
 
     function totalHeight(rows: Array<{rowHeight: number}>): number {

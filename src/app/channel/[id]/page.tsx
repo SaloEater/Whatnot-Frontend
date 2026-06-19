@@ -101,6 +101,8 @@ export default function Page({params}: {params: {id: string}}) {
                         <button type='button' className='btn btn-secondary' onClick={() => router.push(`/channel/${channelId}/widgets`)}>Settings</button>
                         <button type='button' className='btn btn-secondary' onClick={() => window.open(`/channel/${channelId}/widget/series/stashorpass`, '_blank')}>Series.Stash or Pass ↗</button>
                         <button type='button' className='btn btn-secondary' onClick={() => window.open(`/channel/${channelId}/widget/series/pick2`, '_blank')}>Series.Pick 2 ↗</button>
+                        <button type='button' className='btn btn-secondary' onClick={() => window.open(`/channel/${channelId}/widget/series/boxes_per_break`, '_blank')}>Series.Boxes/Break ↗</button>
+                        <button type='button' className='btn btn-secondary' onClick={() => window.open(`/channel/${channelId}/widget/count`, '_blank')}>Series.Count ↗</button>
                     </div>
                 </div>
                 <div className="d-flex justify-content-center">

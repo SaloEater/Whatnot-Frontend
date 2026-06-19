@@ -41,11 +41,12 @@ export function getEndpoints()  {
         notify_stream_ended: "/api/notification/stream_ended",
         notify_stream_packaging_finished: "/api/notification/stream_packaging_finished",
 
-        series_list:           "/api/series/list",
-        series_get:            "/api/series/get",
-        series_update:         "/api/series/update",
-        series_close:          "/api/series/close",
-        series_delete:         "/api/series/delete",
+        series_list:            "/api/series/list",
+        series_get:             "/api/series/get",
+        series_get_with_count:  "/api/series/get_with_count",
+        series_update:          "/api/series/update",
+        series_close:           "/api/series/close",
+        series_delete:          "/api/series/delete",
 
         photo_list:            "/api/photo/list",
         photo_delete:          "/api/photo/delete",
@@ -56,10 +57,12 @@ export function getEndpoints()  {
 
         break_set_series:      "/api/break/set_series",
 
-        widget_stashorpass_update: "/api/widget/series/stashorpass/update",
-        widget_stashorpass_get:    "/api/widget/series/stashorpass",
-        widget_pick2_update:       "/api/widget/series/pick2/update",
-        widget_pick2_get:          "/api/widget/series/pick2",
+        widget_stashorpass_update:       "/api/widget/series/stashorpass/update",
+        widget_stashorpass_get:          "/api/widget/series/stashorpass",
+        widget_pick2_update:             "/api/widget/series/pick2/update",
+        widget_pick2_get:                "/api/widget/series/pick2",
+        widget_boxes_per_break_get:      "/api/widget/series/boxes_per_break",
+        widget_boxes_per_break_update:   "/api/widget/series/boxes_per_break/update",
     }
 }
 

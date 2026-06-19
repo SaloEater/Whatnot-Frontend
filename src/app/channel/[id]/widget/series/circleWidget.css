@@ -1,9 +1,5 @@
-:root {
-    --neon: #76d7d8;
-    --neon-glow: 0 0 2px var(--neon), 0 0 5px var(--neon), 0 0 14px var(--neon);
-}
-
 .widget-root {
+    --neon-glow: 0 0 2px var(--neon), 0 0 5px var(--neon), 0 0 14px var(--neon);
     width: 100vw;
     height: 100vh;
     background: transparent;
@@ -17,35 +13,41 @@
     position: relative;
     width: min(calc(100vw - 60px), calc(100vh - 60px));
     height: min(calc(100vw - 60px), calc(100vh - 60px));
-    border-radius: 50%;
     overflow: hidden;
+    background: color-mix(in srgb, var(--neon) 12%, #000000);
     box-shadow: 0 0 6px var(--neon), 0 0 14px var(--neon), 0 0 28px var(--neon);
 }
 
+/* single bright streak that travels the perimeter */
 .widget-border::before {
     content: '';
     position: absolute;
-    inset: 0;
-    background: conic-gradient(
-        from 0deg,
-        var(--neon) 0deg,
-        var(--neon) 150deg,
-        #9bd7d8 180deg,
-        var(--neon) 210deg,
-        var(--neon) 360deg
+    width: 340px;
+    height: 60px;
+    background: linear-gradient(to right,
+        transparent      0%,
+        var(--neon)     25%,
+        var(--neon-mid) 45%,
+        #ffffff         50%,
+        var(--neon-mid) 55%,
+        var(--neon)     75%,
+        transparent    100%
     );
-    animation: border-spin 8s linear infinite;
+    filter: blur(5px);
+    offset-path: inset(6px round 100px);
+    offset-anchor: 50% 50%;
+    offset-distance: 0%;
+    animation: border-travel var(--spin-duration) linear infinite;
 }
 
-@keyframes border-spin {
-    to { transform: rotate(360deg); }
+@keyframes border-travel {
+    to { offset-distance: 100%; }
 }
 
 .widget-circle {
     position: absolute;
     inset: 12px;
-    border-radius: 50%;
-    background: radial-gradient(circle, #000000 30%, #293d56 100%);
+    background: radial-gradient(circle, #000000 30%, var(--circle-bg) 100%);
     overflow: hidden;
 }
 
