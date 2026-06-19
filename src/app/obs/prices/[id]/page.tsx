@@ -11,6 +11,7 @@ import './page.css'
 
 const BEST_COUNT        = 3
 const GOOD_COUNT        = 5
+const MAX_ROW_CELLS     = 7
 const DEFAULT_PRICE     = '$100-$200'
 const MIN_CELL_WIDTH_PX = 120
 
@@ -92,9 +93,15 @@ function buildRows(cells: TeamCell[]): TeamCell[][] {
 
     if (regular.length > 0) {
         const availableRows = Math.max(1, totalRows - rows.length)
-        const cellsPerRow = Math.ceil(regular.length / availableRows)
-        for (let i = 0; i < regular.length; i += cellsPerRow) {
-            rows.push(regular.slice(i, i + cellsPerRow))
+        const neededRows    = Math.ceil(regular.length / MAX_ROW_CELLS)
+        const actualRows    = Math.min(neededRows, availableRows)
+        const base  = Math.floor(regular.length / actualRows)
+        const extra = regular.length % actualRows
+        let idx = 0
+        for (let r = 0; r < actualRows; r++) {
+            const count = base + (r < extra ? 1 : 0)
+            rows.push(regular.slice(idx, idx + count))
+            idx += count
         }
     }
 
