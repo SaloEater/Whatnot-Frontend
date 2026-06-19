@@ -56,6 +56,10 @@ export function getEndpoints()  {
 
         break_set_series:      "/api/break/set_series",
 
+        widget_stashorpass_update: "/api/widget/series/stashorpass/update",
+        widget_stashorpass_get:    "/api/widget/series/stashorpass",
+        widget_pick2_update:       "/api/widget/series/pick2/update",
+        widget_pick2_get:          "/api/widget/series/pick2",
     }
 }
 

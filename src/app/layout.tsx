@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Exo_2 } from "next/font/google";
 import "./globals.css";
 import 'bootstrap/dist/css/bootstrap.css';
 import BootstrapClient from "@/components/BootstrapClient";
 import BreadcrumbsComponent from "@/app/component/breadcrumbsComponent";
 
 const inter = Inter({ subsets: ["latin"] });
+const exo2 = Exo_2({ subsets: ["latin"], weight: "300", variable: "--font-exo2" });
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -19,7 +20,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={inter.className + " my-body"} data-bs-theme="dark">
+      <body className={`${inter.className} ${exo2.variable} my-body`} data-bs-theme="dark">
         <BreadcrumbsComponent/>
         {children}
         <BootstrapClient />

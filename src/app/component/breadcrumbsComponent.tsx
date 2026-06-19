@@ -75,6 +75,7 @@ export default function BreadcrumbsComponent() {
         || pathname.indexOf('demo') !== -1
         || (pathname.indexOf('obs') !== -1 && !isObsManagePage())
         || /\/channel\/\d+\/photos/.test(pathname)
+        || /\/channel\/\d+\/widget/.test(pathname)
 
     return (
         <div>
