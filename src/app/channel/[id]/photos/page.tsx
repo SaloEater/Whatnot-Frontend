@@ -50,62 +50,31 @@ export default function Page({params}: {params: {id: string}}) {
         return d ? d.w / d.h : FALLBACK_ASPECT
     }
 
-    function isLandscape(photo: Photo): boolean {
-        const d = cardDims[photo.id]
-        return d ? d.w > d.h : false
-    }
+    // Sort by price descending only — mixed orientation per row.
+    const sortedPhotos = [...displayPhotos]
 
-    // Group by orientation (landscape first), expensive cards first within each group.
-    const sortedPhotos = [...displayPhotos].sort((a, b) => {
-        const orientDiff = Number(isLandscape(b)) - Number(isLandscape(a))
-        if (orientDiff !== 0) return orientDiff
-        return b.price - a.price
-    })
-
-    function packRowsWithHeight(portraitH: number): Array<{photos: Photo[]; rowHeight: number; widths: number[]}> {
-        const landscapeH = portraitH / 2
-
+    function packRowsWithHeight(rowH: number): Array<{photos: Photo[]; rowHeight: number; widths: number[]}> {
         const result: Array<{photos: Photo[]; rowHeight: number; widths: number[]}> = []
         let i = 0
 
         while (i < sortedPhotos.length) {
-            const firstLandscape = isLandscape(sortedPhotos[i])
-
             let totalW = 0
             let j = i
 
-            if (firstLandscape) {
-                // Landscape rows: stop before overflow, render at fixed landscapeH with no stretching.
-                while (j < sortedPhotos.length) {
-                    if (isLandscape(sortedPhotos[j]) !== firstLandscape) break
-                    const nextW = landscapeH * getAspect(sortedPhotos[j])
-                    if (j > i && totalW + nextW > VIEWPORT_W) break
-                    totalW += nextW
-                    j++
-                }
-                const centered = centerByPrice(sortedPhotos.slice(i, j))
-                result.push({
-                    photos: centered,
-                    rowHeight: landscapeH,
-                    widths: centered.map((p) => landscapeH * getAspect(p)),
-                })
-            } else {
-                // Portrait rows: fill-threshold then stretch; last incomplete row stays natural.
-                while (j < sortedPhotos.length) {
-                    if (isLandscape(sortedPhotos[j]) !== firstLandscape) break
-                    totalW += portraitH * getAspect(sortedPhotos[j])
-                    j++
-                    if (totalW >= VIEWPORT_W) break
-                }
-                const isLastIncomplete = j >= sortedPhotos.length && totalW < VIEWPORT_W
-                const scaleFactor = isLastIncomplete ? 1 : VIEWPORT_W / totalW
-                const centered = centerByPrice(sortedPhotos.slice(i, j))
-                result.push({
-                    photos: centered,
-                    rowHeight: portraitH * scaleFactor,
-                    widths: centered.map((p) => portraitH * getAspect(p) * scaleFactor),
-                })
+            while (j < sortedPhotos.length) {
+                totalW += rowH * getAspect(sortedPhotos[j])
+                j++
+                if (totalW >= VIEWPORT_W) break
             }
+
+            const isLastIncomplete = j >= sortedPhotos.length && totalW < VIEWPORT_W
+            const scaleFactor = isLastIncomplete ? 1 : VIEWPORT_W / totalW
+            const centered = centerByPrice(sortedPhotos.slice(i, j))
+            result.push({
+                photos: centered,
+                rowHeight: rowH * scaleFactor,
+                widths: centered.map((p) => rowH * getAspect(p) * scaleFactor),
+            })
 
             i = j
         }
