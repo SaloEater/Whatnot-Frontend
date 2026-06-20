@@ -46,20 +46,15 @@ function assignTiers(teamNames: string[], prices: SeriesTeamTotal[], defaultPric
         else noPrice.push(team)
     }
 
-    // Rank by total price to assign base tier (color).
     withPrice.sort((a, b) => b.total - a.total)
-    const totalTierMap = new Map(withPrice.map(({team}, idx) => [team, rankTier(idx)]))
-
-    // Rank by unsold price to check if unsold value has dropped to regular.
-    const byUnsold = [...withPrice].sort((a, b) => b.unsold - a.unsold)
-    const unsoldTierMap = new Map(byUnsold.map(({team}, idx) => [team, rankTier(idx)]))
 
     const cells: TeamCell[] = []
 
-    withPrice.forEach(({team, unsold}) => {
-        const totalTier  = totalTierMap.get(team)!
-        const unsoldTier = unsoldTierMap.get(team)!
-        const tier: Tier = (unsoldTier === 'regular' || unsold < 200) ? 'regular' : totalTier
+    withPrice.forEach(({team, unsold}, idx) => {
+        const baseTier = rankTier(idx)
+        const tier: Tier = unsold === 0 ? 'regular'
+            : (baseTier === 'best' || baseTier === 'good') ? baseTier
+            : 'mid'
         const displayPrice = unsold > 0 ? `$${Math.ceil(unsold / 25) * 25}` : defaultPrice
         cells.push({team, displayPrice, priceLeft: unsold, tier})
     })
