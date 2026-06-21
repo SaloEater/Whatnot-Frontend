@@ -67,11 +67,14 @@ function assignTiers(teamNames: string[], prices: SeriesTeamTotal[], defaultPric
 }
 
 function buildRows(cells: TeamCell[]): TeamCell[][] {
-    const byPrice = (a: TeamCell, b: TeamCell) => b.priceLeft - a.priceLeft
-    const best    = cells.filter((c) => c.tier === 'best').sort(byPrice)
-    const good    = cells.filter((c) => c.tier === 'good').sort(byPrice)
-    let   mid     = cells.filter((c) => c.tier === 'mid').sort(byPrice)
-    let   regular = cells.filter((c) => c.tier === 'regular').sort(byPrice)
+    const byPriceThenName = (a: TeamCell, b: TeamCell) => {
+        const diff = b.priceLeft - a.priceLeft
+        return diff !== 0 ? diff : a.team.localeCompare(b.team)
+    }
+    const best    = cells.filter((c) => c.tier === 'best').sort(byPriceThenName)
+    const good    = cells.filter((c) => c.tier === 'good').sort(byPriceThenName)
+    let   mid     = cells.filter((c) => c.tier === 'mid').sort(byPriceThenName)
+    let   regular = cells.filter((c) => c.tier === 'regular').sort(byPriceThenName)
 
     const rows: TeamCell[][] = []
 
@@ -211,10 +214,18 @@ export default function Page({params}: {params: {id: string}}) {
                         return (
                             <div key={cell.team}
                                  className={`prices-cell prices-cell--${cell.tier}`}>
-                                <div className="prices-cell__name">
-                                    <div className="prices-cell__name-last">{lastName}</div>
+                                {cell.tier !== 'regular' && (
+                                    <span className="prices-cell__gem">
+                                        <span className="prices-cell__gem-label">{
+                                            cell.tier === 'best' ? 'God Team' :
+                                            cell.tier === 'good' ? 'Giant Team' : 'Chaser Team'
+                                        }</span>
+                                    </span>
+                                )}
+                                <div className="prices-cell__content">
+                                    <span className="prices-cell__name-last">{lastName}</span>
+                                    <span className="prices-cell__price">{cell.displayPrice}</span>
                                 </div>
-                                <div className="prices-cell__price">{cell.displayPrice}</div>
                             </div>
                         )
                     })}
