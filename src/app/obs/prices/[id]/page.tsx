@@ -9,8 +9,10 @@ import {IsTeam} from '@/app/common/teams'
 import {NoCustomer} from '@/app/entity/entities'
 import './page.css'
 
-const BEST_COUNT        = 3
-const GOOD_COUNT        = 4
+const BEST_THRESHOLD    = 700
+const GOOD_THRESHOLD    = 450
+const BEST_MIN          = 3
+const GOOD_MIN          = 4
 const MID_COUNT         = 5
 const MAX_ROW_CELLS     = 7
 const DEFAULT_PRICE     = '$100-$299'
@@ -24,13 +26,6 @@ interface TeamCell {
     displayPrice: string
     priceLeft: number
     tier: Tier
-}
-
-function rankTier(idx: number): Tier {
-    if (idx < BEST_COUNT) return 'best'
-    if (idx < BEST_COUNT + GOOD_COUNT) return 'good'
-    if (idx < BEST_COUNT + GOOD_COUNT + MID_COUNT) return 'mid'
-    return 'regular'
 }
 
 function assignTiers(teamNames: string[], prices: SeriesTeamTotal[], defaultPrice: string): TeamCell[] {
@@ -48,13 +43,20 @@ function assignTiers(teamNames: string[], prices: SeriesTeamTotal[], defaultPric
 
     withPrice.sort((a, b) => b.total - a.total)
 
+    const bestCount = Math.max(BEST_MIN, withPrice.filter((t) => t.total >= BEST_THRESHOLD).length)
+    const goodCount = Math.max(GOOD_MIN, withPrice.slice(bestCount).filter((t) => t.total >= GOOD_THRESHOLD).length)
+
+    function rankTier(idx: number): Tier {
+        if (idx < bestCount) return 'best'
+        if (idx < bestCount + goodCount) return 'good'
+        if (idx < bestCount + goodCount + MID_COUNT) return 'mid'
+        return 'regular'
+    }
+
     const cells: TeamCell[] = []
 
     withPrice.forEach(({team, unsold}, idx) => {
-        const baseTier = rankTier(idx)
-        const tier: Tier = unsold === 0 ? 'regular'
-            : (baseTier === 'best' || baseTier === 'good') ? baseTier
-            : 'mid'
+        const tier: Tier = unsold === 0 ? 'regular' : rankTier(idx)
         const displayPrice = unsold > 0 ? `$${Math.ceil(unsold / 25) * 25}` : defaultPrice
         cells.push({team, displayPrice, priceLeft: unsold, tier})
     })
@@ -73,39 +75,42 @@ function buildRows(cells: TeamCell[]): TeamCell[][] {
     }
     const best    = cells.filter((c) => c.tier === 'best').sort(byPriceThenName)
     const good    = cells.filter((c) => c.tier === 'good').sort(byPriceThenName)
-    let   mid     = cells.filter((c) => c.tier === 'mid').sort(byPriceThenName)
-    let   regular = cells.filter((c) => c.tier === 'regular').sort(byPriceThenName)
+    const mid     = cells.filter((c) => c.tier === 'mid').sort(byPriceThenName)
+    const regular = cells.filter((c) => c.tier === 'regular').sort(byPriceThenName)
 
     const rows: TeamCell[][] = []
-
     const totalRows = 6
-
-    function pushGoodRow() {
-        const availableRows = Math.max(1, totalRows - rows.length)
-        const remaining     = mid.length + regular.length
-        const cellsPerRow   = Math.ceil(remaining / availableRows)
-        const midOnGoodRow  = Math.max(0, cellsPerRow - good.length)
-        rows.push([...good, ...mid.slice(0, midOnGoodRow)])
-        mid = mid.slice(midOnGoodRow)
-    }
 
     if (best.length >= 2) {
         rows.push(best)
-        if (good.length > 0) pushGoodRow()
     } else if (best.length > 0 || good.length > 0) {
         const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920
         const combined = best.length + good.length
         const candidateCellWidth = combined > 0 ? viewportWidth / combined : viewportWidth
 
-        if (good.length > 0 && candidateCellWidth < MIN_CELL_WIDTH_PX) {
-            if (best.length > 0) rows.push(best)
-            pushGoodRow()
-        } else {
+        if (good.length === 0 || candidateCellWidth >= MIN_CELL_WIDTH_PX) {
             rows.push([...best, ...good])
+            const remaining = [...mid, ...regular]
+            if (remaining.length > 0) {
+                const availableRows = Math.max(1, totalRows - rows.length)
+                const neededRows    = Math.ceil(remaining.length / MAX_ROW_CELLS)
+                const actualRows    = Math.min(neededRows, availableRows)
+                const base  = Math.floor(remaining.length / actualRows)
+                const extra = remaining.length % actualRows
+                let idx = 0
+                for (let r = 0; r < actualRows; r++) {
+                    const count = base + (r < extra ? 1 : 0)
+                    rows.push(remaining.slice(idx, idx + count))
+                    idx += count
+                }
+            }
+            return rows
         }
+
+        if (best.length > 0) rows.push(best)
     }
 
-    const remaining = [...mid, ...regular]
+    const remaining = [...good, ...mid, ...regular]
     if (remaining.length > 0) {
         const availableRows = Math.max(1, totalRows - rows.length)
         const neededRows    = Math.ceil(remaining.length / MAX_ROW_CELLS)
