@@ -104,6 +104,7 @@ export default function Page({params}: {params: {id: string}}) {
             id: breakObject.series_id,
             name: countData.name,
             used_cards: value,
+            total_cards: countData.total_cards,
         })
         setCountSaving(false)
         loadCount(breakObject.series_id)
