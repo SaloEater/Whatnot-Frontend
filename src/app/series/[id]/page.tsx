@@ -16,11 +16,14 @@ export default function Page({params}: {params: {id: string}}) {
     const [photosLoading, setPhotosLoading] = useState(true)
     const [editingName, setEditingName] = useState(false)
     const [nameInput, setNameInput] = useState('')
+    const [editingTotalCards, setEditingTotalCards] = useState(false)
+    const [totalCardsInput, setTotalCardsInput] = useState('')
 
     useEffect(() => {
         post(getEndpoints().series_get, {id: seriesId}).then((data: Series) => {
             setSeries(data)
             setNameInput(data.name)
+            setTotalCardsInput(String(data.total_cards))
         })
         post(getEndpoints().photo_list, {series_id: seriesId}).then((data: Photo[]) => {
             const all = data ?? []
@@ -35,9 +38,33 @@ export default function Page({params}: {params: {id: string}}) {
             setEditingName(false)
             return
         }
-        post(getEndpoints().series_update, {id: seriesId, name: nameInput}).then(() => {
+        post(getEndpoints().series_update, {
+            id: seriesId,
+            name: nameInput,
+            used_cards: series?.used_cards ?? 0,
+            total_cards: series?.total_cards ?? 0,
+            default_price: series?.default_price ?? '',
+        }).then(() => {
             setSeries((s) => s ? {...s, name: nameInput} : s)
             setEditingName(false)
+        })
+    }
+
+    function saveTotalCards() {
+        const parsed = parseInt(totalCardsInput)
+        if (isNaN(parsed) || parsed === series?.total_cards) {
+            setEditingTotalCards(false)
+            return
+        }
+        post(getEndpoints().series_update, {
+            id: seriesId,
+            name: series?.name ?? '',
+            used_cards: series?.used_cards ?? 0,
+            total_cards: parsed,
+            default_price: series?.default_price ?? '',
+        }).then(() => {
+            setSeries((s) => s ? {...s, total_cards: parsed} : s)
+            setEditingTotalCards(false)
         })
     }
 
@@ -92,6 +119,30 @@ export default function Page({params}: {params: {id: string}}) {
                 <span className={`badge ${series.status === 'open' ? 'bg-warning text-dark' : 'bg-success'}`}>
                     {series.status}
                 </span>
+            </div>
+
+            <div className="d-flex align-items-center gap-2 mb-3">
+                <span className="text-secondary">Total cards:</span>
+                {editingTotalCards ? (
+                    <>
+                        <input
+                            type="number"
+                            className="form-control"
+                            style={{maxWidth: '120px'}}
+                            value={totalCardsInput}
+                            onChange={(e) => setTotalCardsInput(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && saveTotalCards()}
+                            autoFocus
+                        />
+                        <button className="btn btn-sm btn-success" onClick={saveTotalCards}>Save</button>
+                        <button className="btn btn-sm btn-secondary" onClick={() => setEditingTotalCards(false)}>Cancel</button>
+                    </>
+                ) : (
+                    <>
+                        <span className="fw-bold">{series.total_cards}</span>
+                        <button className="btn btn-sm btn-outline-secondary" onClick={() => setEditingTotalCards(true)}>Edit</button>
+                    </>
+                )}
             </div>
 
             <div className="d-flex justify-content-between mb-4">
