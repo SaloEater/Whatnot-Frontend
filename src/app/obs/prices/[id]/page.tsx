@@ -13,7 +13,7 @@ const BEST_THRESHOLD    = 700
 const GOOD_THRESHOLD    = 450
 const BEST_MIN          = 3
 const GOOD_MIN          = 4
-const MID_COUNT         = 5
+const MID_THRESHOLD     = 50
 const MAX_ROW_CELLS     = 7
 const DEFAULT_PRICE     = '$100-$299'
 const MIN_CELL_WIDTH_PX = 120
@@ -46,17 +46,21 @@ function assignTiers(teamNames: string[], prices: SeriesTeamTotal[], defaultPric
     const bestCount = Math.max(BEST_MIN, withPrice.filter((t) => t.total >= BEST_THRESHOLD).length)
     const goodCount = Math.max(GOOD_MIN, withPrice.slice(bestCount).filter((t) => t.total >= GOOD_THRESHOLD).length)
 
-    function rankTier(idx: number): Tier {
-        if (idx < bestCount) return 'best'
-        if (idx < bestCount + goodCount) return 'good'
-        if (idx < bestCount + goodCount + MID_COUNT) return 'mid'
-        return 'regular'
-    }
-
     const cells: TeamCell[] = []
 
-    withPrice.forEach(({team, unsold}, idx) => {
-        const tier: Tier = unsold === 0 ? 'regular' : rankTier(idx)
+    withPrice.forEach(({team, total, unsold}, idx) => {
+        let tier: Tier
+        if (unsold === 0) {
+            tier = 'regular'
+        } else if (idx < bestCount) {
+            tier = 'best'
+        } else if (idx < bestCount + goodCount) {
+            tier = 'good'
+        } else if (total > MID_THRESHOLD) {
+            tier = 'mid'
+        } else {
+            tier = 'regular'
+        }
         const displayPrice = unsold > 0 ? `$${Math.ceil(unsold / 25) * 25}` : defaultPrice
         cells.push({team, displayPrice, priceLeft: unsold, tier})
     })
