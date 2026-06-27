@@ -1,0 +1,14 @@
+body {
+    margin: 0;
+    padding: 0;
+}
+
+.flat-grid {
+    display: grid;
+    grid-template-columns: repeat(11, 1fr);
+    width: 100%;
+    background-image: url('/images/board.png');
+    background-size: 100% 100%;
+    padding: 1.95rem;
+    box-sizing: border-box;
+}

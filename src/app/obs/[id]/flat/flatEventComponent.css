@@ -1,0 +1,68 @@
+.flat-cell {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    perspective: 800px;
+}
+
+.flat-cell-flipping {
+    z-index: 100;
+}
+
+.flat-cell-active {
+    z-index: 9999;
+}
+
+.flat-cell-content {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transform: translateY(0) scale(1) rotateY(0deg);
+    transition: transform 0.8s ease-in-out;
+}
+
+@keyframes flip-lift {
+    0%   { transform: translateY(0)    scale(1)   rotateY(0deg); }
+    35%  { transform: translateY(-15%) scale(1.2) rotateY(0deg); }
+    80%  { transform: translateY(-15%) scale(1.2) rotateY(180deg); }
+    90%  { transform: translateY(-15%) scale(1.2) rotateY(180deg); }
+    100% { transform: translateY(0)    scale(1)   rotateY(180deg); }
+}
+
+.flat-cell-flipped {
+    transform: translateY(0) scale(1) rotateY(180deg);
+    animation: flip-lift 1.2s ease-in-out forwards;
+}
+
+.flat-cell-face {
+    position: absolute;
+    top: 0;
+    left: 0;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+
+.flat-cell-back {
+    transform: rotateY(180deg);
+}
+
+.flat-cell-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.flat-video-overlay {
+    position: absolute;
+    top: -275%;
+    left: -275%;
+    width: 100%;
+    height: 100%;
+    z-index: 1000;
+    pointer-events: none;
+}
+
+.flat-video-overlay video {
+    width: 650%;
+    height: 650%;
+}

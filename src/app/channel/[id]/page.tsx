@@ -94,6 +94,7 @@ export default function Page({params}: {params: {id: string}}) {
                         <button type='button' className='btn btn-secondary' onClick={() => window.open(`/channel/${channelId}/photos`, '_blank')}>Cards Board ↗</button>
                         <button type='button' className='btn btn-secondary' onClick={() => router.push(`/channel/${channelId}/photos/controls`)}>Cards Controls</button>
                         <button type='button' className='btn btn-secondary' onClick={() => window.open(`/obs/prices/${channelId}`, '_blank')}>Prices OBS ↗</button>
+                        <button type='button' className='btn btn-secondary' onClick={() => window.open(`/obs/${channelId}/flat`, '_blank')}>OBS Flat ↗</button>
                     </div>
                     <div>
                         <hr className='my-1'/>
