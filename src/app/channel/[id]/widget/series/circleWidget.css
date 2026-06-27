@@ -24,9 +24,7 @@
         0 0 6px var(--neon),
         0 0 14px var(--neon),
         inset 0 0 6px var(--neon);
-    background:
-        linear-gradient(135deg, color-mix(in srgb, var(--neon) 22%, transparent) 0%, transparent 55%),
-        radial-gradient(ellipse at center, #000000 30%, var(--circle-bg) 100%);
+    background: #000000;
     overflow: hidden;
 }
 
@@ -57,6 +55,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--neon) 22%, transparent) 0%, transparent 55%),
+        radial-gradient(ellipse at center, #000000 30%, var(--circle-bg) 100%);
 }
 
 .widget-content span {

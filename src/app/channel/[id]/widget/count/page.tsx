@@ -43,19 +43,25 @@ export default function Page({params}: {params: {id: string}}) {
     return (
         <div className="count-root">
             <div className="count-cell count-cell--unsold">
-                <div className="count-cell__label">Chasers</div>
-                {chancePct > 15 &&
-                    <div className="count-cell__value--unsold">
-                        {unsold}
-                        <span className="count-cell__separator"> / </span>
-                        {chancePct}%
-                    </div>
-                    ||  <div className="count-cell__value--unsold">{unsold}</div>
-                }
+                <div className="count-cell__title"><span>Chasers</span></div>
+                <div className="count-cell__content">
+                    {chancePct > 15 &&
+                        <span className="count-cell__value">
+                            {unsold}
+                            <span className="count-cell__separator"> / </span>
+                            {chancePct}%
+                        </span>
+                        ||  <span className="count-cell__value">{unsold}</span>
+                    }
+                </div>
+                <div className="count-cell__corner" />
             </div>
             <div className="count-cell count-cell--available">
-                <div className="count-cell__label">Boxes left</div>
-                <div className="count-cell__value--available">{available}</div>
+                <div className="count-cell__title"><span>Boxes left</span></div>
+                <div className="count-cell__content">
+                    <span className="count-cell__value">{available}</span>
+                </div>
+                <div className="count-cell__corner" />
             </div>
         </div>
     )

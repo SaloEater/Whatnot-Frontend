@@ -1,71 +1,86 @@
 .count-root {
+    --neon-glow: 0 0 2px var(--neon), 0 0 5px var(--neon), 0 0 14px var(--neon);
     width: 100vw;
     height: 100vh;
     display: flex;
     overflow: hidden;
-    font-family: 'Exo 2', sans-serif;
+    font-family: var(--font-exo2), 'Exo 2', sans-serif;
     gap: 1px;
 }
 
+/* the prices-cell design */
 .count-cell {
+    position: relative;
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    margin: 3px;
+    border: 1px solid var(--neon);
+    border-radius: 5px;
+    box-shadow:
+        0 0 6px var(--neon),
+        0 0 14px var(--neon),
+        inset 0 0 6px var(--neon);
+    background: #000000;
+    overflow: hidden;
+}
+
+.count-cell--unsold    { --neon: #d93957; --circle-bg: #6d1d2c; }
+.count-cell--available { --neon: #ffffa0; --circle-bg: #808050; }
+
+/* solid neon bar — hugs the text height */
+.count-cell__title {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.2em;
-    transform: scale(0.95);
-    border-radius: 5px;
+    gap: 0.05em;
+    background: var(--neon);
 }
 
-.count-cell--unsold {
-    background: radial-gradient(ellipse at center, #000000 30%, #6d1d2c 100%);
-    border: 1px solid #d93957;
-    box-shadow: 0 0 6px #d93957, 0 0 14px #d93957, inset 0 0 6px #d93957;
-}
-
-.count-cell--available {
-    background: radial-gradient(ellipse at center, #000000 30%, #808050 100%);
-    border: 1px solid #ffffa0;
-    box-shadow: 0 0 6px #ffffa0, 0 0 14px #ffffa0, inset 0 0 6px #ffffa0;
-}
-
-.count-cell__label {
-    font-size: 25vmin;
-    font-weight: 300;
-    letter-spacing: 0.06em;
+.count-cell__title span {
+    color: #000000;
+    font-size: 29vmin;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
-    line-height: 1;
+    padding: 4px 0 4px 0;
 }
 
-.count-cell--unsold .count-cell__label {
-    color: #d93957;
-    text-shadow: 0 0 2px #d93957, 0 0 5px #d93957, 0 0 14px #d93957;
+/* remaining 1/2 — neon value with glow */
+.count-cell__content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--neon) 22%, transparent) 0%, transparent 55%),
+        radial-gradient(ellipse at center, #000000 30%, var(--circle-bg) 100%);
 }
 
-.count-cell--available .count-cell__label {
-    color: #ffffa0;
-    text-shadow: 0 0 2px #ffffa0, 0 0 5px #ffffa0, 0 0 14px #ffffa0;
-}
-
-.count-cell__value--unsold,
-.count-cell__value--available {
-    color: #ffffff;
+.count-cell__value {
+    color: var(--neon);
     font-size: 50vmin;
-    font-weight: 700;
+    font-weight: 300;
     line-height: 1;
-    text-shadow:
-        -3px -3px 0 #000000,
-        -3px  0px 0 #000000,
-        -3px  3px 0 #000000,
-         0px -3px 0 #000000,
-         0px  3px 0 #000000,
-         3px -3px 0 #000000,
-         3px  0px 0 #000000,
-         3px  3px 0 #000000;
+    text-shadow: var(--neon-glow);
 }
 
 .count-cell__separator {
     color: #888888;
     text-shadow: none;
+}
+
+/* circle at the top-right corner — same style as the bottom half */
+.count-cell__corner {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+    pointer-events: none;
+    width: 12vmin;
+    height: 12vmin;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at center, color-mix(in srgb, var(--circle-bg) 80%, #ffffff) 5%, #000000 100%);
 }
