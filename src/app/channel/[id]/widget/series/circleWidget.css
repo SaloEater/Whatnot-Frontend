@@ -9,99 +9,74 @@
     overflow: hidden;
 }
 
-.widget-border {
+/* the prices-cell design, filling the viewport */
+.widget-cell {
     position: relative;
-    width: min(calc(100vw - 60px), calc(100vh - 60px));
-    height: min(calc(100vw - 60px), calc(100vh - 60px));
-    overflow: hidden;
-    background: color-mix(in srgb, var(--neon) 12%, #000000);
-    box-shadow: 0 0 6px var(--neon), 0 0 14px var(--neon), 0 0 28px var(--neon);
-}
-
-/* single bright streak that travels the perimeter */
-.widget-border::before {
-    content: '';
-    position: absolute;
-    width: 340px;
-    height: 60px;
-    background: linear-gradient(to right,
-        transparent      0%,
-        var(--neon)     25%,
-        var(--neon-mid) 45%,
-        #ffffff         50%,
-        var(--neon-mid) 55%,
-        var(--neon)     75%,
-        transparent    100%
-    );
-    filter: blur(5px);
-    offset-path: inset(6px round 100px);
-    offset-anchor: 50% 50%;
-    offset-distance: 0%;
-    animation: border-travel var(--spin-duration) linear infinite;
-}
-
-@keyframes border-travel {
-    to { offset-distance: 100%; }
-}
-
-.widget-circle {
-    position: absolute;
-    inset: 12px;
-    background: radial-gradient(circle, #000000 30%, var(--circle-bg) 100%);
-    overflow: hidden;
-}
-
-.widget-top {
-    position: absolute;
-    top: 0;
-    left: 0;
+    flex: 1;
     width: 100%;
+    height: 100%;
+    margin: 3px;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--neon);
+    border-radius: 5px;
+    box-shadow:
+        0 0 6px var(--neon),
+        0 0 14px var(--neon),
+        inset 0 0 6px var(--neon);
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--neon) 22%, transparent) 0%, transparent 55%),
+        radial-gradient(ellipse at center, #000000 30%, var(--circle-bg) 100%);
+    overflow: hidden;
+}
+
+/* solid neon bar — 1/2 of total height */
+.widget-title {
     height: 50%;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 0.05em;
+    background: var(--neon);
 }
 
-.widget-top span {
+.widget-title span {
     font-family: var(--font-exo2), sans-serif;
-    color: var(--neon);
-    font-size: 14vmin;
-    font-weight: 300;
+    color: #000000;
+    font-size: 18vmin;
+    font-weight: 500;
     line-height: 1;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    text-shadow: var(--neon-glow);
 }
 
-.widget-divider {
-    position: absolute;
-    top: 50%;
-    left: 25%;
-    width: 50%;
-    height: 12px;
-    background: var(--neon);
-    transform: translateY(-50%);
-    box-shadow: var(--neon-glow);
-}
-
-.widget-bottom {
-    position: absolute;
-    top: 50%;
-    left: 0;
-    width: 100%;
-    height: 50%;
+/* remaining 2/3 — neon value with glow */
+.widget-content {
+    flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-.widget-bottom span {
+.widget-content span {
     font-family: var(--font-exo2), sans-serif;
     color: var(--neon);
-    font-size: 20vmin;
+    font-size: 30vmin;
     font-weight: 300;
     line-height: 1;
     text-shadow: var(--neon-glow);
+}
+
+/* circle at the top-right corner — same style as the bottom half */
+.widget-corner {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+    pointer-events: none;
+    width: 12vmin;
+    height: 12vmin;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at center, color-mix(in srgb, var(--circle-bg) 80%, #ffffff) 5%, #000000 100%);
 }

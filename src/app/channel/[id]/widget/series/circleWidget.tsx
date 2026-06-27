@@ -51,19 +51,16 @@ export function CircleWidget({
             '--neon': neonColor,
             '--neon-mid': neonGlowMid,
             '--circle-bg': circleBackground,
-            '--spin-duration': `${spinDuration}s`,
         } as React.CSSProperties}>
-            <div className="widget-border">
-                <div className="widget-circle">
-                    <div className="widget-top">
-                        <span>{lines[0]}</span>
-                        <span>{lines[1]}</span>
-                    </div>
-                    <div className="widget-divider" />
-                    <div className="widget-bottom">
-                        <span>{value !== null ? formatValue(value) : ''}</span>
-                    </div>
+            <div className="widget-cell">
+                <div className="widget-title">
+                    <span>{lines[0]}</span>
+                    <span>{lines[1]}</span>
                 </div>
+                <div className="widget-content">
+                    <span>{value !== null ? formatValue(value) : ''}</span>
+                </div>
+                <div className="widget-corner" />
             </div>
         </div>
     )
