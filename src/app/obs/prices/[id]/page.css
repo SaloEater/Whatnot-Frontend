@@ -37,7 +37,7 @@ body {
     background: radial-gradient(ellipse at center, #000000 30%, #7a5c00 100%); }
 .prices-cell--good    { --neon: #f5f5f5; --neon-mid: #ebebeb;
     background: radial-gradient(ellipse at center, #000000 30%, #7a7a7a 100%); }
-.prices-cell--mid     { --neon: #000000; --neon-mid: #e0922b;
+.prices-cell--mid     { --neon: #cd6f19; --neon-mid: #e0922b;
     background: radial-gradient(ellipse at center, #000000 30%, #7a3d00 100%); }
 .prices-cell--regular { --neon: #909090; --neon-mid: #b2b2b2;
     background: radial-gradient(ellipse at center, #000000 30%, #464646 100%); }
