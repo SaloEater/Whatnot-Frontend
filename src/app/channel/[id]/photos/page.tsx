@@ -53,8 +53,10 @@ export default function Page({params}: {params: {id: string}}) {
     // Sort by price descending only — mixed orientation per row.
     const sortedPhotos = [...displayPhotos]
 
-    function packRowsWithHeight(rowH: number): Array<{photos: Photo[]; rowHeight: number; widths: number[]}> {
-        const result: Array<{photos: Photo[]; rowHeight: number; widths: number[]}> = []
+    type PackedRow = {photos: Photo[]; rowHeight: number; widths: number[]; cardHeights: number[]}
+
+    function packRowsWithHeight(rowH: number): PackedRow[] {
+        const result: PackedRow[] = []
         let i = 0
 
         while (i < sortedPhotos.length) {
@@ -69,17 +71,19 @@ export default function Page({params}: {params: {id: string}}) {
 
             const isLastIncomplete = j >= sortedPhotos.length && totalW < VIEWPORT_W
             const scaleFactor = isLastIncomplete ? 1 : VIEWPORT_W / totalW
+            const h = rowH * scaleFactor
             const centered = centerByPrice(sortedPhotos.slice(i, j))
             result.push({
                 photos: centered,
-                rowHeight: rowH * scaleFactor,
+                rowHeight: h,
                 widths: centered.map((p) => rowH * getAspect(p) * scaleFactor),
+                cardHeights: centered.map(() => h),
             })
 
             i = j
         }
 
-        const rowMaxPrice = (r: {photos: Photo[]}) => Math.max(...r.photos.map((p) => p.price))
+        const rowMaxPrice = (r: PackedRow) => Math.max(...r.photos.map((p) => p.price))
 
         return result
             .filter((r) => r.photos.length > 0)
@@ -90,7 +94,43 @@ export default function Page({params}: {params: {id: string}}) {
         return rows.reduce((s, r) => s + r.rowHeight, 0)
     }
 
-    function packRows(): Array<{photos: Photo[]; rowHeight: number; widths: number[]}> {
+    // Second pass: grow rows that mix horizontal and vertical cards.
+    // Vertical cards (aspect < 1) gain height; horizontal cards (aspect >= 1)
+    // shrink in height and width to keep total row width = VIEWPORT_W.
+    // Portrait-only rows are not touched.
+    function stretchMixedRows(rows: PackedRow[]): PackedRow[] {
+        const leftover = CARD_AREA_H - totalHeight(rows)
+        if (leftover <= 1) return rows
+
+        const capacities = rows.map((r) => {
+            const aspects = r.photos.map(getAspect)
+            const sumV = aspects.filter((a) => a < 1).reduce((s, a) => s + a, 0)
+            if (sumV === 0 || !aspects.some((a) => a >= 1)) return 0
+            return Math.max(0, VIEWPORT_W / sumV - r.rowHeight)
+        })
+
+        const totalCap = capacities.reduce((s, c) => s + c, 0)
+        if (totalCap <= 0) return rows
+
+        const scale = Math.min(1, leftover / totalCap)
+
+        return rows.map((r, ri) => {
+            if (capacities[ri] <= 0) return r
+            const newH = r.rowHeight + capacities[ri] * scale
+            const aspects = r.photos.map(getAspect)
+            const sumV = aspects.filter((a) => a < 1).reduce((s, a) => s + a, 0)
+            const sumH = aspects.filter((a) => a >= 1).reduce((s, a) => s + a, 0)
+            const k = (VIEWPORT_W - newH * sumV) / sumH
+            return {
+                ...r,
+                rowHeight: newH,
+                widths:      aspects.map((a) => (a < 1 ? newH * a : k * a)),
+                cardHeights: aspects.map((a) => (a < 1 ? newH : k)),
+            }
+        })
+    }
+
+    function packRows(): PackedRow[] {
         if (sortedPhotos.length === 0) return []
 
         let lo = 10, hi = CARD_AREA_H
@@ -99,7 +139,7 @@ export default function Page({params}: {params: {id: string}}) {
             if (totalHeight(packRowsWithHeight(mid)) <= CARD_AREA_H) lo = mid
             else hi = mid
         }
-        return packRowsWithHeight(lo)
+        return stretchMixedRows(packRowsWithHeight(lo))
     }
 
     function handleMouseEnter(e: React.MouseEvent<HTMLDivElement>, photo: Photo) {
@@ -148,7 +188,7 @@ export default function Page({params}: {params: {id: string}}) {
                                     className="board-card"
                                     style={{
                                         width: `${row.widths[ci]}px`,
-                                        height: `${row.rowHeight}px`,
+                                        height: `${row.cardHeights[ci]}px`,
                                         ...(hovered || elevatedId === photo.id ? {zIndex: 10} : {})
                                     }}
                                     onMouseEnter={(e) => handleMouseEnter(e, photo)}

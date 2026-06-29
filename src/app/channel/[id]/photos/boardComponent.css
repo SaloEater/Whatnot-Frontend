@@ -18,6 +18,7 @@
     display: flex;
     width: 1080px;
     justify-content: center;
+    align-items: flex-start;
 }
 
 .board-card {
