@@ -54,6 +54,7 @@ export function getEndpoints()  {
         photo_update:          "/api/photo/update",
         photo_mark_sold:       "/api/photo/mark_sold",
         photo_board:           "/api/photo/board",
+        photo_rotate:          "/api/photo/rotate",
 
         break_set_series:      "/api/break/set_series",
 

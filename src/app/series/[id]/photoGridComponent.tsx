@@ -13,15 +13,20 @@ interface PhotoGridComponentProps {
     onRestore?: (id: number) => void
     onTeamChange: (id: number, team: string) => void
     onPriceChange: (id: number, price: number) => void
+    onUrlChange: (id: number, url: string) => void
 }
 
 type SortField = 'price' | 'name'
 type SortDir   = 'asc'   | 'desc'
 
-export const PhotoGridComponent: FC<PhotoGridComponentProps> = ({photos, deletedPhotos = [], isLoading, onDelete, onRestore, onTeamChange, onPriceChange}) => {
+const ROTATIONS = [0, 90, 180, 270] as const
+
+export const PhotoGridComponent: FC<PhotoGridComponentProps> = ({photos, deletedPhotos = [], isLoading, onDelete, onRestore, onTeamChange, onPriceChange, onUrlChange}) => {
     const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set())
     const [sortField, setSortField] = useState<SortField>('price')
     const [sortDir,   setSortDir]   = useState<SortDir>('desc')
+    const [rotatingPhoto, setRotatingPhoto] = useState<Photo | null>(null)
+    const [rotating, setRotating] = useState(false)
 
     function toggleSort(field: SortField) {
         if (field === sortField) {
@@ -61,6 +66,20 @@ export const PhotoGridComponent: FC<PhotoGridComponentProps> = ({photos, deleted
         post(getEndpoints().photo_update, {id: photo.id, name: photo.name, team: photo.team, price}).then(() => onPriceChange(photo.id, price))
     }
 
+    async function applyRotation(degrees: number) {
+        if (!rotatingPhoto || degrees === 0) {
+            setRotatingPhoto(null)
+            return
+        }
+        setRotating(true)
+        const resp = await post(getEndpoints().photo_rotate, {id: rotatingPhoto.id, degrees})
+        if (resp?.url) {
+            onUrlChange(rotatingPhoto.id, resp.url)
+        }
+        setRotatingPhoto(null)
+        setRotating(false)
+    }
+
     function renderCard(photo: Photo, deleted = false) {
         const imgLoaded = loadedImages.has(photo.id)
         return (
@@ -84,11 +103,19 @@ export const PhotoGridComponent: FC<PhotoGridComponentProps> = ({photos, deleted
                             onClick={() => restorePhoto(photo.id)}
                         >Restore</button>
                     ) : (
-                        <button
-                            className="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 p-0 lh-1"
-                            style={{width: '22px', height: '22px', fontSize: '12px'}}
-                            onClick={() => deletePhoto(photo.id)}
-                        >×</button>
+                        <>
+                            <button
+                                className="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 p-0 lh-1"
+                                style={{width: '22px', height: '22px', fontSize: '12px'}}
+                                onClick={() => deletePhoto(photo.id)}
+                            >×</button>
+                            <button
+                                className="btn btn-sm btn-secondary position-absolute top-0 end-0 m-1 p-0 lh-1"
+                                style={{width: '22px', height: '22px', fontSize: '13px', right: '30px'}}
+                                onClick={() => setRotatingPhoto(photo)}
+                                title="Rotate"
+                            >↻</button>
+                        </>
                     )}
                 </div>
                 <select
@@ -135,6 +162,65 @@ export const PhotoGridComponent: FC<PhotoGridComponentProps> = ({photos, deleted
 
     return (
         <>
+            {rotatingPhoto && (
+                <div style={{
+                    position: 'fixed', inset: 0, zIndex: 1000,
+                    background: 'rgba(0,0,0,0.85)',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    gap: '24px',
+                }}>
+                    <button
+                        onClick={() => setRotatingPhoto(null)}
+                        style={{
+                            position: 'absolute', top: '16px', right: '20px',
+                            background: 'none', border: 'none', color: '#fff',
+                            fontSize: '28px', cursor: 'pointer', lineHeight: 1,
+                        }}
+                    >×</button>
+                    <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px'}}>
+                        {ROTATIONS.map((deg) => (
+                            <button
+                                key={deg}
+                                disabled={rotating}
+                                onClick={() => applyRotation(deg)}
+                                style={{
+                                    background: deg === 0 ? '#333' : '#1a1a1a',
+                                    border: deg === 0 ? '2px solid #666' : '2px solid #444',
+                                    borderRadius: '8px',
+                                    padding: '12px',
+                                    cursor: rotating ? 'not-allowed' : 'pointer',
+                                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
+                                    opacity: rotating && deg !== 0 ? 0.5 : 1,
+                                    width: '220px',
+                                }}
+                            >
+                                <div style={{
+                                    width: '180px', height: '180px',
+                                    overflow: 'hidden',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                }}>
+                                    <img
+                                        src={rotatingPhoto.url}
+                                        alt={`${deg}°`}
+                                        style={{
+                                            maxWidth: deg % 180 === 0 ? '100%' : '100%',
+                                            maxHeight: deg % 180 === 0 ? '100%' : '100%',
+                                            objectFit: 'contain',
+                                            transform: `rotate(${deg}deg)`,
+                                            ...(deg % 180 !== 0 ? {width: '180px', height: '180px'} : {}),
+                                        }}
+                                    />
+                                </div>
+                                <span style={{color: '#ccc', fontSize: '13px'}}>
+                                    {deg === 0 ? 'Current' : `${deg}°`}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+                    {rotating && <span style={{color: '#aaa', fontSize: '14px'}}>Rotating…</span>}
+                </div>
+            )}
+
             {photos.length === 0 && deletedPhotos.length === 0 && (
                 <p className="text-secondary">No photos yet.</p>
             )}
