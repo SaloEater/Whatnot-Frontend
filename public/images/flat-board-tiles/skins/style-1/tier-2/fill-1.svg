@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50" xmlns:bx="https://boxy-svg.com">
+  <defs>
+    <bx:export>
+      <bx:file format="svg" href="#object-1" path="Untitled 2.svg"/>
+    </bx:export>
+  </defs>
+  <rect x="0" y="0" width="50" height="50" rx="0" ry="0" style="fill: rgb(216, 216, 216);" transform="matrix(0, 0, 0, 0, 11.40999984741211, 15.310999870300293)"/>
+  <path style="fill: rgb(31, 31, 31);" d="M 22 10 H 50 A 0 0 0 0 1 50 10 V 50 A 0 0 0 0 1 50 50 H 10 A 0 0 0 0 1 10 50 V 22 A 12 12 0 0 1 22 10 Z" bx:shape="rect 10 10 40 40 0 12 12 0 0 0 0 0 0 0 0 0 2@8e14147e" id="object-1"/>
+  <rect x="0" y="0" width="50" height="50" rx="0" ry="0" style="fill: rgb(216, 216, 216);" transform="matrix(0, 0, 0, 0, 11.40999985, 15.31099987)"/>
+  <path style="fill: rgb(31, 31, 31);" d="M 22 10 H 50 A 0 0 0 0 1 50 10 V 50 A 0 0 0 0 1 50 50 H 10 A 0 0 0 0 1 10 50 V 22 A 12 12 0 0 1 22 10 Z" bx:shape="rect 10 10 40 40 0 12 12 0 0 0 0 0 0 0 0 0 2@8e14147e" id="rect-2"/>
+  <rect x="0" y="0" width="50" height="50" rx="0" ry="0" style="fill: rgb(216, 216, 216);" transform="matrix(0, 0, 0, 0, 11.40999985, 15.31099987)"/>
+  <path style="fill: rgb(31, 31, 31);" d="M 0 0 H 50 A 0 0 0 0 1 50 0 V 50 A 0 0 0 0 1 50 50 H 0 A 0 0 0 0 1 0 50 V 0 A 0 0 0 0 1 0 0 Z" bx:shape="rect 0 0 50 50 0 0 0 2@965f665d" id="rect-4"/>
+  <path style="fill: rgb(41, 41, 41); stroke-width: 1;" d="M 21 0 H 29 A 0 0 0 0 1 29 0 V 4 A 0 0 0 0 1 29 4 H 21 A 0 0 0 0 1 21 4 V 0 A 0 0 0 0 1 21 0 Z" bx:shape="rect 21 0 8 4 0 0 0 2@6e5717a9" id="rect-6"/>
+  <path style="fill: rgb(41, 41, 41); stroke-width: 1;" d="M 25 4 H 33 A 0 0 0 0 1 33 4 V 8 A 0 0 0 0 1 33 8 H 25 A 0 0 0 0 1 25 8 V 4 A 0 0 0 0 1 25 4 Z" bx:shape="rect 25 4 8 4 0 0 0 2@43e3a512" id="rect-7"/>
+  <path style="fill: rgb(41, 41, 41); stroke-width: 1;" d="M 29 8 H 33 A 0 0 0 0 1 33 8 V 12 A 0 0 0 0 1 33 12 H 29 A 0 0 0 0 1 29 12 V 8 A 0 0 0 0 1 29 8 Z" bx:shape="rect 29 8 4 4 0 0 0 2@a398c2a9" id="rect-5"/>
+  <path style="fill: rgb(41, 41, 41); stroke-width: 1; transform-box: fill-box; transform-origin: 50% 50%;" d="M 28.777 15.83 H 36.777 A 0 0 0 0 1 36.777 15.83 V 19.83 A 0 0 0 0 1 36.777 19.83 H 28.777 A 0 0 0 0 1 28.777 19.83 V 15.83 A 0 0 0 0 1 28.777 15.83 Z" bx:shape="rect 28.777 15.83 8 4 0 0 0 2@8bc70890" id="rect-1" transform="matrix(0, 1, -1, 0, 15.223001, 7.169999)"/>
+  <path style="fill: rgb(41, 41, 41); stroke-width: 1; transform-box: fill-box; transform-origin: 50% 50%;" d="M 32.777 19.83 H 40.777 A 0 0 0 0 1 40.777 19.83 V 23.83 A 0 0 0 0 1 40.777 23.83 H 32.777 A 0 0 0 0 1 32.777 23.83 V 19.83 A 0 0 0 0 1 32.777 19.83 Z" bx:shape="rect 32.777 19.83 8 4 0 0 0 2@72cfc94b" id="rect-3" transform="matrix(0, 1, -1, 0, 7.223001, 7.170001)"/>
+  <path style="fill: rgb(41, 41, 41); stroke-width: 1; transform-box: fill-box; transform-origin: 50% 50%;" d="M 36.777 23.83 H 40.777 A 0 0 0 0 1 40.777 23.83 V 27.83 A 0 0 0 0 1 40.777 27.83 H 36.777 A 0 0 0 0 1 36.777 27.83 V 23.83 A 0 0 0 0 1 36.777 23.83 Z" bx:shape="rect 36.777 23.83 4 4 0 0 0 2@ffc44dce" id="rect-8" transform="matrix(0, 1, -1, 0, 1.223001, 5.170001)"/>
+  <path style="fill: rgb(41, 41, 41); stroke-width: 1; transform-origin: -25px -48px;" d="M -29 -50 H -21 A 0 0 0 0 1 -21 -50 V -46 A 0 0 0 0 1 -21 -46 H -29 A 0 0 0 0 1 -29 -46 V -50 A 0 0 0 0 1 -29 -50 Z" bx:shape="rect -29 -50 8 4 0 0 0 2@83b1d944" id="rect-9" transform="matrix(-1, 0, 0, -1, 50, 96.000061)"/>
+  <path style="fill: rgb(41, 41, 41); stroke-width: 1; transform-origin: -21px -44px;" d="M -25 -46 H -17 A 0 0 0 0 1 -17 -46 V -42 A 0 0 0 0 1 -17 -42 H -25 A 0 0 0 0 1 -25 -42 V -46 A 0 0 0 0 1 -25 -46 Z" bx:shape="rect -25 -46 8 4 0 0 0 2@c10fb360" id="rect-10" transform="matrix(-1, 0, 0, -1, 42, 88.000061)"/>
+  <path style="fill: rgb(41, 41, 41); stroke-width: 1; transform-origin: -19px -40px;" d="M -21 -42 H -17 A 0 0 0 0 1 -17 -42 V -38 A 0 0 0 0 1 -17 -38 H -21 A 0 0 0 0 1 -21 -38 V -42 A 0 0 0 0 1 -21 -42 Z" bx:shape="rect -21 -42 4 4 0 0 0 2@dfd1777f" id="rect-11" transform="matrix(-1, 0, 0, -1, 38, 80.000977)"/>
+  <path style="fill: rgb(41, 41, 41); stroke-width: 1; transform-origin: -44.655px -46.294px;" d="M -48.655 -48.294 H -40.655 A 0 0 0 0 1 -40.655 -48.294 V -44.294 A 0 0 0 0 1 -40.655 -44.294 H -48.655 A 0 0 0 0 1 -48.655 -44.294 V -48.294 A 0 0 0 0 1 -48.655 -48.294 Z" bx:shape="rect -48.655 -48.294 8 4 0 0 0 2@dafb96b7" id="rect-12" transform="matrix(0, -1, 1, 0, 46.654999, 71.293999)"/>
+  <path style="fill: rgb(41, 41, 41); stroke-width: 1; transform-origin: -40.655px -42.294px;" d="M -44.655 -44.294 H -36.655 A 0 0 0 0 1 -36.655 -44.294 V -40.294 A 0 0 0 0 1 -36.655 -40.294 H -44.655 A 0 0 0 0 1 -44.655 -40.294 V -44.294 A 0 0 0 0 1 -44.655 -44.294 Z" bx:shape="rect -44.655 -44.294 8 4 0 0 0 2@e70c10cc" id="rect-13" transform="matrix(0, -1, 1, 0, 46.654999, 63.293999)"/>
+  <path style="fill: rgb(41, 41, 41); stroke-width: 1; transform-origin: -38.655px -38.294px;" d="M -40.655 -40.294 H -36.655 A 0 0 0 0 1 -36.655 -40.294 V -36.294 A 0 0 0 0 1 -36.655 -36.294 H -40.655 A 0 0 0 0 1 -40.655 -36.294 V -40.294 A 0 0 0 0 1 -40.655 -40.294 Z" bx:shape="rect -40.655 -40.294 4 4 0 0 0 2@5e06eb6b" id="rect-14" transform="matrix(0, -1, 1, 0, 48.654999, 57.293999)"/>
+</svg>

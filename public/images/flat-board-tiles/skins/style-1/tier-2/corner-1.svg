@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50" xmlns:bx="https://boxy-svg.com">
+  <rect x="0" y="0" width="50" height="50" rx="0" ry="0" style="fill: rgb(216, 216, 216);" transform="matrix(0, 0, 0, 0, 11.40999984741211, 15.310999870300293)"/>
+  <rect x="0" y="0" width="50" height="50" rx="0" ry="0" style="fill: rgb(216, 216, 216);" transform="matrix(0, 0, 0, 0, 11.40999985, 15.31099987)"/>
+  <rect x="0" y="0" width="50" height="50" rx="0" ry="0" style="fill: rgb(216, 216, 216);" transform="matrix(0, 0, 0, 0, 11.40999985, 15.31099987)"/>
+  <path style="fill: rgb(169, 169, 169);" d="M 17 5 H 50 A 0 0 0 0 1 50 5 V 50 A 0 0 0 0 1 50 50 H 5 A 0 0 0 0 1 5 50 V 17 A 12 12 0 0 1 17 5 Z" bx:shape="rect 5 5 45 45 0 12 12 0 0 0 0 0 0 0 0 0 2@754f1448" id="rect-4"/>
+  <path style="fill: rgb(31, 31, 31);" d="M 20 8 H 50 A 0 0 0 0 1 50 8 V 50 A 0 0 0 0 1 50 50 H 8 A 0 0 0 0 1 8 50 V 20 A 12 12 0 0 1 20 8 Z" bx:shape="rect 8 8 42 42 0 12 12 0 0 0 0 0 0 0 0 0 2@693052a9" id="rect-1"/>
+  <path style="fill: rgb(169, 169, 169);" d="M 23 11 H 50 A 0 0 0 0 1 50 11 V 50 A 0 0 0 0 1 50 50 H 11 A 0 0 0 0 1 11 50 V 23 A 12 12 0 0 1 23 11 Z" bx:shape="rect 11 11 39 39 0 12 12 0 0 0 0 0 0 0 0 0 2@00e4b0b4" id="rect-2"/>
+  <path style="fill: rgb(31, 31, 31);" d="M 26 14 H 50 A 0 0 0 0 1 50 14 V 50 A 0 0 0 0 1 50 50 H 14 A 0 0 0 0 1 14 50 V 26 A 12 12 0 0 1 26 14 Z" bx:shape="rect 14 14 36 36 0 12 12 0 0 0 0 0 0 0 0 0 2@928cb540" id="rect-3"/>
+</svg>

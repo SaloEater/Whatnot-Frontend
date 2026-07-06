@@ -3,12 +3,19 @@ body {
     padding: 0;
 }
 
+.flat-board-wrap {
+    position: relative;
+}
+
 .flat-grid {
     display: grid;
-    grid-template-columns: repeat(11, 1fr);
+    /* Integer-px tracks and padding (computed in page.tsx) so every cell edge
+       lands exactly on a pixel boundary — fractional 1fr tracks otherwise open
+       hairline seams between cells when boxes snap to device pixels. */
+    grid-template-columns: repeat(var(--cols, 11), var(--cell-px, 1fr));
     width: 100%;
     background-image: url('/images/board.png');
     background-size: 100% 100%;
-    padding: 1.95rem;
+    padding: var(--pad-y, 1.95rem) var(--pad-right, 1.95rem) var(--pad-y, 1.95rem) var(--pad-left, 1.95rem);
     box-sizing: border-box;
 }

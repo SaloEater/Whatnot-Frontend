@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50" xmlns:bx="https://boxy-svg.com">
+  <rect x="0" y="0" width="50" height="50" rx="0" ry="0" style="fill: rgb(216, 216, 216);" transform="matrix(0, 0, 0, 0, 11.40999984741211, 15.310999870300293)"/>
+  <rect x="0" y="0" width="50" height="50" rx="0" ry="0" style="fill: rgb(216, 216, 216);" transform="matrix(0, 0, 0, 0, 11.40999985, 15.31099987)"/>
+  <rect x="0" y="0" width="50" height="50" rx="0" ry="0" style="fill: rgb(216, 216, 216);" transform="matrix(0, 0, 0, 0, 11.40999985, 15.31099987)"/>
+  <path style="fill: rgb(31, 31, 31);" d="M 0 0 H 50 A 0 0 0 0 1 50 0 V 50 A 0 0 0 0 1 50 50 H 0 A 0 0 0 0 1 0 50 V 0 A 0 0 0 0 1 0 0 Z" bx:shape="rect 0 0 50 50 0 0 0 2@965f665d" id="rect-4"/>
+  <ellipse style="fill: rgb(169, 169, 169);" cx="25" cy="25" rx="12.5" ry="12.5"/>
+  <ellipse style="fill: rgb(31, 31, 31);" cx="25" cy="25" rx="11" ry="11"/>
+  <ellipse style="fill: rgb(31, 31, 31);" cx="25" cy="25" rx="11" ry="11"/>
+  <rect style="fill: rgb(31, 31, 31);" x="25" y="25" width="25" height="25"/>
+  <ellipse style="fill: rgb(169, 169, 169);" cx="25" cy="25" rx="9.5" ry="9.5"/>
+  <ellipse style="fill: rgb(31, 31, 31);" cx="25" cy="25" rx="8" ry="8"/>
+  <path style="fill: rgb(31, 31, 31);" d="M 14.744 24.961 L 25.059 24.953 L 25.007 14.59 L 19.653 16.375 C 19.653 16.375 16.266 19.464 16.266 19.468 C 16.266 19.472 14.774 24.975 14.744 24.961 Z"/>
+</svg>

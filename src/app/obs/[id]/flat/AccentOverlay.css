@@ -1,0 +1,28 @@
+.flat-accent-layer {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    /* Must mirror .flat-grid's integer tracks/padding exactly so accent rows
+       and columns coincide with the cells (vars inherit from the wrapper). */
+    grid-template-columns: repeat(var(--cols, 11), var(--cell-px, 1fr));
+    grid-template-rows: repeat(var(--rows), var(--cell-px, 1fr));
+    padding: var(--pad-y, 1.95rem) var(--pad-right, 1.95rem) var(--pad-y, 1.95rem) var(--pad-left, 1.95rem);
+    box-sizing: border-box;
+    pointer-events: none;
+    z-index: 50;
+}
+
+.flat-accent-group {
+    position: relative;
+}
+
+.flat-accent-motif {
+    position: absolute;
+    object-fit: fill;
+    animation: flat-accent-in 0.6s ease-out both;
+}
+
+@keyframes flat-accent-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}

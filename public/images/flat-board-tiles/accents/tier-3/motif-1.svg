@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" xmlns:bx="https://boxy-svg.com">
+  <rect x="0" y="0" width="50" height="50" rx="0" ry="0" style="fill: rgb(216, 216, 216);" transform="matrix(0, 0, 0, 0, 11.40999984741211, 15.310999870300293)"/>
+  <rect x="0" y="0" width="50" height="50" rx="0" ry="0" style="fill: rgb(216, 216, 216);" transform="matrix(0, 0, 0, 0, 11.40999985, 15.31099987)"/>
+  <rect x="0" y="0" width="50" height="50" rx="0" ry="0" style="fill: rgb(216, 216, 216);" transform="matrix(0, 0, 0, 0, 11.40999985, 15.31099987)"/>
+  <path style="fill: rgb(31, 31, 31);" d="M 0 0 H 100 A 0 0 0 0 1 100 0 V 100 A 0 0 0 0 1 100 100 H 0 A 0 0 0 0 1 0 100 V 0 A 0 0 0 0 1 0 0 Z" bx:shape="rect 0 0 100 100 0 0 0 2@3f174525" id="rect-4"/>
+  <rect y="24.5" width="35" height="1" style="fill: rgb(154, 154, 154); transform-box: fill-box; transform-origin: 50% 50%;" transform="matrix(0.707107, -0.707107, 0.707107, 0.707107, -4.772074, -12.272074)"/>
+  <rect y="24.5" width="35" height="1" style="fill: rgb(154, 154, 154); stroke-width: 1; transform-origin: 17.5px 25px;" transform="matrix(0.707107, 0.707107, -0.707107, 0.707107, 69.727925, -12.272066)"/>
+  <rect width="24.5" height="1" style="fill: rgb(154, 154, 154); stroke-width: 1; transform-origin: 12.249px 25px;" y="24.5"/>
+  <rect y="24.5" width="35" height="1" style="fill: rgb(154, 154, 154); stroke-width: 1; transform-origin: 17.5px 25px;" transform="matrix(0.707107, 0.707107, -0.707107, 0.707107, -4.772072, 62.227921)"/>
+  <rect y="24.5" width="35" height="1" style="fill: rgb(154, 154, 154); stroke-width: 1; transform-origin: 17.5px 25px;" transform="matrix(0.707107, -0.707107, 0.707107, 0.707107, 69.727928, 62.227924)"/>
+  <rect width="24.5" height="1" style="fill: rgb(154, 154, 154); stroke-width: 1; transform-origin: 24.927px 0.5px;" x="12.678" transform="matrix(0, 1, -1, 0, 0.116829, 11.749001)"/>
+  <rect width="24.5" height="1" style="fill: rgb(154, 154, 154); stroke-width: 1; transform-origin: 12.249px 75px;" y="74.5"/>
+  <rect width="24.5" height="1" style="fill: rgb(154, 154, 154); stroke-width: 1; transform-origin: 24.927px 0.5px;" x="12.678" transform="matrix(0, 1, -1, 0, 0.072984, 87.249)"/>
+  <rect width="24.5" height="1" style="fill: rgb(154, 154, 154); stroke-width: 1; transform-origin: 24.927px 0.5px;" x="12.678" transform="matrix(0, 1, -1, 0, 50.073002, 11.749001)"/>
+  <rect width="24.5" height="1" style="fill: rgb(154, 154, 154); stroke-width: 1; transform-origin: 87.749px 25px;" y="24.5" x="75.5"/>
+  <rect width="24.5" height="1" style="fill: rgb(154, 154, 154); stroke-width: 1; transform-origin: 24.927px 0.5px;" x="12.678" transform="matrix(0, 1, -1, 0, 50.073, 87.249002)"/>
+  <rect width="24.5" height="1" style="fill: rgb(154, 154, 154); stroke-width: 1; transform-origin: 87.749px 75px;" y="74.5" x="75.5"/>
+</svg>
