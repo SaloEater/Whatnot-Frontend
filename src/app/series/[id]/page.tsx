@@ -18,12 +18,15 @@ export default function Page({params}: {params: {id: string}}) {
     const [nameInput, setNameInput] = useState('')
     const [editingTotalCards, setEditingTotalCards] = useState(false)
     const [totalCardsInput, setTotalCardsInput] = useState('')
+    const [editingDefaultPrice, setEditingDefaultPrice] = useState(false)
+    const [defaultPriceInput, setDefaultPriceInput] = useState('')
 
     useEffect(() => {
         post(getEndpoints().series_get, {id: seriesId}).then((data: Series) => {
             setSeries(data)
             setNameInput(data.name)
             setTotalCardsInput(String(data.total_cards))
+            setDefaultPriceInput(data.default_price ?? '')
         })
         post(getEndpoints().photo_list, {series_id: seriesId}).then((data: Photo[]) => {
             const all = data ?? []
@@ -65,6 +68,23 @@ export default function Page({params}: {params: {id: string}}) {
         }).then(() => {
             setSeries((s) => s ? {...s, total_cards: parsed} : s)
             setEditingTotalCards(false)
+        })
+    }
+
+    function saveDefaultPrice() {
+        if (defaultPriceInput === series?.default_price) {
+            setEditingDefaultPrice(false)
+            return
+        }
+        post(getEndpoints().series_update, {
+            id: seriesId,
+            name: series?.name ?? '',
+            used_cards: series?.used_cards ?? 0,
+            total_cards: series?.total_cards ?? 0,
+            default_price: defaultPriceInput,
+        }).then(() => {
+            setSeries((s) => s ? {...s, default_price: defaultPriceInput} : s)
+            setEditingDefaultPrice(false)
         })
     }
 
@@ -141,6 +161,30 @@ export default function Page({params}: {params: {id: string}}) {
                     <>
                         <span className="fw-bold">{series.total_cards}</span>
                         <button className="btn btn-sm btn-outline-secondary" onClick={() => setEditingTotalCards(true)}>Edit</button>
+                    </>
+                )}
+            </div>
+
+            <div className="d-flex align-items-center gap-2 mb-3">
+                <span className="text-secondary">Default price:</span>
+                {editingDefaultPrice ? (
+                    <>
+                        <input
+                            className="form-control"
+                            style={{maxWidth: '180px'}}
+                            value={defaultPriceInput}
+                            placeholder="e.g. $100-$299"
+                            onChange={(e) => setDefaultPriceInput(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && saveDefaultPrice()}
+                            autoFocus
+                        />
+                        <button className="btn btn-sm btn-success" onClick={saveDefaultPrice}>Save</button>
+                        <button className="btn btn-sm btn-secondary" onClick={() => setEditingDefaultPrice(false)}>Cancel</button>
+                    </>
+                ) : (
+                    <>
+                        <span className="fw-bold">{series.default_price || '—'}</span>
+                        <button className="btn btn-sm btn-outline-secondary" onClick={() => setEditingDefaultPrice(true)}>Edit</button>
                     </>
                 )}
             </div>

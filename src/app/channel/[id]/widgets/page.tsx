@@ -28,6 +28,10 @@ export default function Page({params}: {params: {id: string}}) {
     const [bpbSaving, setBpbSaving] = useState(false)
     const [bpbStatus, setBpbStatus] = useState<'idle' | 'ok' | 'error'>('idle')
 
+    const [defaultPriceInput, setDefaultPriceInput] = useState('')
+    const [defaultPriceSaving, setDefaultPriceSaving] = useState(false)
+    const [defaultPriceStatus, setDefaultPriceStatus] = useState<'idle' | 'ok' | 'error'>('idle')
+
     useEffect(() => {
         post(getEndpoints().widget_stashorpass_get, {channel_id: channelId})
             .then((data: {price: number}) => setSopPrice(data?.price ?? 0))
@@ -49,7 +53,12 @@ export default function Page({params}: {params: {id: string}}) {
 
     function loadCount(seriesId: number) {
         post(getEndpoints().series_get_with_count, {id: seriesId})
-            .then((d: SeriesWithCount) => { if (d) setCountData(d) })
+            .then((d: SeriesWithCount) => {
+                if (d) {
+                    setCountData(d)
+                    setDefaultPriceInput(d.default_price ?? '')
+                }
+            })
     }
 
     function loadBpb(seriesId: number) {
@@ -97,6 +106,27 @@ export default function Page({params}: {params: {id: string}}) {
         }
     }
 
+    async function saveDefaultPrice() {
+        if (!countData || !breakObject?.series_id) return
+        setDefaultPriceSaving(true)
+        setDefaultPriceStatus('idle')
+        try {
+            await post(getEndpoints().series_update, {
+                id: breakObject.series_id,
+                name: countData.name,
+                used_cards: countData.used_cards,
+                total_cards: countData.total_cards,
+                default_price: defaultPriceInput,
+            })
+            setCountData((prev) => prev ? {...prev, default_price: defaultPriceInput} : prev)
+            setDefaultPriceStatus('ok')
+        } catch {
+            setDefaultPriceStatus('error')
+        } finally {
+            setDefaultPriceSaving(false)
+        }
+    }
+
     async function setUsedCards(value: number) {
         if (!countData || !breakObject?.series_id) return
         setCountSaving(true)
@@ -105,6 +135,7 @@ export default function Page({params}: {params: {id: string}}) {
             name: countData.name,
             used_cards: value,
             total_cards: countData.total_cards,
+            default_price: countData.default_price,
         })
         setCountSaving(false)
         loadCount(breakObject.series_id)
@@ -210,6 +241,32 @@ export default function Page({params}: {params: {id: string}}) {
                                     {bpbStatus === 'error' && <span className="text-danger">Error</span>}
                                 </div>
                             ) : null)}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="col-auto">
+                    <div className="card">
+                        <div className="card-body">
+                            <h6 className="card-title">Series: Default Price</h6>
+                            {seriesStatus ?? (
+                                <div className="d-flex align-items-center gap-2">
+                                    <input
+                                        type="text"
+                                        className="form-control"
+                                        style={{width: '140px'}}
+                                        value={defaultPriceInput}
+                                        placeholder="e.g. $100-$299"
+                                        onChange={(e) => { setDefaultPriceInput(e.target.value); setDefaultPriceStatus('idle') }}
+                                        onKeyDown={(e) => e.key === 'Enter' && saveDefaultPrice()}
+                                    />
+                                    <button className="btn btn-primary" onClick={saveDefaultPrice} disabled={defaultPriceSaving}>
+                                        {defaultPriceSaving ? 'Saving…' : 'Save'}
+                                    </button>
+                                    {defaultPriceStatus === 'ok'    && <span className="text-success">Saved</span>}
+                                    {defaultPriceStatus === 'error' && <span className="text-danger">Error</span>}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

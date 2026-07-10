@@ -61,7 +61,7 @@ function assignTiers(teamNames: string[], prices: SeriesTeamTotal[], defaultPric
         } else {
             tier = 'regular'
         }
-        const displayPrice = unsold > 0 ? `$${Math.ceil(unsold / 25) * 25}` : defaultPrice
+        const displayPrice = (unsold > 0 && tier !== 'regular') ? `$${Math.ceil(unsold / 25) * 25}` : defaultPrice
         cells.push({team, displayPrice, priceLeft: unsold, tier})
     })
 

@@ -100,6 +100,11 @@ export const strictRectangleMerge: GroupingStrategy = (cells) => {
     return rects.map(toGroup)
 }
 
+/** A single rectangular group from explicit bounds (e.g. the full board). */
+export function rectGroup(r0: number, c0: number, r1: number, c1: number): Group {
+    return toGroup({r0, c0, r1, c1})
+}
+
 export function computeGroups(
     cells: OrderedPos[],
     strategy: GroupingStrategy = strictRectangleMerge,

@@ -9,7 +9,7 @@ import {useActiveStream} from "@/app/hooks/useActiveStream";
 import {IsTeam} from "@/app/common/teams";
 import {FlatEventComponent} from "./flatEventComponent";
 import {AccentOverlay} from "./AccentOverlay";
-import {computeGroups, posFromIndex} from "./tiles/grouping";
+import {computeGroups, posFromIndex, rectGroup} from "./tiles/grouping";
 import {cellExposure} from "./tiles/exposure";
 import {styleForGroup} from "./tiles/manifest";
 import {useManifest} from "./tiles/useManifest";
@@ -132,7 +132,15 @@ export default function Page({params}: {params: {id: string}}) {
         const positions = events
             .map((e, i) => (e.customer !== '' && settled.has(e.id) ? {...posFromIndex(i, cols), order: e.index} : null))
             .filter((p): p is NonNullable<typeof p> => p !== null)
-        const groups = computeGroups(positions)
+        // Fully flipped board (and a complete rows×cols grid) → one single
+        // group covering everything, regardless of how the sale order would
+        // have partitioned it. Otherwise, strict sale-order rectangle merge.
+        const boardComplete = events.length > 0
+            && positions.length === events.length
+            && events.length === rows * cols
+        const groups = boardComplete
+            ? [rectGroup(0, 0, rows - 1, cols - 1)]
+            : computeGroups(positions)
         const posGroup = new Map<string, Group>()
         groups.forEach(g => {
             for (let r = g.r0; r <= g.r1; r++) {
