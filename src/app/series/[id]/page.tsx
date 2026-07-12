@@ -6,6 +6,20 @@ import {getEndpoints, post, get} from "@/app/lib/backend";
 import {Photo, Series} from "@/app/entity/entities";
 import {PhotoGridComponent} from "@/app/series/[id]/photoGridComponent";
 
+function parsePrice(val: string): [string, string] {
+    const range = val.match(/^\$(\d+)-\$(\d+)$/)
+    if (range) return [range[1], range[2]]
+    const single = val.match(/^\$(\d+)$/)
+    if (single) return [single[1], '']
+    return ['', '']
+}
+
+function buildPrice(from: string, to: string): string {
+    if (from && to) return `$${from}-$${to}`
+    if (from) return `$${from}`
+    return ''
+}
+
 export default function Page({params}: {params: {id: string}}) {
     const seriesId = parseInt(params.id)
     const router = useRouter()
@@ -19,14 +33,17 @@ export default function Page({params}: {params: {id: string}}) {
     const [editingTotalCards, setEditingTotalCards] = useState(false)
     const [totalCardsInput, setTotalCardsInput] = useState('')
     const [editingDefaultPrice, setEditingDefaultPrice] = useState(false)
-    const [defaultPriceInput, setDefaultPriceInput] = useState('')
+    const [priceFrom, setPriceFrom] = useState('')
+    const [priceTo, setPriceTo] = useState('')
 
     useEffect(() => {
         post(getEndpoints().series_get, {id: seriesId}).then((data: Series) => {
             setSeries(data)
             setNameInput(data.name)
             setTotalCardsInput(String(data.total_cards))
-            setDefaultPriceInput(data.default_price ?? '')
+            const [f, t] = parsePrice(data.default_price ?? '')
+            setPriceFrom(f)
+            setPriceTo(t)
         })
         post(getEndpoints().photo_list, {series_id: seriesId}).then((data: Photo[]) => {
             const all = data ?? []
@@ -72,7 +89,9 @@ export default function Page({params}: {params: {id: string}}) {
     }
 
     function saveDefaultPrice() {
-        if (defaultPriceInput === series?.default_price) {
+        if (priceTo && !priceFrom) return
+        const built = buildPrice(priceFrom, priceTo)
+        if (built === series?.default_price) {
             setEditingDefaultPrice(false)
             return
         }
@@ -81,9 +100,9 @@ export default function Page({params}: {params: {id: string}}) {
             name: series?.name ?? '',
             used_cards: series?.used_cards ?? 0,
             total_cards: series?.total_cards ?? 0,
-            default_price: defaultPriceInput,
+            default_price: built,
         }).then(() => {
-            setSeries((s) => s ? {...s, default_price: defaultPriceInput} : s)
+            setSeries((s) => s ? {...s, default_price: built} : s)
             setEditingDefaultPrice(false)
         })
     }
@@ -166,17 +185,28 @@ export default function Page({params}: {params: {id: string}}) {
             </div>
 
             <div className="d-flex align-items-center gap-2 mb-3">
-                <span className="text-secondary">Default price:</span>
+                <span className="text-secondary">Side Cards Price:</span>
                 {editingDefaultPrice ? (
                     <>
                         <input
+                            type="number"
                             className="form-control"
-                            style={{maxWidth: '180px'}}
-                            value={defaultPriceInput}
-                            placeholder="e.g. $100-$299"
-                            onChange={(e) => setDefaultPriceInput(e.target.value)}
+                            style={{maxWidth: '90px'}}
+                            placeholder="From"
+                            value={priceFrom}
+                            onChange={(e) => setPriceFrom(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && saveDefaultPrice()}
                             autoFocus
+                        />
+                        <span>-</span>
+                        <input
+                            type="number"
+                            className="form-control"
+                            style={{maxWidth: '90px'}}
+                            placeholder="To"
+                            value={priceTo}
+                            onChange={(e) => setPriceTo(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && saveDefaultPrice()}
                         />
                         <button className="btn btn-sm btn-success" onClick={saveDefaultPrice}>Save</button>
                         <button className="btn btn-sm btn-secondary" onClick={() => setEditingDefaultPrice(false)}>Cancel</button>

@@ -6,6 +6,20 @@ import {SeriesWithCount, WNBreak} from '@/app/entity/entities'
 import {useChannel} from '@/app/hooks/useChannel'
 import {useActiveStream} from '@/app/hooks/useActiveStream'
 
+function parsePrice(val: string): [string, string] {
+    const range = val.match(/^\$(\d+)-\$(\d+)$/)
+    if (range) return [range[1], range[2]]
+    const single = val.match(/^\$(\d+)$/)
+    if (single) return [single[1], '']
+    return ['', '']
+}
+
+function buildPrice(from: string, to: string): string {
+    if (from && to) return `$${from}-$${to}`
+    if (from) return `$${from}`
+    return ''
+}
+
 export default function Page({params}: {params: {id: string}}) {
     const channelId = parseInt(params.id)
     const [channel] = useChannel(channelId)
@@ -28,7 +42,8 @@ export default function Page({params}: {params: {id: string}}) {
     const [bpbSaving, setBpbSaving] = useState(false)
     const [bpbStatus, setBpbStatus] = useState<'idle' | 'ok' | 'error'>('idle')
 
-    const [defaultPriceInput, setDefaultPriceInput] = useState('')
+    const [priceFrom, setPriceFrom] = useState('')
+    const [priceTo, setPriceTo] = useState('')
     const [defaultPriceSaving, setDefaultPriceSaving] = useState(false)
     const [defaultPriceStatus, setDefaultPriceStatus] = useState<'idle' | 'ok' | 'error'>('idle')
 
@@ -56,7 +71,9 @@ export default function Page({params}: {params: {id: string}}) {
             .then((d: SeriesWithCount) => {
                 if (d) {
                     setCountData(d)
-                    setDefaultPriceInput(d.default_price ?? '')
+                    const [f, t] = parsePrice(d.default_price ?? '')
+                    setPriceFrom(f)
+                    setPriceTo(t)
                 }
             })
     }
@@ -107,7 +124,8 @@ export default function Page({params}: {params: {id: string}}) {
     }
 
     async function saveDefaultPrice() {
-        if (!countData || !breakObject?.series_id) return
+        if (!countData || !breakObject?.series_id || (priceTo && !priceFrom)) return
+        const built = buildPrice(priceFrom, priceTo)
         setDefaultPriceSaving(true)
         setDefaultPriceStatus('idle')
         try {
@@ -116,9 +134,9 @@ export default function Page({params}: {params: {id: string}}) {
                 name: countData.name,
                 used_cards: countData.used_cards,
                 total_cards: countData.total_cards,
-                default_price: defaultPriceInput,
+                default_price: built,
             })
-            setCountData((prev) => prev ? {...prev, default_price: defaultPriceInput} : prev)
+            setCountData((prev) => prev ? {...prev, default_price: built} : prev)
             setDefaultPriceStatus('ok')
         } catch {
             setDefaultPriceStatus('error')
@@ -248,16 +266,26 @@ export default function Page({params}: {params: {id: string}}) {
                 <div className="col-auto">
                     <div className="card">
                         <div className="card-body">
-                            <h6 className="card-title">Series: Default Price</h6>
+                            <h6 className="card-title">Series: Side Cards Price</h6>
                             {seriesStatus ?? (
                                 <div className="d-flex align-items-center gap-2">
                                     <input
-                                        type="text"
+                                        type="number"
                                         className="form-control"
-                                        style={{width: '140px'}}
-                                        value={defaultPriceInput}
-                                        placeholder="e.g. $100-$299"
-                                        onChange={(e) => { setDefaultPriceInput(e.target.value); setDefaultPriceStatus('idle') }}
+                                        style={{width: '80px'}}
+                                        placeholder="From"
+                                        value={priceFrom}
+                                        onChange={(e) => { setPriceFrom(e.target.value); setDefaultPriceStatus('idle') }}
+                                        onKeyDown={(e) => e.key === 'Enter' && saveDefaultPrice()}
+                                    />
+                                    <span>-</span>
+                                    <input
+                                        type="number"
+                                        className="form-control"
+                                        style={{width: '80px'}}
+                                        placeholder="To"
+                                        value={priceTo}
+                                        onChange={(e) => { setPriceTo(e.target.value); setDefaultPriceStatus('idle') }}
                                         onKeyDown={(e) => e.key === 'Enter' && saveDefaultPrice()}
                                     />
                                     <button className="btn btn-primary" onClick={saveDefaultPrice} disabled={defaultPriceSaving}>
