@@ -16,6 +16,12 @@ export default function Page({params}: {params: {id: string}}) {
 
     const [seriesId, setSeriesId] = useState<number | null>(null)
     const [data, setData] = useState<SeriesWithCount | null>(null)
+    const [showPct, setShowPct] = useState(false)
+
+    useEffect(() => {
+        post(getEndpoints().widget_channel_count_settings_get, {channel_id: channelId})
+            .then((d: {show_percentage: boolean}) => { if (d != null) setShowPct(d.show_percentage) })
+    }, [channelId])
 
     useEffect(() => {
         if (!stream?.active_break_id) { setSeriesId(null); return }
@@ -45,7 +51,7 @@ export default function Page({params}: {params: {id: string}}) {
             <div className="count-cell count-cell--unsold">
                 <div className="count-cell__title"><span>Chasers</span></div>
                 <div className="count-cell__content">
-                    {chancePct > 15 &&
+                    {showPct && chancePct > 15 &&
                         <span className="count-cell__value">
                             {unsold}
                             <span className="count-cell__separator"> / </span>

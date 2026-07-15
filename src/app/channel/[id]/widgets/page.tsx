@@ -44,6 +44,8 @@ export default function Page({params}: {params: {id: string}}) {
 
     const [priceFrom, setPriceFrom] = useState('')
     const [priceTo, setPriceTo] = useState('')
+    const [showPct, setShowPct] = useState(false)
+
     const [defaultPriceSaving, setDefaultPriceSaving] = useState(false)
     const [defaultPriceStatus, setDefaultPriceStatus] = useState<'idle' | 'ok' | 'error'>('idle')
 
@@ -52,6 +54,8 @@ export default function Page({params}: {params: {id: string}}) {
             .then((data: {price: number}) => setSopPrice(data?.price ?? 0))
         post(getEndpoints().widget_pick2_get, {channel_id: channelId})
             .then((data: {price: number}) => setP2Price(data?.price ?? 0))
+        post(getEndpoints().widget_channel_count_settings_get, {channel_id: channelId})
+            .then((d: {show_percentage: boolean}) => { if (d != null) setShowPct(d.show_percentage) })
     }, [channelId])
 
     useEffect(() => {
@@ -81,6 +85,11 @@ export default function Page({params}: {params: {id: string}}) {
     function loadBpb(seriesId: number) {
         post(getEndpoints().widget_boxes_per_break_get, {series_id: seriesId})
             .then((d: {amount: number}) => { if (d) setBpbAmount(d.amount) })
+    }
+
+    async function saveShowPct(val: boolean) {
+        setShowPct(val)
+        await post(getEndpoints().widget_channel_count_settings_update, {channel_id: channelId, show_percentage: val})
     }
 
     async function saveSop() {
@@ -302,6 +311,16 @@ export default function Page({params}: {params: {id: string}}) {
 
             <hr />
             <h6 className="text-center mb-3">Series: Count Widget</h6>
+            <div className="form-check mb-2">
+                <input
+                    type="checkbox"
+                    className="form-check-input"
+                    id="showPctCheck"
+                    checked={showPct}
+                    onChange={(e) => saveShowPct(e.target.checked)}
+                />
+                <label className="form-check-label" htmlFor="showPctCheck">Show percentage</label>
+            </div>
             {seriesStatus}
 
             {countData && (

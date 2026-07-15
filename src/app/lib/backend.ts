@@ -64,6 +64,8 @@ export function getEndpoints()  {
         widget_pick2_get:                "/api/widget/series/pick2",
         widget_boxes_per_break_get:      "/api/widget/series/boxes_per_break",
         widget_boxes_per_break_update:   "/api/widget/series/boxes_per_break/update",
+        widget_channel_count_settings_get:    "/api/widget/channel/count_settings",
+        widget_channel_count_settings_update: "/api/widget/channel/count_settings/update",
     }
 }
 
