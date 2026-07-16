@@ -2,7 +2,7 @@
 
 import React, {useEffect, useState} from 'react'
 import {getEndpoints, post} from '@/app/lib/backend'
-import {SeriesWithCount, WNBreak} from '@/app/entity/entities'
+import {PriceRange, SeriesWithCount, WNBreak} from '@/app/entity/entities'
 import {useChannel} from '@/app/hooks/useChannel'
 import {useActiveStream} from '@/app/hooks/useActiveStream'
 
@@ -46,6 +46,9 @@ export default function Page({params}: {params: {id: string}}) {
     const [priceTo, setPriceTo] = useState('')
     const [showPct, setShowPct] = useState(false)
 
+    const [priceRanges, setPriceRanges] = useState<PriceRange[]>([])
+    const [rangeEdits, setRangeEdits] = useState<Record<string, string>>({})
+
     const [defaultPriceSaving, setDefaultPriceSaving] = useState(false)
     const [defaultPriceStatus, setDefaultPriceStatus] = useState<'idle' | 'ok' | 'error'>('idle')
 
@@ -56,6 +59,15 @@ export default function Page({params}: {params: {id: string}}) {
             .then((data: {price: number}) => setP2Price(data?.price ?? 0))
         post(getEndpoints().widget_channel_count_settings_get, {channel_id: channelId})
             .then((d: {show_percentage: boolean}) => { if (d != null) setShowPct(d.show_percentage) })
+        post(getEndpoints().widget_board_price_ranges_list, {channel_id: channelId})
+            .then((d: {ranges: PriceRange[]}) => {
+                if (d?.ranges) {
+                    setPriceRanges(d.ranges)
+                    const edits: Record<string, string> = {}
+                    d.ranges.forEach(r => { edits[r.tier_id] = String(r.price_from) })
+                    setRangeEdits(edits)
+                }
+            })
     }, [channelId])
 
     useEffect(() => {
@@ -85,6 +97,12 @@ export default function Page({params}: {params: {id: string}}) {
     function loadBpb(seriesId: number) {
         post(getEndpoints().widget_boxes_per_break_get, {series_id: seriesId})
             .then((d: {amount: number}) => { if (d) setBpbAmount(d.amount) })
+    }
+
+    async function savePriceRange(tierId: string) {
+        const priceFrom = parseInt(rangeEdits[tierId]) || 0
+        await post(getEndpoints().widget_board_price_ranges_update, {channel_id: channelId, tier_id: tierId, price_from: priceFrom})
+        setPriceRanges(prev => prev.map(r => r.tier_id === tierId ? {...r, price_from: priceFrom} : r))
     }
 
     async function saveShowPct(val: boolean) {
@@ -308,6 +326,33 @@ export default function Page({params}: {params: {id: string}}) {
                     </div>
                 </div>
             </div>
+
+            <hr />
+            <h6 className="text-center mb-3">Board: Price Ranges</h6>
+            <table className="table table-sm" style={{maxWidth: '400px'}}>
+                <thead><tr><th>Tier</th><th>Price From ($)</th><th></th></tr></thead>
+                <tbody>
+                    {priceRanges.map(r => (
+                        <tr key={r.tier_id}>
+                            <td>{r.tier_id}</td>
+                            <td>
+                                <input
+                                    type="number"
+                                    className="form-control form-control-sm"
+                                    style={{width: '90px'}}
+                                    value={rangeEdits[r.tier_id] ?? r.price_from}
+                                    onChange={e => setRangeEdits(prev => ({...prev, [r.tier_id]: e.target.value}))}
+                                />
+                            </td>
+                            <td>
+                                <button className="btn btn-sm btn-primary" onClick={() => savePriceRange(r.tier_id)}>Save</button>
+                                <button style={{display: 'none'}}>Add</button>
+                                <button style={{display: 'none'}}>Delete</button>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
 
             <hr />
             <h6 className="text-center mb-3">Series: Count Widget</h6>

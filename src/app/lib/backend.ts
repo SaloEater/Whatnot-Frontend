@@ -66,6 +66,10 @@ export function getEndpoints()  {
         widget_boxes_per_break_update:   "/api/widget/series/boxes_per_break/update",
         widget_channel_count_settings_get:    "/api/widget/channel/count_settings",
         widget_channel_count_settings_update: "/api/widget/channel/count_settings/update",
+        widget_board_price_ranges_list:   "/api/widget/board/price_ranges",
+        widget_board_price_ranges_create: "/api/widget/board/price_ranges/create",
+        widget_board_price_ranges_update: "/api/widget/board/price_ranges/update",
+        widget_board_price_ranges_delete: "/api/widget/board/price_ranges/delete",
     }
 }
 

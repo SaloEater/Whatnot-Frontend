@@ -1,7 +1,7 @@
 'use client'
 
 import React, {useEffect, useState} from 'react'
-import {Event, Series, SeriesTeamTotal, WNBreak} from '@/app/entity/entities'
+import {Event, PriceRange, Series, SeriesTeamTotal, WNBreak} from '@/app/entity/entities'
 import {get, getEndpoints, post} from '@/app/lib/backend'
 import {useChannel} from '@/app/hooks/useChannel'
 import {useActiveStream} from '@/app/hooks/useActiveStream'
@@ -28,7 +28,14 @@ interface TeamCell {
     tier: Tier
 }
 
-function assignTiers(teamNames: string[], prices: SeriesTeamTotal[], defaultPrice: string): TeamCell[] {
+interface TierThresholds {
+    bestThreshold: number
+    goodThreshold: number
+    midThreshold: number
+}
+
+function assignTiers(teamNames: string[], prices: SeriesTeamTotal[], defaultPrice: string, thresholds: TierThresholds): TeamCell[] {
+    const {bestThreshold, goodThreshold, midThreshold} = thresholds
     const totalMap  = new Map(prices.map((p) => [p.team, p.total_price]))
     const unsoldMap = new Map(prices.map((p) => [p.team, p.price_left]))
 
@@ -43,8 +50,8 @@ function assignTiers(teamNames: string[], prices: SeriesTeamTotal[], defaultPric
 
     withPrice.sort((a, b) => b.total - a.total)
 
-    const bestCount = Math.max(BEST_MIN, withPrice.filter((t) => t.total >= BEST_THRESHOLD).length)
-    const goodCount = Math.max(GOOD_MIN, withPrice.slice(bestCount).filter((t) => t.total >= GOOD_THRESHOLD).length)
+    const bestCount = Math.max(BEST_MIN, withPrice.filter((t) => t.total >= bestThreshold).length)
+    const goodCount = Math.max(GOOD_MIN, withPrice.slice(bestCount).filter((t) => t.total >= goodThreshold).length)
 
     const cells: TeamCell[] = []
 
@@ -56,7 +63,7 @@ function assignTiers(teamNames: string[], prices: SeriesTeamTotal[], defaultPric
             tier = 'best'
         } else if (idx < bestCount + goodCount) {
             tier = 'good'
-        } else if (total > MID_THRESHOLD) {
+        } else if (total >= midThreshold) {
             tier = 'mid'
         } else {
             tier = 'regular'
@@ -85,16 +92,19 @@ function buildRows(cells: TeamCell[]): TeamCell[][] {
     const rows: TeamCell[][] = []
     const totalRows = 6
 
+    let overflowBest: TeamCell[] = []
     if (best.length >= 2) {
-        rows.push(best)
+        rows.push(best.slice(0, 3))
+        overflowBest = best.slice(3)
     } else if (best.length > 0 || good.length > 0) {
         const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920
         const combined = best.length + good.length
         const candidateCellWidth = combined > 0 ? viewportWidth / combined : viewportWidth
 
         if (good.length === 0 || candidateCellWidth >= MIN_CELL_WIDTH_PX) {
-            rows.push([...best, ...good])
-            const remaining = [...mid, ...regular]
+            const firstRow = [...best, ...good]
+            rows.push(firstRow.slice(0, 3))
+            const remaining = [...firstRow.slice(3), ...mid, ...regular]
             if (remaining.length > 0) {
                 const availableRows = Math.max(1, totalRows - rows.length)
                 const neededRows    = Math.ceil(remaining.length / MAX_ROW_CELLS)
@@ -114,7 +124,7 @@ function buildRows(cells: TeamCell[]): TeamCell[][] {
         if (best.length > 0) rows.push(best)
     }
 
-    const remaining = [...good, ...mid, ...regular]
+    const remaining = [...overflowBest, ...good, ...mid, ...regular]
     if (remaining.length > 0) {
         const availableRows = Math.max(1, totalRows - rows.length)
         const neededRows    = Math.ceil(remaining.length / MAX_ROW_CELLS)
@@ -137,10 +147,11 @@ export default function Page({params}: {params: {id: string}}) {
     const [channel] = useChannel(channelId)
     const stream = useActiveStream(channel)
 
-    const [breakObject, setBreakObject] = useState<WNBreak | null>(null)
-    const [series,      setSeries]      = useState<Series | null>(null)
-    const [events,      setEvents]      = useState<Event[]>([])
-    const [prices,      setPrices]      = useState<SeriesTeamTotal[]>([])
+    const [breakObject,  setBreakObject]  = useState<WNBreak | null>(null)
+    const [series,       setSeries]       = useState<Series | null>(null)
+    const [events,       setEvents]       = useState<Event[]>([])
+    const [prices,       setPrices]       = useState<SeriesTeamTotal[]>([])
+    const [priceRanges,  setPriceRanges]  = useState<PriceRange[]>([])
 
     useEffect(() => {
         if (!stream?.active_break_id) {
@@ -182,6 +193,8 @@ export default function Page({params}: {params: {id: string}}) {
         const seriesId = breakObject.series_id
 
         post(getEndpoints().series_get, {id: seriesId}).then((s: Series) => setSeries(s))
+        post(getEndpoints().widget_board_price_ranges_list, {channel_id: channelId})
+            .then((d: {ranges: PriceRange[]}) => { if (d?.ranges) setPriceRanges(d.ranges) })
 
         function fetchPrices() {
             get(`/api/series/${seriesId}/prices`).then((data: SeriesTeamTotal[]) => {
@@ -204,19 +217,23 @@ export default function Page({params}: {params: {id: string}}) {
 
     const teamNames = [...events.map((e) => e.team)]
     const defaultPrice = series?.default_price || DEFAULT_PRICE
-    const cells = assignTiers(teamNames, prices, defaultPrice)
+    const bestThreshold = priceRanges.find(r => r.tier_id === 'best')?.price_from ?? BEST_THRESHOLD
+    const goodThreshold = priceRanges.find(r => r.tier_id === 'good')?.price_from ?? GOOD_THRESHOLD
+    const midThreshold  = priceRanges.find(r => r.tier_id === 'mid')?.price_from  ?? MID_THRESHOLD
+    const cells = assignTiers(teamNames, prices, defaultPrice, {bestThreshold, goodThreshold, midThreshold})
     const rows = buildRows(cells)
 
     return (
         <div className="prices-root">
             {rows.map((row, ri) => {
-                const rowTier = row.some((c) => c.tier === 'regular') ? 'regular'
-                              : row.some((c) => c.tier === 'mid')     ? 'mid'
+                const rowTier = row.some((c) => c.tier === 'best')    ? 'best'
                               : row.some((c) => c.tier === 'good')    ? 'good'
-                              : 'best'
+                              : row.some((c) => c.tier === 'mid')     ? 'mid'
+                              : 'regular'
+                const tierGrow: Record<string, number> = {best: 1.15, good: 1.10, mid: 1.05, regular: 1}
 
                 return (
-                <div key={ri} className={`prices-row prices-row--${rowTier}`}>
+                <div key={ri} className={`prices-row prices-row--${rowTier}`} style={{flex: `${tierGrow[rowTier]} 1 0%`}}>
                     {row.map((cell) => {
                         const words    = cell.team.trim().split(' ')
                         const lastName = words[words.length - 1]

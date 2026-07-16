@@ -183,6 +183,13 @@ export interface ReportUser {
     cancelled_or_failed: string
 }
 
+export interface PriceRange {
+    id: number
+    channel_id: number
+    tier_id: string
+    price_from: number
+}
+
 export interface PackageUsersData {
     data: Map<string, PackageUserData>
 }
