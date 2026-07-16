@@ -15,6 +15,7 @@ const BEST_MIN          = 3
 const GOOD_MIN          = 4
 const MID_THRESHOLD     = 50
 const MAX_ROW_CELLS     = 7
+const TOTAL_ROWS        = 6
 const DEFAULT_PRICE     = '$100-$299'
 const MIN_CELL_WIDTH_PX = 120
 
@@ -90,7 +91,7 @@ function buildRows(cells: TeamCell[]): TeamCell[][] {
     const regular = cells.filter((c) => c.tier === 'regular').sort(byPriceThenName)
 
     const rows: TeamCell[][] = []
-    const totalRows = 6
+    const totalRows = TOTAL_ROWS
 
     let overflowBest: TeamCell[] = []
     if (best.length >= 2) {
@@ -230,10 +231,16 @@ export default function Page({params}: {params: {id: string}}) {
                               : row.some((c) => c.tier === 'good')    ? 'good'
                               : row.some((c) => c.tier === 'mid')     ? 'mid'
                               : 'regular'
-                const tierGrow: Record<string, number> = {best: 1.15, good: 1.10, mid: 1.05, regular: 1}
+                const tierGrow:  Record<string, number> = {best: 1.15, good: 1.10, mid: 1.05, regular: 1.00}
+                const tierMaxH:  Record<string, string> = {
+                    best:    `calc(1.15 * 100vh / ${TOTAL_ROWS})`,
+                    good:    `calc(1.10 * 100vh / ${TOTAL_ROWS})`,
+                    mid:     `calc(1.05 * 100vh / ${TOTAL_ROWS})`,
+                    regular: `calc(1.00 * 100vh / ${TOTAL_ROWS})`,
+                }
 
                 return (
-                <div key={ri} className={`prices-row prices-row--${rowTier}`} style={{flex: `${tierGrow[rowTier]} 1 0%`}}>
+                <div key={ri} className={`prices-row prices-row--${rowTier}`} style={{flex: `${tierGrow[rowTier]} 1 0%`, maxHeight: tierMaxH[rowTier]}}>
                     {row.map((cell) => {
                         const words    = cell.team.trim().split(' ')
                         const lastName = words[words.length - 1]
