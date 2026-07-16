@@ -334,7 +334,7 @@ export default function Page({params}: {params: {id: string}}) {
                 <tbody>
                     {priceRanges.map(r => (
                         <tr key={r.tier_id}>
-                            <td>{r.tier_id}</td>
+                            <td>{{best: 'God', good: 'Giant', mid: 'Chaser'}[r.tier_id] ?? r.tier_id}</td>
                             <td>
                                 <input
                                     type="number"
