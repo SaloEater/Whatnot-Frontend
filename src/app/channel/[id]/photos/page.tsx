@@ -57,7 +57,7 @@ export default function Page({params}: {params: {id: string}}) {
                 .then((d: {orientation: string}) => { if (d?.orientation) setOrientation(d.orientation) })
         }
         fetchOrientation()
-        const id = setInterval(fetchOrientation, 120000)
+        const id = setInterval(fetchOrientation, 5000)
         return () => clearInterval(id)
     }, [channelId])
 
