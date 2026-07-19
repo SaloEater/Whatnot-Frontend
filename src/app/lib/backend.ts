@@ -70,6 +70,8 @@ export function getEndpoints()  {
         widget_board_price_ranges_create: "/api/widget/board/price_ranges/create",
         widget_board_price_ranges_update: "/api/widget/board/price_ranges/update",
         widget_board_price_ranges_delete: "/api/widget/board/price_ranges/delete",
+        widget_cards_board_get:    "/api/widget/cards_board",
+        widget_cards_board_update: "/api/widget/cards_board/update",
     }
 }
 

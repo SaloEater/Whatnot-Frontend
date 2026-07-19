@@ -49,6 +49,10 @@ export default function Page({params}: {params: {id: string}}) {
     const [priceRanges, setPriceRanges] = useState<PriceRange[]>([])
     const [rangeEdits, setRangeEdits] = useState<Record<string, string>>({})
 
+    const [orientation, setOrientation] = useState<string | null>(null)
+    const [cbSaving, setCbSaving] = useState(false)
+    const [cbStatus, setCbStatus] = useState<'idle' | 'ok' | 'error'>('idle')
+
     const [defaultPriceSaving, setDefaultPriceSaving] = useState(false)
     const [defaultPriceStatus, setDefaultPriceStatus] = useState<'idle' | 'ok' | 'error'>('idle')
 
@@ -68,6 +72,8 @@ export default function Page({params}: {params: {id: string}}) {
                     setRangeEdits(edits)
                 }
             })
+        post(getEndpoints().widget_cards_board_get, {channel_id: channelId})
+            .then((d: {orientation: string}) => setOrientation(d?.orientation ?? 'list'))
     }, [channelId])
 
     useEffect(() => {
@@ -103,6 +109,20 @@ export default function Page({params}: {params: {id: string}}) {
         const priceFrom = parseInt(rangeEdits[tierId]) || 0
         await post(getEndpoints().widget_board_price_ranges_update, {channel_id: channelId, tier_id: tierId, price_from: priceFrom})
         setPriceRanges(prev => prev.map(r => r.tier_id === tierId ? {...r, price_from: priceFrom} : r))
+    }
+
+    async function saveCardsBoard() {
+        if (orientation === null) return
+        setCbSaving(true)
+        setCbStatus('idle')
+        try {
+            await post(getEndpoints().widget_cards_board_update, {channel_id: channelId, orientation})
+            setCbStatus('ok')
+        } catch {
+            setCbStatus('error')
+        } finally {
+            setCbSaving(false)
+        }
     }
 
     async function saveShowPct(val: boolean) {
@@ -322,6 +342,31 @@ export default function Page({params}: {params: {id: string}}) {
                                     {defaultPriceStatus === 'error' && <span className="text-danger">Error</span>}
                                 </div>
                             )}
+                        </div>
+                    </div>
+                </div>
+                <div className="col-auto">
+                    <div className="card">
+                        <div className="card-body">
+                            <h6 className="card-title">Cards Board</h6>
+                            <div className="d-flex align-items-center gap-2">
+                                <label className="form-label mb-0 text-nowrap">Orientation</label>
+                                <select
+                                    className="form-select"
+                                    style={{width: '140px'}}
+                                    value={orientation ?? 'list'}
+                                    disabled={orientation === null}
+                                    onChange={(e) => { setOrientation(e.target.value); setCbStatus('idle') }}
+                                >
+                                    <option value="list">list</option>
+                                    <option value="gallery">gallery</option>
+                                </select>
+                                <button className="btn btn-primary" onClick={saveCardsBoard} disabled={orientation === null || cbSaving}>
+                                    {cbSaving ? 'Saving…' : 'Save'}
+                                </button>
+                                {cbStatus === 'ok'    && <span className="text-success">Saved</span>}
+                                {cbStatus === 'error' && <span className="text-danger">Error</span>}
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -2,6 +2,7 @@
 
 import React, {useEffect, useRef, useState} from 'react'
 import {Photo} from '@/app/entity/entities'
+import {getEndpoints, post} from '@/app/lib/backend'
 import {usePhotoBoard} from './usePhotoBoard'
 import './boardComponent.css'
 
@@ -9,6 +10,8 @@ const VIEWPORT_W = 1080
 const VIEWPORT_H = 1920
 const CARD_AREA_H = VIEWPORT_H / 2
 const FALLBACK_ASPECT = 3 / 4
+const GALLERY_BASE_W = 300
+const GALLERY_INTERVAL_MS = 5000
 
 function centerByPrice(cards: Photo[]): Photo[] {
     const sorted = [...cards].sort((a, b) => b.price - a.price)
@@ -30,6 +33,9 @@ export default function Page({params}: {params: {id: string}}) {
 
     const [cardDims, setCardDims] = useState<Record<number, {w: number; h: number}>>({})
 
+    const [orientation, setOrientation] = useState<string>('list')
+    const [galleryIndex, setGalleryIndex] = useState(0)
+
     const [hoveredId, setHoveredId] = useState<number | null>(null)
     const [elevatedId, setElevatedId] = useState<number | null>(null)
     const hoverData = useRef<{scale: number; dx: number; dy: number}>({scale: 1, dx: 0, dy: 0})
@@ -44,6 +50,22 @@ export default function Page({params}: {params: {id: string}}) {
             setDisplayPhotos([...unsold].sort((a, b) => b.price - a.price))
         }
     }, [photos])
+
+    useEffect(() => {
+        function fetchOrientation() {
+            post(getEndpoints().widget_cards_board_get, {channel_id: channelId})
+                .then((d: {orientation: string}) => { if (d?.orientation) setOrientation(d.orientation) })
+        }
+        fetchOrientation()
+        const id = setInterval(fetchOrientation, 120000)
+        return () => clearInterval(id)
+    }, [channelId])
+
+    useEffect(() => {
+        if (orientation !== 'gallery' || displayPhotos.length <= 3) return
+        const id = setInterval(() => setGalleryIndex((i) => i - 1), GALLERY_INTERVAL_MS)
+        return () => clearInterval(id)
+    }, [orientation, displayPhotos.length])
 
     function getAspect(photo: Photo): number {
         const d = cardDims[photo.id]
@@ -171,6 +193,47 @@ export default function Page({params}: {params: {id: string}}) {
             setElevatedId(null)
             elevationTimerRef.current = null
         }, 220)
+    }
+
+    if (orientation === 'gallery') {
+        const n = displayPhotos.length
+        const visible = n === 0
+            ? []
+            : n <= 3
+                ? displayPhotos
+                : [0, 1, 2].map((o) => displayPhotos[(((galleryIndex + o) % n) + n) % n])
+        const centerPos = Math.floor(visible.length / 2)
+
+        return (
+            <div className="board-root">
+                <div className="gallery-area">
+                    {visible.map((photo, pos) => {
+                        const scale = pos === centerPos ? 2 : 0.65
+                        const width = GALLERY_BASE_W * scale
+                        const height = width / getAspect(photo)
+                        return (
+                            <div
+                                key={photo.id}
+                                className={`gallery-card ${pos === centerPos ? 'gallery-card--center' : 'gallery-card--side'}`}
+                                style={{width: `${width}px`, height: `${height}px`}}
+                            >
+                                <img
+                                    src={photo.url}
+                                    alt={photo.name || 'card'}
+                                    onLoad={(e) => {
+                                        const img = e.currentTarget
+                                        setCardDims((prev) => ({
+                                            ...prev,
+                                            [photo.id]: {w: img.naturalWidth, h: img.naturalHeight},
+                                        }))
+                                    }}
+                                />
+                            </div>
+                        )
+                    })}
+                </div>
+            </div>
+        )
     }
 
     const rows = packRows()
