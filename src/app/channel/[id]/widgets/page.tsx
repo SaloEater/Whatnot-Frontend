@@ -358,8 +358,8 @@ export default function Page({params}: {params: {id: string}}) {
                                     disabled={orientation === null}
                                     onChange={(e) => { setOrientation(e.target.value); setCbStatus('idle') }}
                                 >
-                                    <option value="list">list</option>
-                                    <option value="gallery">gallery</option>
+                                    <option value="list">Gallery</option>
+                                    <option value="gallery">Carousel</option>
                                 </select>
                                 <button className="btn btn-primary" onClick={saveCardsBoard} disabled={orientation === null || cbSaving}>
                                     {cbSaving ? 'Saving…' : 'Save'}
