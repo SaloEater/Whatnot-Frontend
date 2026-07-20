@@ -190,6 +190,13 @@ export interface PriceRange {
     price_from: number
 }
 
+export interface WidgetPreset {
+    id: number
+    channel_id: number
+    name: string
+    value: string
+}
+
 export interface PackageUsersData {
     data: Map<string, PackageUserData>
 }

@@ -72,6 +72,9 @@ export function getEndpoints()  {
         widget_board_price_ranges_delete: "/api/widget/board/price_ranges/delete",
         widget_cards_board_get:    "/api/widget/cards_board",
         widget_cards_board_update: "/api/widget/cards_board/update",
+        widget_presets_list:   "/api/widget/presets",
+        widget_presets_upsert: "/api/widget/presets/upsert",
+        widget_presets_delete: "/api/widget/presets/delete",
     }
 }
 
