@@ -72,6 +72,7 @@ export interface Photo {
     is_sold: boolean
     created_at: string
     is_deleted: boolean
+    rotation: number
 }
 
 export interface SeriesTeamTotal {

@@ -243,7 +243,7 @@ export default function Page({params}: {params: {id: string}}) {
                 onRestore={restorePhoto}
                 onTeamChange={(id, team) => setPhotos((old) => old.map((p) => p.id === id ? {...p, team} : p))}
                 onPriceChange={(id, price) => setPhotos((old) => old.map((p) => p.id === id ? {...p, price} : p))}
-                onUrlChange={(id, url) => setPhotos((old) => old.map((p) => p.id === id ? {...p, url} : p))}
+                onRotationChange={(id, rotation) => setPhotos((old) => old.map((p) => p.id === id ? {...p, rotation} : p))}
             />
         </main>
     )

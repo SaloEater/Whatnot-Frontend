@@ -44,7 +44,11 @@ export default function Page({params}: {params: {id: string}}) {
 
     useEffect(() => {
         const unsold = photos.filter((p) => !p.is_sold && !p.is_deleted)
-        const ids = unsold.map((p) => p.id).sort((a, b) => a - b).join(',')
+        const ids = unsold
+            .slice()
+            .sort((a, b) => a.id - b.id)
+            .map((p) => `${p.id}:${p.rotation ?? 0}`)
+            .join(',')
         if (ids !== prevIdsRef.current) {
             prevIdsRef.current = ids
             setDisplayPhotos([...unsold].sort((a, b) => b.price - a.price))
@@ -62,7 +66,7 @@ export default function Page({params}: {params: {id: string}}) {
     }, [channelId])
 
     useEffect(() => {
-        if (orientation !== 'gallery' || displayPhotos.length <= 3) return
+        if (orientation !== 'gallery' || displayPhotos.length <= 1) return
         const id = setInterval(() => setGalleryIndex((i) => i - 1), GALLERY_INTERVAL_MS)
         return () => clearInterval(id)
     }, [orientation, displayPhotos.length])
@@ -166,10 +170,16 @@ export default function Page({params}: {params: {id: string}}) {
 
     function handleMouseEnter(e: React.MouseEvent<HTMLDivElement>, photo: Photo) {
         const rect = e.currentTarget.getBoundingClientRect()
-        const scale = Math.min(
-            VIEWPORT_W * 0.8 / rect.width,
-            VIEWPORT_H * 0.8 / rect.height,
-        )
+        const rotation = photo.rotation ?? 0
+        const scale = rotation % 180 !== 0
+            ? Math.min(
+                VIEWPORT_W * 0.8 / rect.height,
+                VIEWPORT_H * 0.8 / rect.width,
+            )
+            : Math.min(
+                VIEWPORT_W * 0.8 / rect.width,
+                VIEWPORT_H * 0.8 / rect.height,
+            )
         const dx = VIEWPORT_W / 2 - (rect.left + rect.width / 2)
         const dy = VIEWPORT_H / 2 - (rect.top + rect.height / 2)
         hoverData.current = {scale, dx, dy}
@@ -199,9 +209,11 @@ export default function Page({params}: {params: {id: string}}) {
         const n = displayPhotos.length
         const visible = n === 0
             ? []
-            : n <= 3
+            : n === 1
                 ? displayPhotos
-                : [0, 1, 2].map((o) => displayPhotos[(((galleryIndex + o) % n) + n) % n])
+                : n === 2
+                    ? [0, 1].map((o) => displayPhotos[(((galleryIndex + o) % 2) + 2) % 2])
+                    : [0, 1, 2].map((o) => displayPhotos[(((galleryIndex + o) % n) + n) % n])
         const centerPos = Math.floor(visible.length / 2)
 
         return (
@@ -209,17 +221,33 @@ export default function Page({params}: {params: {id: string}}) {
                 <div className="gallery-area">
                     {visible.map((photo, pos) => {
                         const scale = pos === centerPos ? 2 : 0.65
+                        const rotation = photo.rotation ?? 0
+                        const aspect = getAspect(photo)
+                        const effectiveAspect = rotation % 180 === 0 ? aspect : 1 / aspect
                         const width = GALLERY_BASE_W * scale
-                        const height = width / getAspect(photo)
+                        const height = width / effectiveAspect
+                        const imgWidth = rotation % 180 === 0 ? width : height
+                        const imgHeight = rotation % 180 === 0 ? height : width
                         return (
                             <div
                                 key={photo.id}
                                 className={`gallery-card ${pos === centerPos ? 'gallery-card--center' : 'gallery-card--side'}`}
-                                style={{width: `${width}px`, height: `${height}px`}}
+                                style={{
+                                    width: `${width}px`, height: `${height}px`,
+                                    ...(rotation !== 0 ? {position: 'relative'} : {}),
+                                }}
                             >
                                 <img
                                     src={photo.url}
                                     alt={photo.name || 'card'}
+                                    style={rotation !== 0 ? {
+                                        position: 'absolute',
+                                        top: '50%',
+                                        left: '50%',
+                                        width: `${imgWidth}px`,
+                                        height: `${imgHeight}px`,
+                                        transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+                                    } : undefined}
                                     onLoad={(e) => {
                                         const img = e.currentTarget
                                         setCardDims((prev) => ({
@@ -260,7 +288,7 @@ export default function Page({params}: {params: {id: string}}) {
                                     <div
                                         className="board-card-visual"
                                         style={hovered ? {
-                                            transform: `translate(${hoverData.current.dx}px, ${hoverData.current.dy}px) scale(${hoverData.current.scale})`,
+                                            transform: `translate(${hoverData.current.dx}px, ${hoverData.current.dy}px) scale(${hoverData.current.scale}) rotate(${photo.rotation ?? 0}deg)`,
                                             boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
                                         } : {}}
                                     >
