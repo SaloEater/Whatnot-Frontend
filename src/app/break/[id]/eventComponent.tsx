@@ -6,6 +6,7 @@ import OrderChangingComponent from "@/app/break/[id]/orderChangingComponent";
 import './eventComponent.css'
 import {TextInputWithSuggestions} from "@/app/common/textInputWithSuggestions";
 import {IsTeam} from "@/app/common/teams";
+import {getSpotAbbreviation} from "@/app/common/spot_label";
 
 interface EventProps {
     event: Event,
@@ -31,11 +32,7 @@ export const EventComponent: FC<EventProps> = (props) => {
     }, [props.event.customer, props.event.price]);
 
     function getEventImage(team: string) {
-        if (IsTeam(team)) {
-            return `/images/teams/${team}.webp`;
-        } else {
-            return `/images/events/${team.toLowerCase()}.png`;
-        }
+        return `/images/teams/${team}.webp`;
     }
 
     function updateCustomer(value: string) {
@@ -133,7 +130,16 @@ export const EventComponent: FC<EventProps> = (props) => {
             }
             <div style={{opacity: hasIndex() ? 0.5 : 1}}>
                 <div className='w-100p d-flex flex-column justify-content-center align-items-center p-1'>
-                    <Image src={getEventImage(props.event.team)} alt={props.event.team} height="75" width="75"/>
+                    {
+                        IsTeam(props.event.team) ? (
+                            <Image src={getEventImage(props.event.team)} alt={props.event.team} height="75" width="75"/>
+                        ) : (
+                            <div className="border border-1 rounded rounded-3 d-flex align-items-center justify-content-center fs-3 fw-bold"
+                                 style={{height: '75px', width: '75px'}}>
+                                {getSpotAbbreviation(props.event.team)}
+                            </div>
+                        )
+                    }
                     <div>{firstPart}</div>
                     <div>{secondPart}</div>
                     <div className='w-100p d-flex gap-2 flex-column hidden'>

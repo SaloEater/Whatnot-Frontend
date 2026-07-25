@@ -114,3 +114,50 @@ body {
 .p-45 {
     padding:1.95rem!important
 }
+
+.custom-spots-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.custom-spots-container > div {
+    width: calc((100% - 9 * 10px) / 10);
+}
+
+.custom-spot-tile {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 15px;
+    background-color: rgba(0, 0, 0, 0.6);
+    border-width: 3px;
+    border-style: solid;
+    border-color: #FECB62;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.custom-spot-tile.taken {
+    background-color: rgba(0, 0, 0, 0.3);
+    border-color: #6c757d;
+    opacity: 0.6;
+}
+
+.custom-spot-text {
+    line-height: 1;
+    font-size: 2.5vw;
+    color: white;
+    text-shadow:
+            -2px -2px 0 black,
+            2px -2px 0 black,
+            -2px  2px 0 black,
+            2px  2px 0 black;
+}
+
+.custom-spot-tile.taken .custom-spot-text {
+    color: #adb5bd;
+}

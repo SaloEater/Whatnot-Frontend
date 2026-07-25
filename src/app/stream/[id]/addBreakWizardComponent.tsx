@@ -10,11 +10,18 @@ interface AddBreakWizardProps {
 type AddMode = 'count' | 'name'
 
 interface CustomSpotRow {
-    name: string
+    chosen: boolean
+    text: string
     count: number
 }
 
-const SPOT_OPTIONS = Object.values(TYPE_NAMES)
+const CUSTOM_SPOT_OPTION = 'Custom…'
+const SPOT_OPTIONS = [...Object.values(TYPE_NAMES), 'Chaser']
+const SPOT_SELECT_OPTIONS = [...SPOT_OPTIONS, CUSTOM_SPOT_OPTION]
+
+function emptyRow(): CustomSpotRow {
+    return {chosen: false, text: '', count: 1}
+}
 
 export const AddBreakWizardComponent: FC<AddBreakWizardProps> = ({onAdd}) => {
     const [isOpen, setIsOpen] = useState(false)
@@ -22,20 +29,43 @@ export const AddBreakWizardComponent: FC<AddBreakWizardProps> = ({onAdd}) => {
     const [count, setCount] = useState(1)
     const [name, setName] = useState('')
     const [customSpotsEnabled, setCustomSpotsEnabled] = useState(false)
-    const [customSpotRows, setCustomSpotRows] = useState<CustomSpotRow[]>([{name: SPOT_OPTIONS[0], count: 1}])
+    const [customSpotRows, setCustomSpotRows] = useState<CustomSpotRow[]>([emptyRow()])
     const [isAdding, setIsAdding] = useState(false)
 
     function getCustomSpots(): string[] {
         if (!customSpotsEnabled) return []
-        return customSpotRows.flatMap(row => Array(Math.max(1, row.count)).fill(row.name))
+        return customSpotRows.flatMap(row => {
+            if (!row.chosen) return []
+            const effectiveName = row.text.trim()
+            if (!effectiveName) return []
+            const count = Math.max(1, row.count)
+            if (effectiveName === 'Miscellaneous') {
+                return Array(count).fill(effectiveName)
+            }
+            if (count === 1) return [effectiveName]
+            return Array.from({length: count}, (_, idx) => `${effectiveName} ${idx + 1}`)
+        })
+    }
+
+    function hasInvalidCustomRow(): boolean {
+        return customSpotsEnabled && customSpotRows.some(row => !row.chosen || !row.text.trim())
     }
 
     function addRow() {
-        setCustomSpotRows(rows => [...rows, {name: SPOT_OPTIONS[0], count: 1}])
+        setCustomSpotRows(rows => [...rows, emptyRow()])
     }
 
     function removeRow(i: number) {
         setCustomSpotRows(rows => rows.filter((_, idx) => idx !== i))
+    }
+
+    function chooseRowOption(i: number, option: string) {
+        const text = option === CUSTOM_SPOT_OPTION ? '' : option
+        setCustomSpotRows(rows => rows.map((row, idx) => idx === i ? {...row, chosen: true, text} : row))
+    }
+
+    function resetRow(i: number) {
+        setCustomSpotRows(rows => rows.map((row, idx) => idx === i ? {...row, chosen: false, text: ''} : row))
     }
 
     function updateRow(i: number, field: keyof CustomSpotRow, value: string | number) {
@@ -124,15 +154,36 @@ export const AddBreakWizardComponent: FC<AddBreakWizardProps> = ({onAdd}) => {
                                         {customSpotRows.map((row, i) => (
                                             <tr key={i}>
                                                 <td>
-                                                    <select
-                                                        className="form-select form-select-sm"
-                                                        value={row.name}
-                                                        onChange={e => updateRow(i, 'name', e.target.value)}
-                                                    >
-                                                        {SPOT_OPTIONS.map(opt => (
-                                                            <option key={opt} value={opt}>{opt}</option>
-                                                        ))}
-                                                    </select>
+                                                    {row.chosen ? (
+                                                        <div className="d-flex gap-1">
+                                                            <input
+                                                                type="text"
+                                                                className="form-control form-control-sm"
+                                                                placeholder="Spot name"
+                                                                value={row.text}
+                                                                onChange={e => updateRow(i, 'text', e.target.value)}
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                className="btn btn-sm btn-outline-secondary"
+                                                                title="Choose another type"
+                                                                onClick={() => resetRow(i)}
+                                                            >
+                                                                ↺
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <select
+                                                            className="form-select form-select-sm"
+                                                            value=""
+                                                            onChange={e => chooseRowOption(i, e.target.value)}
+                                                        >
+                                                            <option value="" disabled>Choose type…</option>
+                                                            {SPOT_SELECT_OPTIONS.map(opt => (
+                                                                <option key={opt} value={opt}>{opt}</option>
+                                                            ))}
+                                                        </select>
+                                                    )}
                                                 </td>
                                                 <td>
                                                     <input
@@ -160,7 +211,7 @@ export const AddBreakWizardComponent: FC<AddBreakWizardProps> = ({onAdd}) => {
                         <button
                             className="btn btn-primary btn-sm"
                             onClick={handleAdd}
-                            disabled={isAdding || (mode === 'name' && !name)}
+                            disabled={isAdding || (mode === 'name' && !name) || hasInvalidCustomRow()}
                         >
                             {isAdding ? 'Adding…' : 'Add'}
                         </button>

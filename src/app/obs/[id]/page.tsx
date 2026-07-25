@@ -4,8 +4,10 @@ import './page.css'
 import {useEffect, useState} from "react";
 import {getEndpoints, post} from "@/app/lib/backend";
 import {Event, GetEventsByBreakResponse, NoCustomer, WNBreak, WNStream} from "@/app/entity/entities";
-import {filterOnlyTeams, getEventWithHighestPrice} from "@/app/common/event_filter";
+import {getEventWithHighestPrice} from "@/app/common/event_filter";
+import {IsTeam} from "@/app/common/teams";
 import {EventComponent} from "@/app/obs/[id]/eventComponent";
+import {CustomSpotComponent} from "@/app/obs/[id]/customSpotComponent";
 import {HighBidComponent} from "@/app/obs/[id]/highBidComponent";
 import {HighBidTeamComponent} from "@/app/obs/[id]/highBidTeamComponent";
 import {useChannel} from "@/app/hooks/useChannel";
@@ -16,6 +18,7 @@ export default function Page({params}: {params: {id: string}}) {
     const [channel, setChannel] = useChannel(channelId, 30000)
     const stream = useActiveStream(channel)
     const [teamEvents, setTeamsCards] = useState<Event[]>([])
+    const [customEvents, setCustomEvents] = useState<Event[]>([])
     const [breakObject, setBreakObject] = useState<WNBreak|null>(null);
     const [highBidTeam, setHighBidTeam] = useState('')
     const [giveawayTeam, setGiveawayTeam] = useState('')
@@ -70,18 +73,32 @@ export default function Page({params}: {params: {id: string}}) {
 
         post(getEndpoints().break_events, {break_id: stream.active_break_id})
             .then((events: GetEventsByBreakResponse) => {
-                setTeamsCards(filterOnlyTeams(events.events).sort((a, b) => {
+                let filtered = events.events.filter(e => !e.is_giveaway && !e.note)
+
+                setTeamsCards(filtered.filter(e => IsTeam(e.team)).sort((a, b) => {
                     if (a.team > b.team) return 1
                     if (a.team < b.team) return -1
                     return 0
                 }))
+
+                setCustomEvents(filtered.filter(e => !IsTeam(e.team)).sort((a, b) =>
+                    a.team.localeCompare(b.team, undefined, {numeric: true})
+                ))
             })
     }
 
     function setEvent(event: Event) {
         setTeamsCards((old) => {
+            let index = old.findIndex(e => e.id == event.id)
+            if (index == -1) return old
             let newEvents = [...old]
-            let index = newEvents.findIndex(e => e.id == event.id)
+            newEvents[index] = event
+            return newEvents
+        })
+        setCustomEvents((old) => {
+            let index = old.findIndex(e => e.id == event.id)
+            if (index == -1) return old
+            let newEvents = [...old]
             newEvents[index] = event
             return newEvents
         })
@@ -89,7 +106,7 @@ export default function Page({params}: {params: {id: string}}) {
 
     function getNextIndex(event: Event) {
         let maxTakenIndex = 0
-        for (let i of teamEvents) {
+        for (let i of [...teamEvents, ...customEvents]) {
             if (i.customer && i.index > maxTakenIndex) {
                 maxTakenIndex = i.index
             }
@@ -108,7 +125,7 @@ export default function Page({params}: {params: {id: string}}) {
                         new_index: getNextIndex(event)
                     }
 
-                    let oldEvent = teamEvents.find(e => e.id == event.id)
+                    let oldEvent = teamEvents.find(e => e.id == event.id) ?? customEvents.find(e => e.id == event.id)
                     if (!oldEvent || oldEvent.customer != '') {
                         return
                     }
@@ -147,8 +164,8 @@ export default function Page({params}: {params: {id: string}}) {
     }
 
     return <div className="d-flex flex-column align-items-center justify-content-center pt-5 overflow-hidden">
-        <div className="w-75p">
-            <main className='teams-container grid-container team-bg p-45'>
+        <div className="w-75p team-bg p-45">
+            <main className='teams-container grid-container'>
                 <div className="position-relative grid-middle-item logo h-100p">
                     {
                         highBidTeam != "" ? <div className='d-flex flex-column align-items-center h-100p justify-content-center gap-2'>
@@ -167,8 +184,11 @@ export default function Page({params}: {params: {id: string}}) {
                     }
                         <img className='overlay' src='/images/mount_golden.png'/>
                 </div>
-                {teamEvents.map(e => <EventComponent key={e.team} event={e} initEvent={initEvent} resetEvent={resetEvent} isGiveawayTeam={isGiveawayTeam(e)}/>)}
+                {teamEvents.map(e => <EventComponent key={e.id} event={e} initEvent={initEvent} resetEvent={resetEvent} isGiveawayTeam={isGiveawayTeam(e)}/>)}
             </main>
+            {customEvents.length > 0 && <div className='custom-spots-container'>
+                {customEvents.map(e => <CustomSpotComponent key={e.id} event={e} initEvent={initEvent} resetEvent={resetEvent}/>)}
+            </div>}
         </div>
     </div>
 }
