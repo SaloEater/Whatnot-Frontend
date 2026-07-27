@@ -25,6 +25,16 @@ interface Bucket {
     rows: GiveawayRow[]
 }
 
+interface GiveawayMismatch {
+    type: 'missing' | 'extra'
+    breakName: string
+    breakId: number
+    buyer: string
+    productName: string
+    giveawayType: number
+    eventId?: number
+}
+
 function parseUtc(s: string): Date {
     return new Date(/Z$|[+-]\d{2}:?\d{2}$/.test(s) ? s : s + 'Z')
 }
@@ -93,8 +103,9 @@ export default function Page({params}: {params: {id: string}}) {
     const [breaks, setBreaks] = useState<WNBreak[]>([])
     const [buckets, setBuckets] = useState<Bucket[] | null>(null)
     const [fileErrors, setFileErrors] = useState<{orderId: string; error: string}[] | null>(null)
+    const [mismatches, setMismatches] = useState<GiveawayMismatch[] | null>(null)
     const [progress, setProgress] = useState<string | null>(null)
-    const [done, setDone] = useState(false)
+    const [didFix, setDidFix] = useState(false)
     const [timezone, setTimezone] = useState('UTC')
     const [timezoneList, setTimezoneList] = useState<string[]>([])
 
@@ -126,6 +137,8 @@ export default function Page({params}: {params: {id: string}}) {
             }
             setFileErrors(null)
             setBuckets(parsed)
+            setMismatches(null)
+            setDidFix(false)
         }
         reader.readAsText(file)
         e.target.value = ''
@@ -158,93 +171,152 @@ export default function Page({params}: {params: {id: string}}) {
         })
     }
 
-    async function handleContinue() {
+    async function handleVerify() {
         if (!buckets) return
-        const allRows = buckets.flatMap(bucket => bucket.rows.map(row => ({row, breakId: bucket.break.id})))
-        for (let i = 0; i < allRows.length; i++) {
-            const {row, breakId} = allRows[i]
-            setProgress(`Adding giveaway ${i + 1} of ${allRows.length}…`)
-            const body: Event = {
+
+        const breakDb = new Map<number, Event[]>()
+        for (let i = 0; i < buckets.length; i++) {
+            const bucket = buckets[i]
+            setProgress(`Fetching ${i + 1} of ${buckets.length}: ${bucket.break.name}…`)
+            const resp: {events: Event[]} = await post(getEndpoints().break_events, {break_id: bucket.break.id})
+            breakDb.set(bucket.break.id, (resp.events ?? []).filter(e => e.is_giveaway))
+        }
+        setProgress(null)
+
+        const results: GiveawayMismatch[] = []
+        for (const bucket of buckets) {
+            const breakId = bucket.break.id
+            const breakName = bucket.break.name
+            const dbEvents = breakDb.get(breakId) ?? []
+
+            const csvByBuyer = new Map<string, GiveawayRow[]>()
+            for (const row of bucket.rows) {
+                if (!csvByBuyer.has(row.buyer)) csvByBuyer.set(row.buyer, [])
+                csvByBuyer.get(row.buyer)!.push(row)
+            }
+            const dbByCustomer = new Map<string, number[]>()
+            for (const e of dbEvents) {
+                if (!dbByCustomer.has(e.customer)) dbByCustomer.set(e.customer, [])
+                dbByCustomer.get(e.customer)!.push(e.id)
+            }
+
+            const buyers = new Set([...Array.from(csvByBuyer.keys()), ...Array.from(dbByCustomer.keys())])
+            for (const buyer of Array.from(buyers)) {
+                const csvRows = csvByBuyer.get(buyer) ?? []
+                const dbIds = dbByCustomer.get(buyer) ?? []
+                const surplusCsv = csvRows.slice(dbIds.length)
+                const surplusDb = dbIds.slice(csvRows.length)
+                for (const row of surplusCsv) {
+                    results.push({type: 'missing', breakName, breakId, buyer, productName: row.productName, giveawayType: getGiveawayType(row.productName)})
+                }
+                for (const eventId of surplusDb) {
+                    results.push({type: 'extra', breakName, breakId, buyer, productName: '', giveawayType: 0, eventId})
+                }
+            }
+        }
+        setMismatches(results)
+    }
+
+    async function handleAddMissing() {
+        if (!mismatches) return
+        const toFix = mismatches.filter(m => m.type === 'missing')
+        for (let i = 0; i < toFix.length; i++) {
+            const mm = toFix[i]
+            setProgress(`Adding ${i + 1} of ${toFix.length}: ${mm.buyer}…`)
+            await post(getEndpoints().event_add, {
                 id: 0,
                 index: -1,
-                break_id: breakId,
-                customer: row.buyer,
+                break_id: mm.breakId,
+                customer: mm.buyer,
                 price: 0,
                 team: '',
                 is_giveaway: true,
                 note: '',
                 quantity: 1,
-                giveaway_type: getGiveawayType(row.productName),
-            }
-            await post(getEndpoints().event_add, body)
+                giveaway_type: mm.giveawayType,
+            })
         }
+        setMismatches(m => m!.filter(x => x.type !== 'missing'))
+        setDidFix(true)
         setProgress(null)
-        setDone(true)
+    }
+
+    async function handleDeleteExtra() {
+        if (!mismatches) return
+        const toDelete = mismatches.filter(m => m.type === 'extra' && m.eventId !== undefined)
+        for (let i = 0; i < toDelete.length; i++) {
+            const mm = toDelete[i]
+            setProgress(`Deleting ${i + 1} of ${toDelete.length}: ${mm.buyer}…`)
+            await post(getEndpoints().event_delete, {id: mm.eventId})
+        }
+        setMismatches(m => m!.filter(x => x.type !== 'extra'))
+        setDidFix(true)
+        setProgress(null)
     }
 
     const totalRows = buckets?.reduce((sum, b) => sum + b.rows.length, 0) ?? 0
-
-    if (done) {
-        return (
-            <main className="d-flex justify-content-center mt-4">
-                <div className="text-center">
-                    <div className="alert alert-success">All giveaways imported successfully.</div>
-                    <button className="btn btn-primary" onClick={() => router.push(`/stream/${streamId}`)}>
-                        Back to stream
-                    </button>
-                </div>
-            </main>
-        )
-    }
+    const missingCount = mismatches?.filter(m => m.type === 'missing').length ?? 0
+    const extraCount = mismatches?.filter(m => m.type === 'extra').length ?? 0
 
     return (
         <main className="d-flex justify-content-center mt-4">
             <div style={{minWidth: 700}}>
-                <h4>Import giveaways</h4>
-
-                <div className="mb-3 d-flex align-items-center gap-2">
-                    <label className="form-label mb-0">Timezone</label>
-                    <select
-                        className="form-select form-select-sm w-auto"
-                        value={timezone}
-                        onChange={e => handleTimezoneChange(e.target.value)}
-                    >
-                        {timezoneList.map(tz => (
-                            <option key={tz} value={tz}>{tz}</option>
-                        ))}
-                    </select>
-                </div>
-
-                {fileErrors && (
-                    <table className="table table-bordered table-sm mb-3">
-                        <thead>
-                            <tr><th>Order ID</th><th>Error</th></tr>
-                        </thead>
-                        <tbody>
-                            {fileErrors.map((e, i) => (
-                                <tr key={i} className="text-danger">
-                                    <td>{e.orderId}</td>
-                                    <td>{e.error}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                )}
+                <h4>Giveaways</h4>
 
                 {!buckets && (
-                    <div className="mb-3">
-                        <input type="file" accept=".csv" ref={fileInputRef} className="d-none" onChange={handleFileSelected}/>
-                        <button className="btn btn-secondary" onClick={() => fileInputRef.current?.click()}>
-                            Upload selling report (.csv)
+                    <>
+                        <div className="mb-3 d-flex align-items-center gap-2">
+                            <label className="form-label mb-0">Timezone</label>
+                            <select
+                                className="form-select form-select-sm w-auto"
+                                value={timezone}
+                                onChange={e => handleTimezoneChange(e.target.value)}
+                            >
+                                {timezoneList.map(tz => (
+                                    <option key={tz} value={tz}>{tz}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {fileErrors && (
+                            <table className="table table-bordered table-sm mb-3">
+                                <thead>
+                                    <tr><th>Order ID</th><th>Error</th></tr>
+                                </thead>
+                                <tbody>
+                                    {fileErrors.map((e, i) => (
+                                        <tr key={i} className="text-danger">
+                                            <td>{e.orderId}</td>
+                                            <td>{e.error}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+
+                        <div className="mb-3">
+                            <input type="file" accept=".csv" ref={fileInputRef} className="d-none" onChange={handleFileSelected}/>
+                            <button className="btn btn-secondary" onClick={() => fileInputRef.current?.click()}>
+                                Upload selling report (.csv)
+                            </button>
+                        </div>
+
+                        <button className="btn btn-secondary mt-2" onClick={() => router.push(`/stream/${streamId}`)}>
+                            Cancel
                         </button>
-                    </div>
+                    </>
                 )}
 
                 {buckets && totalRows === 0 && (
-                    <div className="alert alert-warning">No giveaway entries found in this file.</div>
+                    <>
+                        <div className="alert alert-warning">No giveaway entries found in this file.</div>
+                        <button className="btn btn-primary" onClick={() => router.push(`/stream/${streamId}`)}>
+                            Back to stream
+                        </button>
+                    </>
                 )}
 
-                {buckets && totalRows > 0 && (
+                {buckets && totalRows > 0 && mismatches === null && (
                     <>
                         {buckets.map(bucket => (
                             <div key={bucket.break.id} className="border rounded p-3 mb-3">
@@ -316,14 +388,85 @@ export default function Page({params}: {params: {id: string}}) {
                             <button
                                 className="btn btn-primary"
                                 disabled={!!progress}
-                                onClick={handleContinue}
+                                onClick={handleVerify}
                             >
-                                Continue
+                                Verify
                             </button>
                             <button className="btn btn-secondary" onClick={() => router.push(`/stream/${streamId}`)}>
                                 Cancel
                             </button>
                         </div>
+                    </>
+                )}
+
+                {mismatches !== null && (
+                    <>
+                        {mismatches.length === 0 && (
+                            <>
+                                <div className="alert alert-success">
+                                    {didFix ? 'All mismatches fixed.' : 'All giveaways match!'}
+                                </div>
+                                <button className="btn btn-primary" onClick={() => router.push(`/stream/${streamId}`)}>
+                                    Back to stream
+                                </button>
+                            </>
+                        )}
+
+                        {mismatches.length > 0 && (
+                            <>
+                                <table className="table table-bordered mt-3">
+                                    <thead>
+                                        <tr>
+                                            <th>Break</th>
+                                            <th>Buyer</th>
+                                            <th>Product</th>
+                                            <th>Type</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {mismatches.map((mm, i) => (
+                                            <tr key={i}>
+                                                <td>{mm.breakName}</td>
+                                                <td>{mm.buyer}</td>
+                                                <td>{mm.productName || '—'}</td>
+                                                <td>
+                                                    {mm.type === 'missing'
+                                                        ? <span className="text-danger">Missing in DB</span>
+                                                        : <span className="text-warning">Extra in DB</span>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+
+                                {progress && <div className="alert alert-info">{progress}</div>}
+
+                                <div className="d-flex gap-2">
+                                    {missingCount > 0 && (
+                                        <button
+                                            className="btn btn-warning"
+                                            disabled={!!progress}
+                                            onClick={handleAddMissing}
+                                        >
+                                            Add {missingCount} missing
+                                        </button>
+                                    )}
+                                    {extraCount > 0 && (
+                                        <button
+                                            className="btn btn-danger"
+                                            disabled={!!progress}
+                                            onClick={handleDeleteExtra}
+                                        >
+                                            Delete {extraCount} extra
+                                        </button>
+                                    )}
+                                    <button className="btn btn-secondary" onClick={() => router.push(`/stream/${streamId}`)}>
+                                        Cancel
+                                    </button>
+                                </div>
+                            </>
+                        )}
                     </>
                 )}
             </div>

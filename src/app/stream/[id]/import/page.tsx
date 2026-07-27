@@ -1,10 +1,10 @@
 'use client'
 
-import React, {useRef, useState} from "react";
+import React, {useEffect, useRef, useState} from "react";
 import {useRouter} from "next/navigation";
 import {Teams} from "@/app/common/teams";
 import {getEndpoints, post} from "@/app/lib/backend";
-import {AddBreakResponse, Event, GiveawayTypeNone, WNBreak} from "@/app/entity/entities";
+import {AddBreakResponse, Event, GetChannelsChannel, GiveawayTypeNone, WNBreak} from "@/app/entity/entities";
 
 const COL_ORDER_ID = 0
 const COL_TITLE = 1
@@ -82,6 +82,13 @@ export default function Page({params}: {params: {id: string}}) {
     const [validations, setValidations] = useState<BreakValidation[] | null>(null)
     const [progress, setProgress] = useState<string | null>(null)
     const [done, setDone] = useState(false)
+    const [highBidTeam, setHighBidTeam] = useState('')
+
+    useEffect(() => {
+        post(getEndpoints().channel_by_stream, {stream_id: streamId}).then((data: GetChannelsChannel) => {
+            if (data) setHighBidTeam(data.default_high_bid_team ?? '')
+        })
+    }, []);
 
     function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0]
@@ -94,6 +101,15 @@ export default function Page({params}: {params: {id: string}}) {
         }
         reader.readAsText(file)
         e.target.value = ''
+    }
+
+    function getEffectiveMissingTeams(v: BreakValidation): string[] {
+        if (!highBidTeam) return v.missingTeams
+        return v.missingTeams.filter(t => t !== highBidTeam)
+    }
+
+    function isEffectivelyValid(v: BreakValidation): boolean {
+        return getEffectiveMissingTeams(v).length === 0 && v.teamsWithoutBuyer.length === 0
     }
 
     async function handleContinue() {
@@ -166,7 +182,7 @@ export default function Page({params}: {params: {id: string}}) {
         setDone(true)
     }
 
-    const allValid = validations !== null && validations.every(v => v.valid)
+    const allValid = validations !== null && validations.every(v => isEffectivelyValid(v))
 
     if (done) {
         return (
@@ -219,6 +235,7 @@ export default function Page({params}: {params: {id: string}}) {
                                     <th>Status</th>
                                     <th>Buyers</th>
                                     <th>Misc spots</th>
+                                    <th>High bid team</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -226,13 +243,19 @@ export default function Page({params}: {params: {id: string}}) {
                                     <tr key={v.breakName}>
                                         <td>{v.breakName}</td>
                                         <td>
-                                            {v.valid
+                                            {isEffectivelyValid(v)
                                                 ? <span className="text-success">Valid</span>
                                                 : <span className="text-danger">Invalid</span>
                                             }
                                         </td>
                                         <td>{v.buyerCount}</td>
                                         <td>{v.miscCount}</td>
+                                        <td>
+                                            {highBidTeam && v.missingTeams.includes(highBidTeam)
+                                                ? highBidTeam
+                                                : '—'
+                                            }
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -240,7 +263,7 @@ export default function Page({params}: {params: {id: string}}) {
 
                         {!allValid && (() => {
                             const errors = validations.flatMap(v => [
-                                ...v.missingTeams.map(t => ({orderId: '', error: `${v.breakName}: missing team "${t}"`})),
+                                ...getEffectiveMissingTeams(v).map(t => ({orderId: '', error: `${v.breakName}: missing team "${t}"`})),
                                 ...v.teamsWithoutBuyer.map(t => ({orderId: t.orderId, error: `${v.breakName}: no buyer for "${t.team}"`})),
                             ])
                             return (

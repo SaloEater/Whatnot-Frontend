@@ -17,6 +17,7 @@ export default function Page({params} : {params: {id: string}}) {
     const [closedSeries, setClosedSeries] = useState<Series[]>([])
     const [selectedSeriesId, setSelectedSeriesId] = useState<number | null>(null)
     const [channelId, setChannelId] = useState<number | null>(null)
+    const [devMode, setDevMode] = useState(false)
     let router = useRouter()
 
     useEffect(() => {
@@ -101,6 +102,20 @@ export default function Page({params} : {params: {id: string}}) {
         router.push(`/break/${id}`)
     }
 
+    async function deleteBreak(breakObject: WNBreak, index: number) {
+        if (!window.confirm(`Delete break "${breakObject.name}"?`)) return
+
+        const response = await post(getEndpoints().break_delete, {id: breakObject.id})
+        if (response?.success) {
+            removeBreak(index)
+            setToastMessage(`Break ${breakObject.name} deleted`)
+            setTimeout(() => setToastMessage(null), 3000)
+        } else {
+            setToastMessage(`Failed to delete break ${breakObject.name}`)
+            setTimeout(() => setToastMessage(null), 3000)
+        }
+    }
+
     async function setSeriesForAllBreaks() {
         if (!selectedSeriesId) return
         for (const b of breaks) {
@@ -116,6 +131,18 @@ export default function Page({params} : {params: {id: string}}) {
             {toastMessage && <div className='position-fixed top-0 start-50 translate-middle-x mt-3 alert alert-success z-3'>
                 {toastMessage}
             </div>}
+            <div className="position-fixed bottom-0 end-0 m-3 z-3">
+                <div className="form-check form-switch">
+                    <input
+                        className="form-check-input"
+                        type="checkbox"
+                        id="devModeSwitch"
+                        checked={devMode}
+                        onChange={(e) => setDevMode(e.target.checked)}
+                    />
+                    <label className="form-check-label" htmlFor="devModeSwitch">dev</label>
+                </div>
+            </div>
             <div className="d-flex justify-content-center">
                 <div className='pe-3 d-flex flex-column gap-2'>
                     <button type="button" className="btn btn-primary" onClick={() => router.push(`/package/${streamId}`)}>
@@ -124,14 +151,11 @@ export default function Page({params} : {params: {id: string}}) {
                     <button type="button" className="btn btn-secondary" onClick={() => router.push(`/stream/${streamId}/import`)}>
                         Import livestream
                     </button>
-                    <button type="button" className="btn btn-secondary" onClick={() => router.push(`/stream/${streamId}/import-giveaways`)}>
-                        Import giveaways
+                    <button type="button" className="btn btn-secondary" onClick={() => router.push(`/stream/${streamId}/giveaways`)}>
+                        Giveaways
                     </button>
                     <button type="button" className="btn btn-secondary" onClick={() => router.push(`/stream/${streamId}/verify-teams`)}>
                         Verify teams
-                    </button>
-                    <button type="button" className="btn btn-secondary" onClick={() => router.push(`/stream/${streamId}/verify-giveaways`)}>
-                        Verify giveaways
                     </button>
                     <div className="d-flex gap-1">
                         <select
@@ -163,6 +187,18 @@ export default function Page({params} : {params: {id: string}}) {
                                         <div className="container-fluid">
                                             <div className="row">
                                                 <div className="col" onClick={() => redirectToBreak(breakObject.id)}>{breakObject.name}</div>
+                                                {devMode && <div className="col-auto">
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-sm btn-danger"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            deleteBreak(breakObject, index)
+                                                        }}
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </div>}
                                             </div>
                                         </div>
                                     </li>
