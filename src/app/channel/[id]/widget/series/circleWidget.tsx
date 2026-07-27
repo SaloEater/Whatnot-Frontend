@@ -12,9 +12,10 @@ interface CircleWidgetProps {
     neonGlowMid: string
     circleBackground: string
     spinDuration: number
-    formatValue?: (value: number) => string
+    formatValue?: (value: string | number) => string
     requestBody?: object
     valueField?: string
+    valueClassName?: string
 }
 
 const POLL_MS = 5000
@@ -30,14 +31,15 @@ export function CircleWidget({
     formatValue = (p) => `$${p}`,
     requestBody,
     valueField = 'price',
+    valueClassName,
 }: CircleWidgetProps) {
-    const [value, setValue] = useState<number | null>(null)
+    const [value, setValue] = useState<string | number | null>(null)
 
     useEffect(() => {
         const body = requestBody ?? {channel_id: channelId}
         function fetch() {
             post(getEndpoints()[endpointKey], body)
-                .then((data: Record<string, number>) => {
+                .then((data: Record<string, string | number>) => {
                     if (data?.[valueField] !== undefined) setValue(data[valueField])
                 })
         }
@@ -58,7 +60,7 @@ export function CircleWidget({
                     <span>{lines[1]}</span>
                 </div>
                 <div className="widget-content">
-                    <span>{value !== null ? formatValue(value) : ''}</span>
+                    <span className={valueClassName}>{value !== null ? formatValue(value) : ''}</span>
                 </div>
                 <div className="widget-corner" />
             </div>

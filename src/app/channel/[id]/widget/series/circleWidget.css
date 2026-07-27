@@ -81,3 +81,10 @@
     border-radius: 50%;
     background: radial-gradient(ellipse at center, color-mix(in srgb, var(--circle-bg) 80%, #ffffff) 5%, #000000 100%);
 }
+
+.widget-content span.widget-content--text {
+    text-align: center;
+    padding: 0 3vmin;
+    overflow-wrap: anywhere;
+    line-height: 1.1;
+}

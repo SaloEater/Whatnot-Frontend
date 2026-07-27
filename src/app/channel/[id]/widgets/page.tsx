@@ -46,6 +46,10 @@ export default function Page({params}: {params: {id: string}}) {
     const [countSaving, setCountSaving] = useState(false)
     const [customInput, setCustomInput] = useState('')
 
+    const [seriesName, setSeriesName] = useState('')
+    const [nameSaving, setNameSaving] = useState(false)
+    const [nameStatus, setNameStatus] = useState<'idle' | 'ok' | 'error'>('idle')
+
     const [bpbAmount, setBpbAmount] = useState<number | null>(null)
     const [bpbSaving, setBpbSaving] = useState(false)
     const [bpbStatus, setBpbStatus] = useState<'idle' | 'ok' | 'error'>('idle')
@@ -113,6 +117,7 @@ export default function Page({params}: {params: {id: string}}) {
                     const [f, t] = parsePrice(d.default_price ?? '')
                     setPriceFrom(f)
                     setPriceTo(t)
+                    setSeriesName(d.name ?? '')
                 }
             })
     }
@@ -279,6 +284,27 @@ export default function Page({params}: {params: {id: string}}) {
         }
     }
 
+    async function saveSeriesName() {
+        if (!countData || !breakObject?.series_id || !seriesName.trim()) return
+        setNameSaving(true)
+        setNameStatus('idle')
+        try {
+            await post(getEndpoints().series_update, {
+                id: breakObject.series_id,
+                name: seriesName.trim(),
+                used_cards: countData.used_cards,
+                total_cards: countData.total_cards,
+                default_price: countData.default_price,
+            })
+            setCountData((prev) => prev ? {...prev, name: seriesName.trim()} : prev)
+            setNameStatus('ok')
+        } catch {
+            setNameStatus('error')
+        } finally {
+            setNameSaving(false)
+        }
+    }
+
     async function setUsedCards(value: number) {
         if (!countData || !breakObject?.series_id) return
         setCountSaving(true)
@@ -393,6 +419,31 @@ export default function Page({params}: {params: {id: string}}) {
                                     {bpbStatus === 'error' && <span className="text-danger">Error</span>}
                                 </div>
                             ) : null)}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="col-auto">
+                    <div className="card">
+                        <div className="card-body">
+                            <h6 className="card-title">Series: Name</h6>
+                            {seriesStatus ?? (
+                                <div className="d-flex align-items-center gap-2">
+                                    <label className="form-label mb-0 text-nowrap">Name</label>
+                                    <input
+                                        type="text"
+                                        className="form-control"
+                                        style={{width: '160px'}}
+                                        value={seriesName}
+                                        onChange={(e) => { setSeriesName(e.target.value); setNameStatus('idle') }}
+                                    />
+                                    <button className="btn btn-primary" onClick={saveSeriesName} disabled={nameSaving || !seriesName.trim()}>
+                                        {nameSaving ? 'Saving…' : 'Save'}
+                                    </button>
+                                    {nameStatus === 'ok'    && <span className="text-success">Saved</span>}
+                                    {nameStatus === 'error' && <span className="text-danger">Error</span>}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
