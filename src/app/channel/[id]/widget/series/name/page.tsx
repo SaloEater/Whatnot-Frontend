@@ -26,8 +26,8 @@ export default function Page({params}: {params: {id: string}}) {
             channelId={channelId}
             endpointKey="series_get"
             lines={['CURRENT', 'SERIES']}
-            neonColor="#76d7d8"
-            neonGlowMid="#9bd7d8"
+            neonColor="#d93957"
+            neonGlowMid="#d9203e"
             circleBackground="#293d56"
             spinDuration={24}
             formatValue={(v) => String(v)}
