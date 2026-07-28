@@ -43,7 +43,7 @@ function formatTime(d: Date, tz: string): string {
     return d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: tz})
 }
 
-function parseAndBucket(content: string, breaks: WNBreak[]): Bucket[] {
+function parseAndBucket(content: string, breaks: WNBreak[], pattern: string): Bucket[] {
     const result = Papa.parse<Record<string, string>>(content, {header: true, skipEmptyLines: true})
 
     // Sort all non-cancelled rows globally so neighbors reflect the full CSV context
@@ -54,7 +54,7 @@ function parseAndBucket(content: string, breaks: WNBreak[]): Bucket[] {
 
     type InternalRow = GiveawayRow & { clusterIndex: number }
     const giveaways: InternalRow[] = allSorted
-        .flatMap((r, i) => isGiveaway(r.productName) ? [{
+        .flatMap((r, i) => isGiveaway(r.productName, pattern) ? [{
             orderId: r.orderId,
             productName: r.productName,
             buyer: r.buyer,
@@ -108,6 +108,8 @@ export default function Page({params}: {params: {id: string}}) {
     const [didFix, setDidFix] = useState(false)
     const [timezone, setTimezone] = useState('UTC')
     const [timezoneList, setTimezoneList] = useState<string[]>([])
+    const [csvContent, setCsvContent] = useState<string | null>(null)
+    const [giveawayPattern, setGiveawayPattern] = useState('giveaway')
 
     useEffect(() => {
         post(getEndpoints().stream_breaks, {id: streamId})
@@ -122,23 +124,28 @@ export default function Page({params}: {params: {id: string}}) {
         localStorage.setItem(TIMEZONE_KEY, tz)
     }
 
+    function processContent(content: string, pattern: string) {
+        const parsed = parseAndBucket(content, breaks, pattern)
+        const emptyBuyerRows = parsed.flatMap(b => b.rows).filter(r => !r.buyer)
+        if (emptyBuyerRows.length > 0) {
+            setFileErrors(emptyBuyerRows.map(r => ({orderId: r.orderId || '—', error: `No buyer for "${r.productName}"`})))
+            setBuckets(null)
+            return
+        }
+        setFileErrors(null)
+        setBuckets(parsed)
+        setMismatches(null)
+        setDidFix(false)
+    }
+
     function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0]
         if (!file) return
         const reader = new FileReader()
         reader.onload = (ev) => {
             const content = ev.target?.result as string
-            const parsed = parseAndBucket(content, breaks)
-            const emptyBuyerRows = parsed.flatMap(b => b.rows).filter(r => !r.buyer)
-            if (emptyBuyerRows.length > 0) {
-                setFileErrors(emptyBuyerRows.map(r => ({orderId: r.orderId || '—', error: `No buyer for "${r.productName}"`})))
-                setBuckets(null)
-                return
-            }
-            setFileErrors(null)
-            setBuckets(parsed)
-            setMismatches(null)
-            setDidFix(false)
+            setCsvContent(content)
+            processContent(content, giveawayPattern)
         }
         reader.readAsText(file)
         e.target.value = ''
@@ -310,9 +317,27 @@ export default function Page({params}: {params: {id: string}}) {
                 {buckets && totalRows === 0 && (
                     <>
                         <div className="alert alert-warning">No giveaway entries found in this file.</div>
-                        <button className="btn btn-primary" onClick={() => router.push(`/stream/${streamId}`)}>
-                            Back to stream
-                        </button>
+                        <div className="mb-3">
+                            <label className="form-label">Giveaway pattern (What is the text that is present in all giveaways, i.e. giveaway #1; giveaway #2; giveaway #3 - means that pattern is the word "giveaway")</label>
+                            <input
+                                type="text"
+                                className="form-control"
+                                value={giveawayPattern}
+                                onChange={e => setGiveawayPattern(e.target.value)}
+                            />
+                        </div>
+                        <div className="d-flex gap-2">
+                            <button
+                                className="btn btn-primary"
+                                disabled={!giveawayPattern.trim() || csvContent === null}
+                                onClick={() => processContent(csvContent!, giveawayPattern)}
+                            >
+                                Detect
+                            </button>
+                            <button className="btn btn-secondary" onClick={() => router.push(`/stream/${streamId}`)}>
+                                Back to stream
+                            </button>
+                        </div>
                     </>
                 )}
 
