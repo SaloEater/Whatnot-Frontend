@@ -1,0 +1,81 @@
+/*
+ * Shared CSS for every page built on the composite canvas (the live overlay
+ * at `[id]/page.tsx` and the results screen at `[id]/results/page.tsx`).
+ * Extracted from `[id]/page.css` so both pages import one copy instead of
+ * duplicating font-faces and the stage-scale scaffolding.
+ *
+ * Each page's own `page.css` `@import`s this file. Next.js removes a route's
+ * CSS chunk when it unmounts, so the transparent-body override below does
+ * not leak onto other pages — same pattern as src/app/obs/[id]/page.css's
+ * `body {...}` rule.
+ *
+ * Both pages run as an OBS browser source over a live camera feed: the
+ * camera hole (see HoleBackdrop.tsx) relies on genuine CSS transparency, so
+ * the default Bootstrap dark-theme body background must be neutralized here.
+ */
+html,
+body {
+  background: transparent !important;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+/*
+ * Self-hosted Barlow Condensed — spec's Typography section (overlay-4h-spec.md
+ * lines 60-98). Family name is exactly "Barlow Condensed" so every component's
+ * literal `FONT.display` string (tokens.ts) resolves to a real registered
+ * font instead of silently falling back to sans-serif.
+ *
+ * font-display: block, per the spec: "a beat of invisible text beats a
+ * visible reflow" — an OBS browser source paints immediately and may have no
+ * network, so a FOIT (rather than a fallback-metric reflow) protects the
+ * layout maths (see tokens.ts FONT comment: "$100" at 36px only fits the
+ * ~73px tile because of Condensed's narrow advance width).
+ *
+ * Only 400 and 600 ship — that is the whole set the spec calls for. No
+ * Google Fonts request, no `next/font` — see page.tsx.
+ */
+@font-face {
+  font-family: 'Barlow Condensed';
+  src: url('/fonts/barlow-condensed-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Barlow Condensed';
+  src: url('/fonts/barlow-condensed-600.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: block;
+}
+
+.composite-stage-outer {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+.composite-canvas {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  /*
+   * `scale(min(100vw / 1080, 100vh / 1920))` looks right but is invalid CSS:
+   * `100vw / 1080` divides a length by a number, producing a length, and
+   * scale() requires a bare number — the whole declaration gets parsed out.
+   * The scale factor is computed in JS instead (see useStageScale.ts) and
+   * passed in as --stage-scale, which also works on OBS's older CEF. The
+   * var() fallback of 1 only matters for a stray render before the custom
+   * property is set.
+   */
+  transform: translate(-50%, -50%) scale(var(--stage-scale, 1));
+  transform-origin: center center;
+  background: transparent;
+  /* Mock line 5: keeps stage 3's gear train (z-index -1) inside this box's
+     own stacking context instead of sinking behind the fixed outer wrapper. */
+  isolation: isolate;
+}

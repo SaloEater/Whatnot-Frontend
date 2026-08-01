@@ -1,0 +1,8 @@
+/*
+ * Scoped to /obs/composite/[id]. All shared rules (font-faces, transparent
+ * body, .composite-stage-outer/.composite-canvas) now live in
+ * src/app/obs/composite/composite.css, shared with the results screen at
+ * [id]/results/page.css. Nothing in this page's shell is unique to the live
+ * overlay, so this file is just the import.
+ */
+@import '../composite.css';

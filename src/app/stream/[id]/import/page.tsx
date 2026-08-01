@@ -2,7 +2,8 @@
 
 import React, {useEffect, useRef, useState} from "react";
 import {useRouter} from "next/navigation";
-import {Teams} from "@/app/common/teams";
+import {IsTeam, Teams} from "@/app/common/teams";
+import {sortBreaksById} from "@/app/common/breaks";
 import {getEndpoints, post} from "@/app/lib/backend";
 import {AddBreakResponse, Event, GetChannelsChannel, GiveawayTypeNone, WNBreak} from "@/app/entity/entities";
 
@@ -25,9 +26,10 @@ interface BreakValidation {
     valid: boolean
     missingTeams: string[]
     teamsWithoutBuyer: {team: string; orderId: string}[]
-    miscCount: number
+    customSpotCount: number
     buyerCount: number
     rows: ParsedRow[]
+    targetBreakId: number
 }
 
 function parseCsv(content: string): ParsedRow[] {
@@ -46,7 +48,12 @@ function parseCsv(content: string): ParsedRow[] {
     }).filter(r => r.breakName !== '' && r.team !== '')
 }
 
-function validateBreaks(rows: ParsedRow[]): BreakValidation[] {
+function tryMatch(csvName: string, breaks: WNBreak[]): WNBreak | null {
+    const lower = csvName.toLowerCase()
+    return breaks.find(b => b.name.toLowerCase() === lower) ?? null
+}
+
+function validateBreaks(rows: ParsedRow[], breaks: WNBreak[]): BreakValidation[] {
     const grouped = new Map<string, ParsedRow[]>()
     for (const row of rows) {
         if (!grouped.has(row.breakName)) grouped.set(row.breakName, [])
@@ -55,22 +62,36 @@ function validateBreaks(rows: ParsedRow[]): BreakValidation[] {
 
     const results: BreakValidation[] = []
     for (const [breakName, breakRows] of Array.from(grouped)) {
-        const presentTeams = new Set(breakRows.filter(r => r.team !== 'Miscellaneous').map(r => r.team))
+        const presentTeams = new Set(breakRows.filter(r => IsTeam(r.team)).map(r => r.team))
         const missingTeams = Teams.filter(t => !presentTeams.has(t))
-        const teamsWithoutBuyer = breakRows.filter(r => r.team !== 'Miscellaneous' && r.username === '').map(r => ({team: r.team, orderId: r.orderId}))
-        const miscCount = breakRows.filter(r => r.team === 'Miscellaneous').length
+        const teamsWithoutBuyer = breakRows.filter(r => IsTeam(r.team) && r.username === '').map(r => ({team: r.team, orderId: r.orderId}))
+        const customSpotCount = breakRows.filter(r => !IsTeam(r.team)).length
         const uniqueBuyers = new Set(breakRows.filter(r => r.username !== '').map(r => r.username))
         results.push({
             breakName,
             valid: missingTeams.length === 0 && teamsWithoutBuyer.length === 0,
             missingTeams,
             teamsWithoutBuyer,
-            miscCount,
+            customSpotCount,
             buyerCount: uniqueBuyers.size,
             rows: breakRows,
+            targetBreakId: tryMatch(breakName, breaks)?.id ?? 0,
         })
     }
     return results
+}
+
+function getDuplicateTargetIds(validations: BreakValidation[]): Set<number> {
+    const counts = new Map<number, number>()
+    for (const v of validations) {
+        if (v.targetBreakId === 0) continue
+        counts.set(v.targetBreakId, (counts.get(v.targetBreakId) ?? 0) + 1)
+    }
+    const dup = new Set<number>()
+    for (const [id, count] of Array.from(counts)) {
+        if (count > 1) dup.add(id)
+    }
+    return dup
 }
 
 export default function Page({params}: {params: {id: string}}) {
@@ -79,6 +100,7 @@ export default function Page({params}: {params: {id: string}}) {
     const fileInputRef = useRef<HTMLInputElement>(null)
 
     const [selectedType, setSelectedType] = useState('')
+    const [breaks, setBreaks] = useState<WNBreak[]>([])
     const [validations, setValidations] = useState<BreakValidation[] | null>(null)
     const [progress, setProgress] = useState<string | null>(null)
     const [done, setDone] = useState(false)
@@ -88,6 +110,7 @@ export default function Page({params}: {params: {id: string}}) {
         post(getEndpoints().channel_by_stream, {stream_id: streamId}).then((data: GetChannelsChannel) => {
             if (data) setHighBidTeam(data.default_high_bid_team ?? '')
         })
+        post(getEndpoints().stream_breaks, {id: streamId}).then((b: WNBreak[]) => setBreaks(sortBreaksById(b)))
     }, []);
 
     function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
@@ -97,10 +120,14 @@ export default function Page({params}: {params: {id: string}}) {
         reader.onload = (ev) => {
             const content = ev.target?.result as string
             const rows = parseCsv(content)
-            setValidations(validateBreaks(rows))
+            setValidations(validateBreaks(rows, breaks))
         }
         reader.readAsText(file)
         e.target.value = ''
+    }
+
+    function setTargetBreak(breakName: string, breakId: number) {
+        setValidations(old => old!.map(v => v.breakName === breakName ? {...v, targetBreakId: breakId} : v))
     }
 
     function getEffectiveMissingTeams(v: BreakValidation): string[] {
@@ -118,29 +145,30 @@ export default function Page({params}: {params: {id: string}}) {
 
         for (let i = 0; i < validations.length; i++) {
             const v = validations[i]
-            setProgress(`Creating break ${i + 1} of ${validations.length}: ${v.breakName}…`)
 
-            const breakBody: WNBreak = {
-                id: 0,
-                day_id: streamId,
-                name: v.breakName,
-                start_date: date,
-                end_date: date,
-                is_deleted: false,
-                high_bid_floor: 0,
-                high_bid_team: '',
-                giveaway_team: '',
-            }
+            if (v.targetBreakId === 0) {
+                setProgress(`Creating break ${i + 1} of ${validations.length}: ${v.breakName}…`)
 
-            const response: AddBreakResponse = await post(getEndpoints().break_add, breakBody)
-            const breakId = response.id
+                const breakBody: WNBreak = {
+                    id: 0,
+                    day_id: streamId,
+                    name: v.breakName,
+                    start_date: date,
+                    end_date: date,
+                    is_deleted: false,
+                    high_bid_floor: 0,
+                    high_bid_team: '',
+                    giveaway_team: '',
+                }
 
-            const teamRows = v.rows.filter(r => r.team !== 'Miscellaneous')
-            const miscRows = v.rows.filter(r => r.team === 'Miscellaneous')
+                const response: AddBreakResponse = await post(getEndpoints().break_add, breakBody)
+                const breakId = response.id
 
-            let chain = Promise.resolve()
-            Teams.forEach((teamName, j) => {
-                chain = chain.then(() => {
+                const teamRows = v.rows.filter(r => IsTeam(r.team))
+                const customSpotRows = v.rows.filter(r => !IsTeam(r.team))
+
+                for (let j = 0; j < Teams.length; j++) {
+                    const teamName = Teams[j]
                     const teamRow = teamRows.find(r => r.team === teamName)
                     const eventBody: Event = {
                         id: 0,
@@ -154,11 +182,11 @@ export default function Page({params}: {params: {id: string}}) {
                         note: '',
                         quantity: 0,
                     }
-                    return post(getEndpoints().event_add, eventBody).then(() => {})
-                })
-            })
-            miscRows.forEach((row, j) => {
-                chain = chain.then(() => {
+                    await post(getEndpoints().event_add, eventBody)
+                }
+
+                for (let j = 0; j < customSpotRows.length; j++) {
+                    const row = customSpotRows[j]
                     const eventBody: Event = {
                         id: 0,
                         index: Teams.length + j,
@@ -166,23 +194,68 @@ export default function Page({params}: {params: {id: string}}) {
                         break_id: breakId,
                         customer: row.username,
                         price: row.price,
-                        team: 'Miscellaneous',
+                        team: row.team,
                         is_giveaway: false,
                         note: '',
                         quantity: 0,
                     }
-                    return post(getEndpoints().event_add, eventBody).then(() => {})
-                })
-            })
+                    await post(getEndpoints().event_add, eventBody)
+                }
+            } else {
+                setProgress(`Importing into existing break ${i + 1} of ${validations.length}: ${v.breakName}…`)
 
-            await chain
+                const breakId = v.targetBreakId
+                const resp: {events: Event[]} = await post(getEndpoints().break_events, {break_id: breakId})
+                const existingEvents = (resp.events ?? []).filter(e => !e.is_giveaway)
+
+                const queue = new Map<string, Event[]>()
+                for (const ev of existingEvents) {
+                    if (!queue.has(ev.team)) queue.set(ev.team, [])
+                    queue.get(ev.team)!.push(ev)
+                }
+                for (const list of Array.from(queue.values())) {
+                    list.sort((a, b) => a.index - b.index)
+                }
+
+                let nextIndex = existingEvents.length > 0
+                    ? Math.max(...existingEvents.map(e => e.index)) + 1
+                    : Teams.length
+
+                for (const row of v.rows) {
+                    const list = queue.get(row.team)
+                    const existing = list && list.length > 0 ? list.shift() : undefined
+
+                    if (existing) {
+                        if (existing.customer !== row.username || existing.price !== row.price) {
+                            await post(getEndpoints().event_update, {...existing, customer: row.username, price: row.price})
+                        }
+                    } else {
+                        const eventBody: Event = {
+                            id: 0,
+                            index: nextIndex,
+                            giveaway_type: GiveawayTypeNone,
+                            break_id: breakId,
+                            customer: row.username,
+                            price: row.price,
+                            team: row.team,
+                            is_giveaway: false,
+                            note: '',
+                            quantity: 0,
+                        }
+                        nextIndex++
+                        await post(getEndpoints().event_add, eventBody)
+                    }
+                }
+            }
         }
 
         setProgress(null)
         setDone(true)
     }
 
-    const allValid = validations !== null && validations.every(v => isEffectivelyValid(v))
+    const duplicateTargetIds = validations ? getDuplicateTargetIds(validations) : new Set<number>()
+    const hasDuplicateTargets = duplicateTargetIds.size > 0
+    const allValid = validations !== null && validations.every(v => isEffectivelyValid(v)) && !hasDuplicateTargets
 
     if (done) {
         return (
@@ -234,8 +307,9 @@ export default function Page({params}: {params: {id: string}}) {
                                     <th>Break</th>
                                     <th>Status</th>
                                     <th>Buyers</th>
-                                    <th>Misc spots</th>
+                                    <th>Custom spots</th>
                                     <th>High bid team</th>
+                                    <th>Import into</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -249,23 +323,42 @@ export default function Page({params}: {params: {id: string}}) {
                                             }
                                         </td>
                                         <td>{v.buyerCount}</td>
-                                        <td>{v.miscCount}</td>
+                                        <td>{v.customSpotCount}</td>
                                         <td>
                                             {highBidTeam && v.missingTeams.includes(highBidTeam)
                                                 ? highBidTeam
                                                 : '—'
                                             }
                                         </td>
+                                        <td>
+                                            <select
+                                                className={`form-select form-select-sm ${v.targetBreakId !== 0 && duplicateTargetIds.has(v.targetBreakId) ? 'is-invalid' : ''}`}
+                                                value={v.targetBreakId}
+                                                onChange={e => setTargetBreak(v.breakName, parseInt(e.target.value))}
+                                            >
+                                                <option value={0}>— Create new break —</option>
+                                                {breaks.map(b => (
+                                                    <option key={b.id} value={b.id}>{b.name}</option>
+                                                ))}
+                                            </select>
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
+
+                        {hasDuplicateTargets && (
+                            <div className="text-danger small mb-2">
+                                Multiple CSV breaks are targeting the same existing break. Each existing break can only be targeted by one CSV break.
+                            </div>
+                        )}
 
                         {!allValid && (() => {
                             const errors = validations.flatMap(v => [
                                 ...getEffectiveMissingTeams(v).map(t => ({orderId: '', error: `${v.breakName}: missing team "${t}"`})),
                                 ...v.teamsWithoutBuyer.map(t => ({orderId: t.orderId, error: `${v.breakName}: no buyer for "${t.team}"`})),
                             ])
+                            if (errors.length === 0) return null
                             return (
                                 <table className="table table-bordered table-sm mt-2">
                                     <thead>
