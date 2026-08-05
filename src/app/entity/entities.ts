@@ -62,12 +62,18 @@ export interface SeriesWithCount extends Series {
     sold_count: number
 }
 
+export interface SeriesListPage {
+    items: Series[]
+    total: number
+}
+
 export interface Photo {
     id: number
     series_id: number
     name: string
     team: string
     url: string
+    thumbnail: string
     price: number
     is_sold: boolean
     created_at: string
@@ -93,6 +99,7 @@ export interface StreamResponse extends WNStream {}
 
 export interface GetStreamsResponse {
     streams: StreamResponse[]
+    total: number
 }
 
 export interface GetChannelsChannel extends WNChannel {

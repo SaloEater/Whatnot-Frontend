@@ -2,68 +2,86 @@
 
 /**
  * Results screen (figure 1f) — shown after a break closes. Reports who took
- * every slot, with a camera window at the foot so the breaker stays on
- * camera while reading the board out. See overlay-1f-spec.md and
- * overlay-1f-plan.md for the full brief; this page just wires the shell
- * (results.ts layout/placement, tokens.ts palette/type) together.
+ * every slot. See overlay-1f-spec.md and overlay-1f-plan.md for the full
+ * brief; this page just wires the shell (results.ts layout/placement,
+ * tokens.ts palette/type) together.
+ *
+ * NO CAMERA WINDOW (user decision, supersedes spec §3): the 864x492 window
+ * that originally sat at the foot is removed entirely — the background is a
+ * plain opaque cella fill (plus the live overlay's ambient GearTrain), the
+ * GRID is pinned at 20% of the canvas height, and the title band hangs
+ * above it (results.ts's RESULTS_GRID_TOP / RESULTS_TITLE_TOP).
  *
  * A SEPARATE route from the live overlay ([id]/page.tsx) on purpose — this
  * screen has a different lifecycle (a closed break, static content, slow
  * polling) and a different data window (break_events for one specific break,
  * not the channel's currently-active one necessarily — see useResultsData's
- * `?break=` override / Decision D2). It shares only the canvas scaffolding
- * (useStageScale, HoleBackdrop, composite.css) and the palette/layout tokens
- * with the live page — nothing from board.ts's route/ORDER/portal machinery,
- * per the plan's §3: "the results grid is not a path."
+ * `?break=` override / Decision D2). It shares the canvas scaffolding
+ * (useStageScale, composite.css), the palette/layout tokens, and the shell
+ * chrome (FrameBorder + MeanderBand + GearTrain, with the frame-band
+ * geometry constants from geometry.ts) with the live page — but nothing
+ * from board.ts's route/ORDER/portal machinery, per the plan's §3: "the
+ * results grid is not a path."
  */
 import { useEffect } from 'react'
 import './page.css'
-import { CANVAS, COLOR, FONT, SPACE, TRACKING } from '@/app/obs/composite/tokens'
+import { CANVAS, COLOR, FONT, SHELL, TRACKING } from '@/app/obs/composite/tokens'
 import {
-  RESULTS_CAMERA_TOP,
   RESULTS_GRID_TOP,
   RESULTS_LAYOUT,
   RESULTS_TITLE_TOP,
   checkResultsGeometry,
   type PlacedResult,
 } from '@/app/obs/composite/results'
+import {
+  BOTTOM_BAND_TOP,
+  FRAME_BAND_HEIGHT,
+  FRAME_BAND_LEFT,
+  FRAME_BAND_WIDTH,
+  FRAME_INSET,
+  TOP_BAND_TOP,
+} from '@/app/obs/composite/geometry'
 import { useStageScale } from '@/app/obs/composite/useStageScale'
-import { HoleBackdrop } from '@/app/obs/composite/HoleBackdrop'
 import { useResultsData } from '@/app/obs/composite/useResultsData'
 import { ResultTile } from '@/app/obs/composite/ResultTile'
+import { MeanderBand } from '@/app/obs/composite/Meander'
+import { GearTrain } from '@/components/GearTrain'
 
 /**
- * The camera window at the foot of the board. Unlike the live overlay's
- * portal (geometry.ts's PORTAL_RECT, derived from the cells the board route
- * never visits) this rect is NOT derived from anything — the spec is
- * explicit that no portal-derivation logic applies here (§3: "this is a
- * plain window at the foot, not a hole punched through the board"). Its
- * numbers come straight from RESULTS_LAYOUT/results.ts's own derived top.
+ * Same bronze frame the live overlay draws (its FrameBorder component):
+ * 3px SHELL.frame border inset FRAME_INSET from the canvas edge. The
+ * meander bands rendered in the page body complete the frame, exactly as on
+ * /obs/composite/[id] — top band upright, bottom band mirrored (scaleY(-1)).
  */
-const CAMERA_RECT = {
-  left: SPACE.contentInset,
-  top: RESULTS_CAMERA_TOP,
-  width: RESULTS_LAYOUT.camera.width,
-  height: RESULTS_LAYOUT.camera.height,
+function FrameBorder() {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        inset: FRAME_INSET,
+        border: `${SHELL.frame.borderWidth}px solid ${COLOR.bronze}`,
+        zIndex: 1,
+        pointerEvents: 'none',
+      }}
+      aria-hidden
+    />
+  )
 }
 
 /**
  * `BREAK RESULTS` 64/600 ivory, centred; `{SERIES NAME} · {N} SLOTS` beneath
  * it, 36/400 ivory70, TRACKING.label, uppercase (spec §3's anatomy table).
  *
- * `offsetY` shifts the band down by the board's unused-row slack (see
- * boardSlack in ResultsPage) so the title always sits right above the
- * board's FIRST row, which is itself bottom-anchored against the camera
- * window. With a full 10-row board the offset is 0 and the band sits at its
- * spec position.
+ * `top` is RESULTS_TITLE_TOP — this band always sits right above the
+ * grid's first row (the grid itself is pinned at 20% canvas height).
  */
-function TitleBand({ subtitle, offsetY }: { subtitle: string; offsetY: number }) {
+function TitleBand({ subtitle, top }: { subtitle: string; top: number }) {
   const { title } = RESULTS_LAYOUT
   return (
     <div
       style={{
         position: 'absolute',
-        top: RESULTS_TITLE_TOP + offsetY,
+        top,
         left: 0,
         width: CANVAS.width,
         height: title.height,
@@ -114,28 +132,20 @@ function TitleBand({ subtitle, offsetY }: { subtitle: string; offsetY: number })
  * decision that overrides the spec's original price-rank reading order; the
  * frame colour encodes the series pricing tier, not reading position).
  *
- * NOT a CSS grid (Decision D1 revised): a `display:grid` with a fixed
- * `repeat(10, 112px)` row template left a PARTIAL last row left-aligned,
- * which read wrong once every row was full-width content instead of empty
- * capacity. Chunking into rows of 4 and centering each row
- * (`justify-content:center`) makes a full row pixel-identical to the old
- * grid (4 tiles already fill the 864px content width) while a short last row
- * centers instead of hugging the left edge. Height budget is unchanged: a
- * given break's row count is `ceil(placed.length / cols)`, which is still 10
- * for anything from 37-40 entries, so the reserved `gridHeight` never moves.
- * Trailing cells beyond `placed.length` simply stay empty — no placeholder
- * tile is rendered for them.
+ * NOT a CSS grid (Decision D1 revised): a `display:grid` with a fixed row
+ * template left a PARTIAL last row left-aligned, which read wrong once every
+ * row was full-width content instead of empty capacity. Chunking into rows
+ * of 4 and centering each row (`justify-content:center`) makes a full row
+ * pixel-identical to a grid while a short last row centers instead of
+ * hugging the left edge. Trailing cells beyond `placed.length` simply stay
+ * empty — no placeholder tile is rendered for them.
  *
- * BOTTOM-ANCHORED (user decision): the whole board is shifted down by
- * `offsetY` — the height of its unused rows (boardSlack in ResultsPage) — so
- * its LAST row always sits directly above the camera window. The title band
- * takes the same offset, so it stays right above the board's FIRST row. A
- * break with fewer than 10 rows therefore leaves its slack above the title,
- * not as a hole between the board and the camera the breaker is pointing at.
- * With a full 10 rows the offset is 0 and nothing moves.
+ * `top` is RESULTS_GRID_TOP — the grid is pinned at 20% of the canvas
+ * height, with the title band hanging above it (the camera window this used
+ * to anchor against is gone).
  */
-function ResultsGrid({ placed, offsetY }: { placed: PlacedResult[]; offsetY: number }) {
-  const { cols, gap, tileWidth, tileHeight } = RESULTS_LAYOUT
+function ResultsGrid({ placed, top }: { placed: PlacedResult[]; top: number }) {
+  const { cols, gap, tileHeight, gridWidth, gridLeft } = RESULTS_LAYOUT
 
   const rows: PlacedResult[][] = []
   for (let i = 0; i < placed.length; i += cols) {
@@ -146,9 +156,9 @@ function ResultsGrid({ placed, offsetY }: { placed: PlacedResult[]; offsetY: num
     <div
       style={{
         position: 'absolute',
-        top: RESULTS_GRID_TOP + offsetY,
-        left: SPACE.contentInset,
-        width: cols * tileWidth + (cols - 1) * gap,
+        top,
+        left: gridLeft,
+        width: gridWidth,
         zIndex: 2,
         display: 'flex',
         flexDirection: 'column',
@@ -163,30 +173,6 @@ function ResultsGrid({ placed, offsetY }: { placed: PlacedResult[]; offsetY: num
         </div>
       ))}
     </div>
-  )
-}
-
-/**
- * 3px bronze border around the transparent camera rect — border only, no
- * corner brackets, unlike the live overlay's PortalFrame. The spec calls
- * this a "plain window", which is the distinction from the live portal.
- */
-function CameraFrame() {
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        left: CAMERA_RECT.left,
-        top: CAMERA_RECT.top,
-        width: CAMERA_RECT.width,
-        height: CAMERA_RECT.height,
-        boxSizing: 'border-box',
-        border: `3px solid ${COLOR.bronze}`,
-        zIndex: 1,
-        pointerEvents: 'none',
-      }}
-      aria-hidden
-    />
   )
 }
 
@@ -206,16 +192,8 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
   // Empty '' while seriesLabel hasn't loaded yet — never a fake series name.
   const subtitle = seriesLabel ? `${seriesLabel} · ${slotCount} SLOTS` : ''
 
-  // Height of the board's UNUSED rows. Both the title band and the grid are
-  // shifted down by this much, so title + board travel as one unit whose last
-  // row lands exactly on the grid box's bottom edge (right above the camera
-  // window) — see the BOTTOM-ANCHORED note on ResultsGrid. Zero for a full
-  // 10-row board, and kept zero while `placed` is still empty/loading so the
-  // title doesn't flash at the bottom of an empty page.
-  const { cols, gap, tileHeight, gridHeight } = RESULTS_LAYOUT
-  const rowCount = Math.ceil(placed.length / cols)
-  const boardSlack =
-    rowCount === 0 ? 0 : gridHeight - (rowCount * tileHeight + (rowCount - 1) * gap)
+  // Grid pinned at 20% of the canvas height, title right above it — static
+  // constants, see results.ts's derived-stack section.
 
   return (
     <>
@@ -247,10 +225,40 @@ export default function ResultsPage({ params }: { params: { id: string } }) {
             } as React.CSSProperties & { '--stage-scale': number }
           }
         >
-          <HoleBackdrop rect={CAMERA_RECT} />
-          <TitleBand subtitle={subtitle} offsetY={boardSlack} />
-          <ResultsGrid placed={placed} offsetY={boardSlack} />
-          <CameraFrame />
+          {/* No camera window on this screen anymore — plain opaque ground,
+              no HoleBackdrop, nothing transparent to protect. */}
+          <div
+            style={{ position: 'absolute', inset: 0, zIndex: 0, background: COLOR.cella, pointerEvents: 'none' }}
+            aria-hidden
+          />
+          {/* Ambient gear train behind the board — the live overlay's own
+              layer (components/GearTrain, defaults authored on this same
+              1080x1920 canvas). Rendered after the ground fill so it paints
+              above it, and under everything at zIndex 2. */}
+          <GearTrain />
+          {/* Frame + Greek-key bands, identical to the live overlay's shell:
+              bronze border inset 12, 32px meander band top and bottom, the
+              bottom one mirrored. */}
+          <FrameBorder />
+          <div
+            style={{ position: 'absolute', left: FRAME_BAND_LEFT, top: TOP_BAND_TOP, zIndex: 1, pointerEvents: 'none' }}
+          >
+            <MeanderBand id="top" width={FRAME_BAND_WIDTH} height={FRAME_BAND_HEIGHT} />
+          </div>
+          <div
+            style={{
+              position: 'absolute',
+              left: FRAME_BAND_LEFT,
+              top: BOTTOM_BAND_TOP,
+              zIndex: 1,
+              transform: 'scaleY(-1)',
+              pointerEvents: 'none',
+            }}
+          >
+            <MeanderBand id="bottom" width={FRAME_BAND_WIDTH} height={FRAME_BAND_HEIGHT} />
+          </div>
+          <TitleBand subtitle={subtitle} top={RESULTS_TITLE_TOP} />
+          <ResultsGrid placed={placed} top={RESULTS_GRID_TOP} />
         </div>
       </div>
     </>

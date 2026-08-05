@@ -42,6 +42,7 @@ export function getEndpoints()  {
         notify_stream_packaging_finished: "/api/notification/stream_packaging_finished",
 
         series_list:            "/api/series/list",
+        series_list_paginated:  "/api/series/list_paginated",
         series_get:             "/api/series/get",
         series_get_with_count:  "/api/series/get_with_count",
         series_update:          "/api/series/update",

@@ -17,7 +17,7 @@
  * data keeps its event price and is pinned to grey (a coincidental medal
  * would fake price-tier meaning — see PRICING_TIER_TO_FRAME).
  */
-import { ORDER, placeSlots, type PlacedSlot } from './board'
+import { ALL_CELLS, placeSlots, type PlacedSlot } from './board'
 import { assignTiers, PRICING_TIER_TO_FRAME, type TeamCell, type TierThresholds } from './pricing'
 import type { SeriesTeamTotal } from '@/app/entity/entities'
 import type { PlacedRosterSlot, RosterSlot } from './types'
@@ -88,14 +88,14 @@ export function composeRoster(
 
   let roster: RosterSlot[] = [...specialSlots, ...teamSlots]
 
-  // The route (board.ts's ORDER) only has 38 cells. A break can in principle
-  // return more events than that — render the first 38 in input order and
-  // flag it instead of indexing past the route and crashing.
-  if (roster.length > ORDER.length) {
+  // The board (route + static zone) holds ALL_CELLS.length cards. A break
+  // can in principle return more events than that — render the first
+  // boardful in input order and flag it instead of indexing past the grid.
+  if (roster.length > ALL_CELLS.length) {
     console.error(
-      `[composite roster] ${roster.length} slots exceed the board's ${ORDER.length}-cell capacity; rendering the first ${ORDER.length}.`,
+      `[composite roster] ${roster.length} slots exceed the board's ${ALL_CELLS.length}-cell capacity; rendering the first ${ALL_CELLS.length}.`,
     )
-    roster = roster.slice(0, ORDER.length)
+    roster = roster.slice(0, ALL_CELLS.length)
   }
 
   const rawPlaced = placeSlots(roster) as (PlacedSlot & { label: string; displayPrice?: string })[]

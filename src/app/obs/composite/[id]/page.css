@@ -6,3 +6,45 @@
  * overlay, so this file is just the import.
  */
 @import '../composite.css';
+
+/*
+ * Stage-3 motion keyframes — compositor-only properties (transform /
+ * stroke-dashoffset), per the spec's animation rules: never width/top/
+ * box-shadow/filter, OBS needs that CPU for encoding.
+ */
+
+/* Gear-train keyframes live inside the shared component (src/components/GearTrain.tsx). */
+
+/* Freeze-indicator hand rotation (FreezeIndicator in page.tsx, debug-only). */
+@keyframes indicator-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Per-row chevron fill (Chevron.tsx): the ivory layer draws in over the row's
+   tier interval via stroke-dashoffset (path normalized to pathLength 100),
+   then snaps empty and repeats. */
+@keyframes chevron-fill {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Tile sheen (BoardTile.tsx): ONE-SHOT specular sweep across a single
+   chosen tile — the Board rolls which tile (tier-weighted) on a random
+   5-13s cooldown; this just carries the glint across once. */
+@keyframes tile-sheen-once {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}

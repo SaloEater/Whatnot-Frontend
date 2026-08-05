@@ -9,20 +9,45 @@ import {TextInputAction} from "@/app/component/textInputAction";
 import {useChannel} from "@/app/hooks/useChannel";
 import {ChannelPropertiesComponent} from "@/app/channel/[id]/channelPropertiesComponent";
 
+const ALLOWED_PAGE_SIZES = [20, 50, 100]
+const DEFAULT_PAGE_SIZE = 20
+const PAGE_SIZE_STORAGE_KEY = 'channel-streams-page-size'
+
 export default function Page({params}: {params: {id: string}}) {
     const channelId = parseInt(params.id)
     const [channel, setChannel] = useChannel(channelId)
     const [streams, setStreams] = useState<StreamResponse[]>([]);
     const [newName, setNewName] = useState<string>("")
+    const [page, setPage] = useState(1)
+    const [total, setTotal] = useState(0)
+    const [pageSize, setPageSize] = useState(() => {
+        if (typeof window === 'undefined') return DEFAULT_PAGE_SIZE
+        const stored = parseInt(localStorage.getItem(PAGE_SIZE_STORAGE_KEY) ?? '')
+        return ALLOWED_PAGE_SIZES.includes(stored) ? stored : DEFAULT_PAGE_SIZE
+    })
+
+    function fetchStreams() {
+        if (!channel) return
+        post(getEndpoints().stream_get_all, {channel_id: channel.id, page, page_size: pageSize})
+            .then((streamsData: GetStreamsResponse) => {
+                setStreams(streamsData?.streams ?? [])
+                setTotal(streamsData?.total ?? 0)
+            })
+    }
 
     useEffect(() => {
         if (channel) {
-            post(getEndpoints().stream_get_all, {channel_id: channel.id})
-                .then((streamsData: GetStreamsResponse) => {
-                    setStreams(streamsData.streams)
-                })
+            fetchStreams()
         }
-    }, [channel]);
+    }, [channel, page, pageSize]);
+
+    const totalPages = Math.max(1, Math.ceil(total / pageSize))
+
+    useEffect(() => {
+        if (page > totalPages) {
+            setPage(totalPages)
+        }
+    }, [page, totalPages])
 
     const router = useRouter()
 
@@ -33,20 +58,11 @@ export default function Page({params}: {params: {id: string}}) {
         })
     }
 
-    function addStream(stream: StreamResponse) {
-        setStreams((oldStreams) => {
-            let newStreams = [...oldStreams]
-            newStreams.push(stream)
-            return newStreams
-        })
-    }
-
-    function sortStreamsByDate(streams: StreamResponse[]) {
-        return [...streams].sort((a, b) => {
-            if (a.created_at > b.created_at) return -1
-            if (a.created_at < b.created_at) return 1
-            return 0
-        })
+    function handlePageSizeChange(value: string) {
+        const newSize = parseInt(value)
+        localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(newSize))
+        setPageSize(newSize)
+        setPage(1)
     }
 
     function redirectToDemo() {
@@ -108,6 +124,38 @@ export default function Page({params}: {params: {id: string}}) {
                     </div>
                 </div>
                 <div className="d-flex justify-content-center">
+                  <div>
+                    <div className="d-flex justify-content-between align-items-center mb-2 text-white">
+                        <div className="d-flex align-items-center gap-2">
+                            <label className="text-secondary">Page size</label>
+                            <select
+                                className="form-select form-select-sm w-auto"
+                                value={pageSize}
+                                onChange={(e) => handlePageSizeChange(e.target.value)}
+                            >
+                                {ALLOWED_PAGE_SIZES.map((size) => (
+                                    <option key={size} value={size}>{size}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="d-flex align-items-center gap-2">
+                            <button
+                                className="btn btn-sm btn-outline-light"
+                                disabled={page <= 1}
+                                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                            >
+                                Prev
+                            </button>
+                            <span className="text-secondary">Page {page} of {totalPages}</span>
+                            <button
+                                className="btn btn-sm btn-outline-light"
+                                disabled={page >= totalPages}
+                                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
                     <ul className="list-group">
                         <li className="list-group-item">
                             <TextInputAction value={newName} setNewValue={setNewName} placeholder={'Enter new name...'}
@@ -118,15 +166,18 @@ export default function Page({params}: {params: {id: string}}) {
                                                  };
                                                  post(getEndpoints().stream_add, body)
                                                      .then(response => {
-                                                         let stream: StreamResponse = response
-                                                         addStream(stream)
                                                          setNewName('')
+                                                         if (page === 1) {
+                                                             fetchStreams()
+                                                         } else {
+                                                             setPage(1)
+                                                         }
                                                      })
                                              }
                                              } actionLabel='Add'/>
                         </li>
                         {
-                            sortStreamsByDate(streams).map(
+                            streams.map(
                                 (stream: StreamResponse, index: number, arr: StreamResponse[]) => {
                                     return <li key={stream.id} className="list-group-item text-white">
                                         <div className="container-fluid">
@@ -159,6 +210,7 @@ export default function Page({params}: {params: {id: string}}) {
                             )
                         }
                     </ul>
+                  </div>
                 </div>
                 <div className="d-flex justify-content-end">
                     {channel && <ChannelPropertiesComponent channel={channel} updateChannel={updateChannel}/>}

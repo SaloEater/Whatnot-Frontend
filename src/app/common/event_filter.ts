@@ -60,11 +60,12 @@ export function sortByTeamAscIndexDesc(events: Event[]) {
 
 export function sortByTeamName(events: Event[]) {
     return events.sort((a, b) => {
-        if (!IsTeam(a.team)) return 1;
-        if (!IsTeam(b.team)) return -1;
-        if (a.team > b.team) return 1
-        if (a.team < b.team) return -1
-        return 0
+        // Teams before non-teams; each group alphabetical among itself. The
+        // previous comparator returned 1/-1 unconditionally when either side
+        // was a non-team, so comparing two non-teams was inconsistent
+        // (cmp(a,b) and cmp(b,a) both positive) and their order unspecified.
+        if (IsTeam(a.team) !== IsTeam(b.team)) return IsTeam(a.team) ? -1 : 1
+        return a.team.localeCompare(b.team)
     })
 }
 

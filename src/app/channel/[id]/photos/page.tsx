@@ -238,7 +238,7 @@ export default function Page({params}: {params: {id: string}}) {
                                 }}
                             >
                                 <img
-                                    src={photo.url}
+                                    src={pos === centerPos ? photo.url : (photo.thumbnail || photo.url)}
                                     alt={photo.name || 'card'}
                                     style={rotation !== 0 ? {
                                         position: 'absolute',
@@ -273,6 +273,7 @@ export default function Page({params}: {params: {id: string}}) {
                     <div key={ri} className="board-row">
                         {row.photos.map((photo, ci) => {
                             const hovered = hoveredId === photo.id
+                            const isElevated = hovered || elevatedId === photo.id
                             return (
                                 <div
                                     key={photo.id}
@@ -293,7 +294,7 @@ export default function Page({params}: {params: {id: string}}) {
                                         } : {}}
                                     >
                                         <img
-                                            src={photo.url}
+                                            src={isElevated ? photo.url : (photo.thumbnail || photo.url)}
                                             alt={photo.name || 'card'}
                                             onLoad={(e) => {
                                                 const img = e.currentTarget

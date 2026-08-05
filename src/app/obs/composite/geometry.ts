@@ -25,7 +25,6 @@
  * produce, rather than silently inlined.
  */
 import { CANVAS, LAYOUT, SHELL, SPACE, TYPE } from './tokens'
-import { PORTAL } from './board'
 import type { ChecklistMode } from './types'
 
 /** Bronze frame border sits this far in from the canvas edge (mock line 59). */
@@ -68,45 +67,13 @@ export const TOP_BAND_TOP = SHELL.frame.band.top
 export const BOTTOM_BAND_TOP = CANVAS.height - SHELL.frame.band.bottom - SHELL.frame.band.height
 
 // ---------------------------------------------------------------------------
-// Camera portal — computed from the board grid, never hand-positioned
+// Camera portal: REMOVED — the board's full 8x5 grid holds 40 cards.
+// (The LAYOUT.portal / SHELL.portal tokens remain for the results screen.)
 // ---------------------------------------------------------------------------
 
-const { tileWidth, gap: boardGap, rowHeight } = LAYOUT.board
-
-/** Portal left = content inset + width of the columns the route still uses left of it. */
-export const PORTAL_LEFT = SPACE.contentInset + (PORTAL.colStart - 1) * (tileWidth + boardGap)
-/**
- * Portal top = board top. The route does use row 1 — at the outer columns
- * (see ROUTE_LEFT/ROUTE_RIGHT in board.ts) — it just never visits row 1-2
- * within the portal's own column span (cols 3-8), which is what leaves this
- * rectangle empty.
- */
-export const PORTAL_TOP = BOARD_TOP + (PORTAL.rowStart - 1) * (rowHeight + boardGap)
-
-const portalColSpan = PORTAL.colEnd - PORTAL.colStart
-const portalRowSpan = PORTAL.rowEnd - PORTAL.rowStart
-
-/** Derived width, cross-checked against LAYOUT.portal.width below (dev only). */
-export const PORTAL_WIDTH = portalColSpan * tileWidth + (portalColSpan - 1) * boardGap
-/** Derived height, cross-checked against LAYOUT.portal.height below (dev only). */
-export const PORTAL_HEIGHT = portalRowSpan * rowHeight + (portalRowSpan - 1) * boardGap
-
-export const PORTAL_RECT = {
-  left: PORTAL_LEFT,
-  top: PORTAL_TOP,
-  width: PORTAL_WIDTH,
-  height: PORTAL_HEIGHT,
-}
-
-/** Dev-only cross-check that the derived portal rect matches the token's own numbers. */
-export function checkPortalGeometry(): string[] {
+/** Dev-only sanity check on the vertical stack. */
+export function checkLayoutGeometry(): string[] {
   const problems: string[] = []
-  if (Math.round(PORTAL_WIDTH) !== LAYOUT.portal.width) {
-    problems.push(`portal width derived=${PORTAL_WIDTH} token=${LAYOUT.portal.width}`)
-  }
-  if (Math.round(PORTAL_HEIGHT) !== LAYOUT.portal.height) {
-    problems.push(`portal height derived=${PORTAL_HEIGHT} token=${LAYOUT.portal.height}`)
-  }
   if (TOTAL_CONTENT_HEIGHT > CANVAS.height) {
     problems.push(`content stack ${TOTAL_CONTENT_HEIGHT} exceeds canvas height ${CANVAS.height}`)
   }
@@ -179,6 +146,10 @@ export const CHECKLIST_MODE_LAYOUT: Record<
   ChecklistMode,
   { cols: number; rows: number; cardWidth: number; cardHeight: number; cardGap: number; showPrice: boolean }
 > = {
+  // Mode 0 packs ALL cards dynamically (photos-board style, sizes computed at
+  // render from measured image aspects) — these grid numbers are placeholders
+  // that no mode-0 code path reads.
+  0: { cols: 0, rows: 1, cardWidth: 0, cardHeight: 0, cardGap: 10, showPrice: false },
   12: {
     cols: 4,
     rows: 3,

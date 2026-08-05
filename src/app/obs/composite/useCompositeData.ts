@@ -40,36 +40,23 @@
  * silently substitute fake prices for a live OBS overlay.
  */
 import { useEffect, useMemo, useState } from 'react'
-import { useChannel } from '@/app/hooks/useChannel'
-import { useActiveStream } from '@/app/hooks/useActiveStream'
 import { usePhotoBoard } from '@/app/channel/[id]/photos/usePhotoBoard'
-import { getEndpoints, get, post } from '@/app/lib/backend'
+import { getEndpoints, post } from '@/app/lib/backend'
 import { IsTeam } from '@/app/common/teams'
-import {
-  Event,
-  GetEventsByBreakResponse,
-  PriceRange,
-  SeriesTeamTotal,
-  SeriesWithCount,
-  WNBreak,
-} from '@/app/entity/entities'
 import { LAYOUT } from './tokens'
 import { DEFAULT_PRICE, resolveThresholds, type TierThresholds } from './pricing'
 import { composeRoster, type SpecialRef, type TeamRef } from './composeRoster'
+import { useCompositeSources } from './useCompositeSources'
 import * as mock from './roster'
 import type { ChecklistMode, ChecklistRowState, PlacedRosterSlot, PricedChecklistItem } from './types'
 
-// Cadences. Channel/break/events mirror the live board (obs/[id]/page.tsx)
-// exactly; pricing mirrors /obs/prices/[id]; everything else is a "changes
-// rarely" widget value, per the spec's own 60-120s guidance.
-const CHANNEL_POLL_MS = 30000
-const BREAK_POLL_MS = 30000
-const EVENTS_POLL_MS = 5000
-const PRICES_POLL_MS = 60000
+// Cadences for the widget polls that stay local to this hook (stash-or-pass,
+// pick2, boxes-per-break) — everything else ("changes rarely" per the spec's
+// own 60-120s guidance) is covered by useCompositeSources's own cadences.
 const SERIES_POLL_MS = 60000
 const WIDGET_POLL_MS = 60000
-/** Cards per row window, per density mode — must match CHECKLIST_MODE_LAYOUT's cols (both 4). */
-const CHECKLIST_MODE_WINDOW: Record<ChecklistMode, number> = { 12: 4, 6: 4 }
+/** Cards per row window, per density mode — must match CHECKLIST_MODE_LAYOUT's cols. Mode 0 shows everything (no windowing). */
+const CHECKLIST_MODE_WINDOW: Record<ChecklistMode, number> = { 12: 4, 6: 4, 0: Number.POSITIVE_INFINITY }
 /**
  * Per-row drift interval — the time a row takes to travel ONE card span —
  * indexed by VISUAL row (0 = top), per density mode. Rows lower on the panel
@@ -80,6 +67,7 @@ const CHECKLIST_MODE_WINDOW: Record<ChecklistMode, number> = { 12: 4, 6: 4 }
 const CHECKLIST_MODE_INTERVALS_MS: Record<ChecklistMode, readonly number[]> = {
   12: [30000, 22000, 15000],
   6: [30000, 15000],
+  0: [], // everything is visible at once — nothing scrolls
 }
 
 export interface CompositeData {
@@ -102,83 +90,23 @@ function readMockFlag(): boolean {
   return new URLSearchParams(window.location.search).get('mock') === '1'
 }
 
-export function useCompositeData(channelId: number, checklistMode: ChecklistMode = 6): CompositeData {
+export function useCompositeData(channelId: number, checklistMode: ChecklistMode = 12): CompositeData {
   // Static; OBS loads this page once with a fixed URL, so a one-time read is enough.
   const [isMock] = useState(readMockFlag)
 
-  // --- channel -> stream -> break -> events, cadence mirrors obs/[id]/page.tsx ---
-  const [channel] = useChannel(channelId, CHANNEL_POLL_MS)
-  const stream = useActiveStream(channel)
+  // --- channel -> stream -> break -> events, plus pricing sources — shared
+  // with the compact board (see useCompositeSources.ts for cadences) ---
+  const { breakObject, events, series, priceRanges, teamPrices } = useCompositeSources(channelId)
 
-  const [breakObject, setBreakObject] = useState<WNBreak | null>(null)
-  const [events, setEvents] = useState<Event[]>([])
-
-  useEffect(() => {
-    const breakId = stream?.active_break_id
-    if (!breakId) {
-      setBreakObject(null)
-      setEvents([])
-      return
-    }
-
-    // post()/get() (lib/backend.ts) already catch their own fetch/parse
-    // failures and resolve to {error}/{} rather than rejecting — so a
-    // .catch() here would be dead code. The `.then` guards below are what
-    // actually keep bad/absent responses from clobbering state.
-    function fetchBreak() {
-      post(getEndpoints().break_get, { id: breakId })
-        .then((b: WNBreak) => { if (b && !('error' in b)) setBreakObject(b) })
-    }
-
-    function fetchEvents() {
-      post(getEndpoints().break_events, { break_id: breakId })
-        .then((resp: GetEventsByBreakResponse) => {
-          if (resp?.events) setEvents(resp.events)
-        })
-    }
-
-    fetchBreak()
-    fetchEvents()
-    const idBreak = setInterval(fetchBreak, BREAK_POLL_MS)
-    const idEvents = setInterval(fetchEvents, EVENTS_POLL_MS)
-    return () => {
-      clearInterval(idBreak)
-      clearInterval(idEvents)
-    }
-  }, [stream?.active_break_id])
-
-  // --- pricing sources, cadence mirrors /obs/prices/[id]/page.tsx ---
-  const [series, setSeries] = useState<SeriesWithCount | null>(null)
-  const [priceRanges, setPriceRanges] = useState<PriceRange[]>([])
-  const [teamPrices, setTeamPrices] = useState<SeriesTeamTotal[]>([])
+  // --- boxes-per-break widget: local to this hook (the live overlay's own
+  // widget cadence, not part of the shared source chain) ---
   const [bpbAmount, setBpbAmount] = useState<number | null>(null)
-
-  useEffect(() => {
-    // Thresholds change rarely (an operator setting, not a per-break value) — fetch once per channel.
-    post(getEndpoints().widget_board_price_ranges_list, { channel_id: channelId })
-      .then((d: { ranges: PriceRange[] }) => { if (d?.ranges) setPriceRanges(d.ranges) })
-  }, [channelId])
 
   useEffect(() => {
     const seriesId = breakObject?.series_id
     if (!seriesId) {
-      setSeries(null)
-      setTeamPrices([])
       setBpbAmount(null)
       return
-    }
-
-    // series_get_with_count is a superset of series_get (extends Series with
-    // unsold_count/sold_count) — one call covers both the pricing default
-    // price and the divider's name/count readout.
-    function fetchSeries() {
-      post(getEndpoints().series_get_with_count, { id: seriesId })
-        .then((s: SeriesWithCount) => { if (s && !('error' in s)) setSeries(s) })
-    }
-
-    function fetchPrices() {
-      get(`/api/series/${seriesId}/prices`)
-        .then((data: SeriesTeamTotal[]) => setTeamPrices(Array.isArray(data) ? data : []))
     }
 
     function fetchBpb() {
@@ -186,17 +114,9 @@ export function useCompositeData(channelId: number, checklistMode: ChecklistMode
         .then((d: { amount: number }) => { if (d && typeof d.amount === 'number') setBpbAmount(d.amount) })
     }
 
-    fetchSeries()
-    fetchPrices()
     fetchBpb()
-    const idSeries = setInterval(fetchSeries, SERIES_POLL_MS)
-    const idPrices = setInterval(fetchPrices, PRICES_POLL_MS)
     const idBpb = setInterval(fetchBpb, SERIES_POLL_MS)
-    return () => {
-      clearInterval(idSeries)
-      clearInterval(idPrices)
-      clearInterval(idBpb)
-    }
+    return () => clearInterval(idBpb)
   }, [breakObject?.series_id])
 
   // --- stat row widgets ---
@@ -224,7 +144,7 @@ export function useCompositeData(channelId: number, checklistMode: ChecklistMode
     if (isMock) return mock.CHECKLIST_ITEMS
     return photos
       .filter((p) => !p.is_sold && !p.is_deleted)
-      .map((p) => ({ id: p.id, price: p.price, url: p.url, rotation: p.rotation ?? 0 }))
+      .map((p) => ({ id: p.id, price: p.price, url: p.url, thumbnail: p.thumbnail || undefined, rotation: p.rotation ?? 0 }))
   }, [isMock, photos])
   const checklistThresholds = isMock ? mock.CHECKLIST_THRESHOLDS : thresholds
   const { rows: checklistRows } = useChecklistPage(checklistItems, checklistThresholds, checklistMode)
@@ -321,6 +241,8 @@ function bucketByTier(
   }
 
   const byPriceDesc = (a: PricedChecklistItem, b: PricedChecklistItem) => b.price - a.price
+  // Mode 0 shows the whole series as ONE packed board — no tier rows at all.
+  if (mode === 0) return [[...items].sort(byPriceDesc)]
   // Mode 6 has only two rows: best keeps its own row, good and rest pool
   // into the second. good items all sit above goodThreshold and rest all
   // below it, so concatenating the two sorted buckets stays price-desc.
@@ -328,8 +250,23 @@ function bucketByTier(
   return [best.sort(byPriceDesc), good.sort(byPriceDesc), rest.sort(byPriceDesc)]
 }
 
-function toCardView(item: PricedChecklistItem) {
-  return { id: item.id, price: `$${item.price}`, url: item.url, rotation: item.rotation ?? 0 }
+/** Tier for a single card, from its own price against the shared thresholds. */
+function cardTier(price: number, thresholds: TierThresholds): 'gold' | 'silver' | 'bronze' | 'grey' {
+  if (price >= thresholds.bestThreshold) return 'gold'
+  if (price >= thresholds.goodThreshold) return 'silver'
+  if (price >= thresholds.midThreshold) return 'bronze'
+  return 'grey'
+}
+
+function toCardView(item: PricedChecklistItem, thresholds: TierThresholds) {
+  return {
+    id: item.id,
+    price: `$${item.price}`,
+    url: item.url,
+    thumbnail: item.thumbnail,
+    rotation: item.rotation ?? 0,
+    tier: cardTier(item.price, thresholds),
+  }
 }
 
 /**
@@ -385,8 +322,8 @@ function useChecklistPage(
   const intervals = CHECKLIST_MODE_INTERVALS_MS[mode]
 
   const rows: ChecklistRowState[] = filledRows.map((bucket, i) => ({
-    cards: bucket.map(toCardView),
-    intervalMs: intervals[i] ?? intervals[intervals.length - 1],
+    cards: bucket.map((item) => toCardView(item, thresholds)),
+    intervalMs: intervals[i] ?? intervals[intervals.length - 1] ?? 0,
     scrolls: bucket.length > windowSize,
   }))
 

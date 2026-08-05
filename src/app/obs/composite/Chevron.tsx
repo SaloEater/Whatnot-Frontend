@@ -26,11 +26,17 @@ export function Chevron({
   onClick,
   scale = 1,
   ariaLabel,
+  fillDurationMs,
+  fillEpoch = 0,
 }: {
   direction: 'left' | 'right'
   onClick?: () => void
   scale?: number
   ariaLabel?: string
+  /** Stage-3 fill: the ivory layer draws in over this period — the row's own step interval, so it counts down to the next scroll. Omit for a static chevron. */
+  fillDurationMs?: number
+  /** Bump to restart the fill from empty (the row's timer was restarted, e.g. by an arrow click). */
+  fillEpoch?: number
 }) {
   const { chevronWidth: w, chevronHeight: h } = LAYOUT.checklist
   const d = direction === 'left' ? 'M42 10 L18 43 L42 76' : 'M18 10 L42 43 L18 76'
@@ -47,6 +53,23 @@ export function Chevron({
       aria-hidden={onClick ? undefined : true}
     >
       <path d={d} fill="none" stroke={COLOR.bronze} strokeWidth={8} strokeLinecap="round" strokeLinejoin="round" />
+      {fillDurationMs != null && (
+        <path
+          key={fillEpoch}
+          d={d}
+          fill="none"
+          stroke={COLOR.ivory}
+          strokeWidth={8}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          pathLength={100}
+          strokeDasharray={100}
+          style={{
+            strokeDashoffset: 100,
+            animation: `chevron-fill ${fillDurationMs}ms linear infinite`,
+          }}
+        />
+      )}
     </svg>
   )
 }

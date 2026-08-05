@@ -19,7 +19,10 @@ export interface ChecklistCardView {
   id: number
   price: string
   url?: string
+  thumbnail?: string
   rotation?: number
+  /** Pricing tier (from thresholds on the card's own price) — drives the tier frame. */
+  tier: import('./board').Tier
 }
 
 /**
@@ -31,6 +34,7 @@ export interface PricedChecklistItem {
   id: number
   price: number
   url?: string
+  thumbnail?: string
   rotation?: number
 }
 
@@ -51,7 +55,9 @@ export interface ChecklistRowState {
 
 /**
  * Checklist density: how many cards the preview shows at once.
- * 6 = 2 rows x 4 cols with larger cards (default), 12 = 3 rows x 4 cols.
- * The value doubles as the button label in the panel's corner toggle.
+ * 6 = 2 rows x 4 cols with larger cards, 12 = 3 rows x 4 cols (default),
+ * 0 = ALL cards at once, packed to fit like /channel/[id]/photos (no tier
+ * rows, no scrolling, no prices). The value doubles as the button label in
+ * the panel's corner toggle.
  */
-export type ChecklistMode = 6 | 12
+export type ChecklistMode = 0 | 6 | 12

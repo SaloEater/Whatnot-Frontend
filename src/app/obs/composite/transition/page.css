@@ -1,0 +1,120 @@
+/*
+ * Scoped to /obs/composite/transition. Shared shell rules (font-faces,
+ * transparent body, .composite-stage-outer/.composite-canvas) live in
+ * src/app/obs/composite/composite.css, same as the live overlay and the
+ * results screen — this page's own CSS is just that import plus the
+ * `slab-cycle` keyframes.
+ */
+@import '../composite.css';
+
+/*
+ * The rig: exactly the 1080x1920 canvas box (sized inline in page.tsx via
+ * CANVAS.width/height so the two numbers can't drift apart). Its own height
+ * MUST equal the stage height — translateY(%) keyframes below are relative
+ * to the element's OWN height, so the spec's percentages (e.g. "+28%") only
+ * map onto the intended canvas pixels (28% of 1920) if the rig height is
+ * the full 1920px stage, not e.g. the .slab's content box or anything
+ * shrink-wrapped. See overlay-transition-plan.md §3.
+ *
+ * Positioned absolute/inset so it sits inside .composite-canvas without
+ * itself becoming part of that canvas's normal flow (it is the ONLY
+ * animated element on the page — everything else is static art riding
+ * along inside it).
+ */
+.slab-rig {
+  position: absolute;
+  inset: 0;
+  /* Matches the 0% keyframe below exactly, so there is no first-frame flash
+     before the animation class is added (see page.tsx's play-once gating). */
+  transform: translateY(-100%);
+  will-change: transform;
+}
+
+/*
+ * Added once the logo has loaded (and any ?delay= has elapsed) — see
+ * page.tsx. `animation-iteration-count: 1` + `animation-fill-mode: forwards`
+ * is the whole play-once contract: the animation runs exactly once and the
+ * rig is left at the 100% keyframe's transform, at which point page.tsx's
+ * onAnimationEnd unmounts the rig entirely.
+ *
+ * Only `transform` animates here, which is the only property this keyframe
+ * set touches — compositor-only, per tokens.ts ANIMATABLE.
+ */
+.slab-rig-playing {
+  animation-name: slab-cycle;
+  animation-duration: 4000ms;
+  animation-iteration-count: 1;
+  animation-fill-mode: forwards;
+}
+
+/*
+ * overlay-transition-spec.md §2-3 — the pinned timeline, expressed as
+ * percentages of the 4000ms total duration. One deliberate deviation from
+ * the spec: the covered hold is 800ms longer than the spec's 615ms
+ * (1085-1700ms) — it runs 1085-2500ms (1415ms), giving the swap underneath
+ * a wider window. Every OTHER segment keeps its spec duration exactly
+ * (455ms fall, 80ms rebound, 350ms stretch, 200ms haul, 800ms exit, 700ms
+ * drift); only the hold and therefore the total (3200 -> 4000ms) changed.
+ *
+ * Per-keyframe `animation-timing-function` sets the easing for the SEGMENT
+ * THAT FOLLOWS that keyframe (this is standard CSS animation behaviour, not
+ * a per-page convention) — each easing is doing a specific physical job
+ * (spec §3) and must not be collapsed to a single curve for the whole
+ * animation:
+ *
+ *   0%       falling — accelerating, it is dropped, not placed
+ *   11.375%  the chains catching — decelerating rebound from the 28%
+ *            overshoot down to the 25% rest position (spec §3: without the
+ *            overshoot a mass accelerating for 455ms would simply stop
+ *            dead, which reads as wrong even if a viewer can't name why)
+ *   13.375%  hold at full stretch (linear — nothing is easing, it's static)
+ *   22.125%  the haul — a gentle overshoot rise covering the screen
+ *   27.125%  hold covered (linear, static — this is the 1415ms window the
+ *            scene swap happens under; do not shorten it)
+ *   62.5%    accelerating away — the exit begins
+ *   82.5%    decelerating drift — the slab is already offscreen at this
+ *            keyframe's END (82.5% = 3300ms = -100%) but keeps travelling
+ *            to -220% by 4000ms rather than stopping dead at the frame
+ *            edge, so a re-trigger mid-exit never finds the slab parked
+ *            exactly on the screen boundary (spec §2)
+ */
+@keyframes slab-cycle {
+  0% {
+    transform: translateY(-100%);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.9, 0.4);
+  }
+  11.375% {
+    /* 455ms — maximum chain extension (pinned constraint 1). */
+    transform: translateY(28%);
+    animation-timing-function: cubic-bezier(0.2, 0, 0.3, 1);
+  }
+  13.375% {
+    /* 535ms — rebound settles at the resting stretch. */
+    transform: translateY(25%);
+    animation-timing-function: linear;
+  }
+  22.125% {
+    /* 885ms — full stretch ends (350ms held since 535ms). */
+    transform: translateY(25%);
+    animation-timing-function: cubic-bezier(0.3, 1.2, 0.45, 1);
+  }
+  27.125% {
+    /* 1085ms — covered. */
+    transform: translateY(0%);
+    animation-timing-function: linear;
+  }
+  62.5% {
+    /* 2500ms — still covered after the extended hold: exit begins here. */
+    transform: translateY(0%);
+    animation-timing-function: cubic-bezier(0.5, 0, 1, 0.6);
+  }
+  82.5% {
+    /* 3300ms — clear of the screen (spec's 800ms exit, shifted). */
+    transform: translateY(-100%);
+    animation-timing-function: cubic-bezier(0.25, 0.4, 0.6, 1);
+  }
+  100% {
+    /* 4000ms — drift ends. */
+    transform: translateY(-220%);
+  }
+}

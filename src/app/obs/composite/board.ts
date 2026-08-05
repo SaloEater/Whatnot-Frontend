@@ -20,57 +20,76 @@
  * across other tiles and reads as a bug rather than a chain closing a gap.
  * `validateRoute` enforces it.
  *
- * The camera portal is not positioned by hand — it is exactly the rectangle of
- * cells the route never visits. Change the route and the window follows.
+ * There is no camera portal anymore — the route covers the FULL grid.
  */
 
 /** [row, col], both 1-indexed. Row 1 is the top of the board. */
 export type Cell = readonly [row: number, col: number]
 
-export const GRID = { rows: 5, cols: 10 } as const
+export const GRID = { rows: 5, cols: 8 } as const
+
+/** Inclusive straight run of cells from (r1,c1) to (r2,c2) along a row or column. */
+function run(r1: number, c1: number, r2: number, c2: number): Cell[] {
+  const cells: Cell[] = []
+  const dr = Math.sign(r2 - r1)
+  const dc = Math.sign(c2 - c1)
+  let r = r1
+  let c = c1
+  for (;;) {
+    cells.push([r, c])
+    if (r === r2 && c === c2) return cells
+    r += dr
+    c += dc
+  }
+}
 
 /**
- * Left-half chain, best cell first.
+ * The Zuma ROUTE — 30 cells through columns 2-7, in the authored order
+ * (row-col segments):
  *
- *        c1   c2   c3   c4   c5 | c6   c7   c8   c9  c10
- *  row1  15   14    ·    ·    · |  ·    ·    ·   14   15     · = camera portal
- *  row2  16   13    ·    ·    · |  ·    ·    ·   13   16
- *  row3  17   12    3    2    1 |  1    2    3   12   17
- *  row4  18   11    4    5    6 |  6    5    4   11   18
- *  row5  19   10    9    8    7 |  7    8    9   10   19
+ *   3,4 -> 3,6 · 2,6 -> 2,3 · 3,3 -> 4,3 · 4,4 -> 4,6 ·
+ *   5,6 -> 5,2 · 4,2 -> 1,2 · 1,3 -> 1,7 · 2,7 -> 5,7
  *
- * Start directly under the camera, up-down-up through cols 3-5, sweep left
- * along row 5, climb col 2, over the top, then col 1 descending.
+ *        c1   c2   c3   c4   c5   c6   c7   c8
+ *  row1   ·   21   22   23   24   25   26    ·      · = static zone
+ *  row2   ·   20    7    6    5    4   27    ·
+ *  row3   ·   19    8    1    2    3   28    ·
+ *  row4   ·   18    9   10   11   12   29    ·
+ *  row5   ·   17   16   15   14   13   30    ·
+ *
+ * FULLY CONTIGUOUS — every consecutive pair is orthogonally adjacent
+ * (the prefix ends at 4,3, exactly where the 4,4 -> 4,6 continuation
+ * begins), so every Zuma advance slides.
  */
-export const ROUTE_LEFT: readonly Cell[] = [
-  [3, 5], [3, 4], [3, 3],
-  [4, 3], [4, 4], [4, 5],
-  [5, 5], [5, 4], [5, 3], [5, 2],
-  [4, 2], [3, 2], [2, 2], [1, 2],
-  [1, 1], [2, 1], [3, 1], [4, 1], [5, 1],
-] as const
+export const ORDER: readonly Cell[] = [
+  ...run(3, 4, 3, 6),
+  ...run(2, 6, 2, 3),
+  ...run(3, 3, 4, 3),
+  ...run(4, 4, 4, 6),
+  ...run(5, 6, 5, 2),
+  ...run(4, 2, 1, 2),
+  ...run(1, 3, 1, 7),
+  ...run(2, 7, 5, 7),
+]
 
-/** Right half is the mirror: col -> (cols + 1) - col. */
-export const mirrorCell = ([row, col]: Cell): Cell => [row, GRID.cols + 1 - col] as const
-
-export const ROUTE_RIGHT: readonly Cell[] = ROUTE_LEFT.map(mirrorCell)
+/** The route is fully contiguous — a single run for adjacency validation. */
+export const ROUTE_RUNS: readonly (readonly Cell[])[] = [ORDER]
 
 /**
- * Interleaved assignment order: rank 1 -> left head, rank 2 -> right head,
- * rank 3 -> next left, and so on. 38 cells for a 37-tile roster (32 NFL teams
- * plus 5 special spots), leaving one spare at the tail.
- *
- * The two chains ripple INDEPENDENTLY — a sale on the left never disturbs the
- * right. That is deliberate: two short ripples read better than one board-wide
- * reshuffle.
+ * The STATIC zone — columns 1 and 8, which the route never visits: 10 cells
+ * filling the grid to its 40-card maximum. Queue positions beyond the route
+ * land here ALTERNATING left/right, top-down (1,1 -> 1,8 -> 2,1 -> 2,8 ...),
+ * so the two columns fill evenly — 4 static cards means 2 on each side.
+ * Cards on these cells are EXCLUDED from the Zuma — they appear/move
+ * instantly, never animated.
  */
-export const ORDER: readonly Cell[] = ROUTE_LEFT.flatMap((cell, i) => [
-  cell,
-  ROUTE_RIGHT[i],
+export const STATIC_CELLS: readonly Cell[] = run(1, 1, 5, 1).flatMap((leftCell) => [
+  leftCell,
+  [leftCell[0], GRID.cols] as Cell,
 ])
 
-/** The cells no chain visits — i.e. the camera portal. Derived, never authored. */
-export const PORTAL = { rowStart: 1, rowEnd: 3, colStart: 3, colEnd: 9 } as const
+/** Every cell a card can occupy: the animated route first, then the static zone. */
+export const ALL_CELLS: readonly Cell[] = [...ORDER, ...STATIC_CELLS]
 
 // ---------------------------------------------------------------------------
 // Tiers
@@ -111,50 +130,40 @@ export interface PlacedSlot extends Slot {
 }
 
 /**
- * Live slots take the best cells in descending price order; sold slots fill the
- * tail. Tier is assigned from rank across the whole roster BEFORE the split, so
- * a team does not change medal colour just because something else sold.
+ * ONE global queue: live slots take the best cells in descending price
+ * order, sold slots fill the tail. Tier is assigned from rank across the
+ * whole roster BEFORE the split, so a team does not change medal colour
+ * just because something else sold. Queue positions 0..ORDER.length-1 sit
+ * on the animated Zuma route; positions beyond spill into STATIC_CELLS
+ * (columns 1/8), which never animate.
  *
- * HALF-STABILITY: a slot's chain (left/right) is decided by alternating over
- * the whole-roster price ranking (rank 0 -> left, 1 -> right, 2 -> left, ...)
- * and the live-first/sold-last migration then happens WITHIN each chain. A
- * team that sells therefore migrates to the tail of ITS OWN half and never
- * jumps across the camera to the other chain — which is also what makes the
- * chains genuinely independent (a left-side sale cannot move any right-side
- * tile), as the chain design always promised.
- *
- * Pure and deterministic — same input, same output. Call it on every data tick;
- * FLIP diffs the result against the previous render.
+ * Pure and deterministic — same input, same output. Call it on every data
+ * tick; FLIP diffs the result against the previous render.
  */
 export function placeSlots(slots: readonly Slot[]): PlacedSlot[] {
   const ranked = [...slots]
     .sort((a, b) => b.price - a.price)
     .map((s, rank) => ({ ...s, rank, tier: tierForRank(rank) }))
 
-  // rank parity picks the chain; each chain then orders live first, sold last.
-  const halves: [typeof ranked, typeof ranked] = [[], []]
-  ranked.forEach((s, i) => halves[i % 2].push(s))
-  const chains = [ROUTE_LEFT, ROUTE_RIGHT] as const
+  const live = ranked.filter((s) => !s.sold)
+  const dead = ranked.filter((s) => s.sold)
 
-  return halves.flatMap((half, h) => {
-    const live = half.filter((s) => !s.sold)
-    const dead = half.filter((s) => s.sold)
-    return [...live, ...dead].map((s, chainIndex) => ({
-      ...s,
-      // ORDER interleaves the chains (ORDER[2i] = left[i], ORDER[2i+1] = right[i]),
-      // so this routeIndex keeps the invariant cell === ORDER[routeIndex].
-      routeIndex: chainIndex * 2 + h,
-      cell: chains[h][chainIndex],
-    }))
-  })
+  return [...live, ...dead].map((s, routeIndex) => ({
+    ...s,
+    routeIndex,
+    cell: ALL_CELLS[routeIndex],
+  }))
 }
+
+/** True when a queue position sits in the static zone (no Zuma animation). */
+export const isStaticIndex = (routeIndex: number) => routeIndex >= ORDER.length
 
 // ---------------------------------------------------------------------------
 // Validation
 // ---------------------------------------------------------------------------
 
 export interface RouteProblem {
-  kind: 'duplicate' | 'not-adjacent' | 'in-portal' | 'out-of-bounds' | 'capacity'
+  kind: 'duplicate' | 'not-adjacent' | 'out-of-bounds' | 'capacity'
   detail: string
 }
 
@@ -185,13 +194,6 @@ export function validateRoute(
       }
       seen.add(key)
 
-      const inPortal =
-        row >= PORTAL.rowStart && row < PORTAL.rowEnd &&
-        col >= PORTAL.colStart && col < PORTAL.colEnd
-      if (inPortal) {
-        problems.push({ kind: 'in-portal', detail: key })
-      }
-
       if (i > 0) {
         const [pr, pc] = chain[i - 1]
         const step = Math.abs(row - pr) + Math.abs(col - pc)
@@ -212,5 +214,9 @@ export function validateRoute(
 }
 
 /** Convenience: validate the shipped route. Expect []. */
+/**
+ * Validates the route PLUS the static zone (as its own runs — adjacency
+ * there is irrelevant for animation but duplicate/bounds/capacity matter).
+ */
 export const validateDefault = (rosterSize = 37) =>
-  validateRoute([ROUTE_LEFT, ROUTE_RIGHT], rosterSize)
+  validateRoute([...ROUTE_RUNS, run(1, 1, 5, 1), run(1, 8, 5, 8)], rosterSize)

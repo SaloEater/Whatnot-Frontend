@@ -1,0 +1,9 @@
+/*
+ * Scoped to /obs/composite/compact/[id]. All shared rules (font-faces,
+ * transparent body, .composite-stage-outer/.composite-canvas) live in
+ * src/app/obs/composite/composite.css, shared with the live overlay
+ * ([id]/page.css) and the results screen ([id]/results/page.css). This page
+ * has no animation of its own (see overlay-compact-plan.md §5 — "No
+ * animation anywhere on this page"), so there are no keyframes to add here.
+ */
+@import '../../composite.css';

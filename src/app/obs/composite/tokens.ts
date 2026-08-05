@@ -187,12 +187,13 @@ export const LAYOUT = {
   contentWidth: 864,
 
   board: {
-    cols: 10,
+    /** Camera portal removed: the full 8x5 grid holds 40 cards. */
+    cols: 8,
     rows: 5,
     rowHeight: 116,
     gap: SPACE.gridGap,
-    /** (864 - 9*8) / 10 */
-    tileWidth: 79.2,
+    /** (864 - 7*8) / 8 */
+    tileWidth: 101,
     /** 5*116 + 4*8 */
     height: 612,
   },
@@ -289,29 +290,9 @@ export const MOTION = {
       'linear-gradient(105deg,transparent 38%,rgba(232,223,203,.50) 50%,transparent 62%)',
   },
 
-  /**
-   * Antikythera-style gear train behind everything (z-index -1).
-   * Periods derive from radius ratios, so it turns as ONE mechanism.
-   * Meshing gears counter-rotate — directions alternate down the chain.
-   * Teeth are a dashed stroke ring: only strokes move, so it is cheap.
-   * Constant dasharray across all seven => constant tooth pitch, as a real
-   * train requires.
-   */
-  gears: {
-    opacity: 0.45,
-    toothDash: '11 20',
-    toothStroke: 14,
-    lineStroke: 3,
-    wheels: [
-      { cx: 540, cy: 300, r: 330, dur: '210s', reverse: false },
-      { cx: 170, cy: 700, r: 200, dur: '127s', reverse: true },
-      { cx: 880, cy: 760, r: 240, dur: '153s', reverse: true },
-      { cx: 400, cy: 1120, r: 280, dur: '178s', reverse: false },
-      { cx: 870, cy: 1310, r: 220, dur: '140s', reverse: true },
-      { cx: 330, cy: 1580, r: 190, dur: '121s', reverse: true },
-      { cx: 830, cy: 1700, r: 170, dur: '108s', reverse: false },
-    ],
-  },
+  // The Antikythera gear train (wheel layout, strokes, opacity, periods) now
+  // lives with its component: src/components/GearTrain.tsx — the composite's
+  // seven-wheel layout is that component's DEFAULT_WHEELS.
 
   /**
    * STATE tier — the Zuma advance. This is the only part of the overlay that

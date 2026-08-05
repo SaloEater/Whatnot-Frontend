@@ -1,8 +1,11 @@
 /**
  * Results screen (figure 1f) — shown after a break closes.
  *
- * Reports who took every slot, with a camera window at the foot so the breaker
- * stays on camera while the board is read out.
+ * Reports who took every slot. NOTE (user decision, supersedes spec §3): the
+ * camera window that originally sat at the foot of this screen is REMOVED —
+ * the page is just the title band and the slot grid, vertically centred as a
+ * unit on the canvas. The freed height stays empty margin; the tiles were
+ * simultaneously squeezed to 85% of their spec width, not grown to fill it.
  *
  * Deliberately NOT a second design system. It reuses:
  *   - palette, type and spacing from ./tokens
@@ -37,24 +40,34 @@ import type { SeriesTeamTotal } from '@/app/entity/entities'
 
 /**
  * The grid is 4 x 10, and the column count is forced by the buyer name, not by
- * aesthetics.
+ * aesthetics: at 5 columns a realistic handle overflows the 36px type floor.
+ * Longer names ellipsis; they must not wrap, because a two-line name breaks
+ * the row rhythm.
  *
- * At 5 columns a tile is 166px wide with ~150px usable, and a realistic handle
- * ("onecardaway") runs about 176px at the 36px type floor — it overflows. Four
- * columns gives 210px tiles with ~194px usable, roughly twelve characters.
- * Longer names ellipsis; they must not wrap, because a two-line name breaks the
- * row rhythm and the height budget below has no slack for it.
+ * 85% SQUEEZE (user decision, supersedes the spec's 864px content column for
+ * this screen): the grid occupies 736px — 4 x 178 + 3 x 8, which is ~85% of
+ * the original 864 — centred horizontally (gridLeft 172 each side). Tiles
+ * scaled on both axes to keep the aspect: 210x112 -> 178x95. Column count
+ * stays 4; the resize is what keeps it 4. Content inside the tile does NOT
+ * scale: the 44px logo matches BoardTile and the 36px buyer name is the
+ * legibility floor and cannot shrink — 3 + 44 + 6 + 36 + 3 = 92 <= 95, so it
+ * still fits, but the tile height has only 3px of slack left.
  */
 export const RESULTS_LAYOUT = {
   slots: 40,
   cols: 4,
   rows: 10,
   gap: SPACE.gridGap,
-  /** (864 - 3*8) / 4 */
-  tileWidth: 210,
-  tileHeight: 112,
-  /** 10*112 + 9*8 */
-  gridHeight: 1192,
+  /** (736 - 3*8) / 4 */
+  tileWidth: 178,
+  /** 112 * (178/210), rounded — keeps the spec tile's aspect. */
+  tileHeight: 95,
+  /** 4*178 + 3*8 = ~85% of the spec's 864 content column. */
+  gridWidth: 736,
+  /** (1080 - 736) / 2 — grid centred on the canvas. */
+  gridLeft: 172,
+  /** 10*95 + 9*8 */
+  gridHeight: 1022,
 
   title: {
     /** 26 pad + 64 + 12 gap + 36 = 138, rounded to 140. */
@@ -65,14 +78,7 @@ export const RESULTS_LAYOUT = {
     gapBetween: 12,
   },
 
-  /**
-   * 864 x 492 is 1.76:1 — near enough 16:9 that a normally framed feed drops in
-   * without cropping. Unlike the live overlay's portal this is a plain window at
-   * the foot, not a hole punched through the board.
-   */
-  camera: { width: 864, height: 492 },
-
-  /** Vertical gap above the grid and above the camera. */
+  /** Vertical gap between the title band and the grid. */
   blockGap: SPACE.lg,
 
   tile: {
@@ -89,46 +95,22 @@ export const RESULTS_LAYOUT = {
   },
 } as const
 
-/**
- * Height budget. Lands on exactly 1920 — there is no slack, so anything added
- * here must remove something else.
- *
- *   24   root padding (top)
- *   140  title band
- *   24   gap
- *   1192 grid
- *   24   gap
- *   492  camera
- *   24   root padding (bottom)
- *   ---- 1920
- */
-export const RESULTS_HEIGHT_BUDGET = [
-  SPACE.pagePad,
-  RESULTS_LAYOUT.title.height,
-  RESULTS_LAYOUT.blockGap,
-  RESULTS_LAYOUT.gridHeight,
-  RESULTS_LAYOUT.blockGap,
-  RESULTS_LAYOUT.camera.height,
-  SPACE.pagePad,
-] as const
-
 // ---------------------------------------------------------------------------
-// Derived vertical stack — cumulative tops, computed from
-// RESULTS_HEIGHT_BUDGET so the page never hand-adds offsets. Same pattern
-// geometry.ts uses for the live overlay (STAT_ROW_TOP, BOARD_TOP, etc built
-// from MOCK_MARGIN + LAYOUT instead of being retyped per component).
+// Derived vertical stack.
+//
+// With the camera window removed (see the module comment) the spec's fixed
+// zero-slack height budget is gone. The grid sits at a FIXED 20% of the
+// canvas height (user revision — replaced the earlier vertical centring,
+// which itself replaced the camera-anchored budget), and the title band
+// hangs above it at blockGap distance. Static again: row count no longer
+// moves anything.
 // ---------------------------------------------------------------------------
 
-const [PAGE_PAD_TOP, TITLE_HEIGHT, GAP_ABOVE_GRID, GRID_HEIGHT, GAP_ABOVE_CAMERA] = RESULTS_HEIGHT_BUDGET
+/** Grid top: 20% of the canvas height. 1920 * 0.2 = 384. */
+export const RESULTS_GRID_TOP = Math.round(CANVAS.height * 0.2)
 
-/** Top of the title band. Equal to the root's top padding — nothing above it. */
-export const RESULTS_TITLE_TOP = PAGE_PAD_TOP
-
-/** Top of the 4x10 slot grid. */
-export const RESULTS_GRID_TOP = RESULTS_TITLE_TOP + TITLE_HEIGHT + GAP_ABOVE_GRID
-
-/** Top of the camera window. Should land on 1404 per the spec's anatomy table. */
-export const RESULTS_CAMERA_TOP = RESULTS_GRID_TOP + GRID_HEIGHT + GAP_ABOVE_CAMERA
+/** Title band top — right above the grid's first row. 384 - 24 - 140 = 220. */
+export const RESULTS_TITLE_TOP = RESULTS_GRID_TOP - RESULTS_LAYOUT.blockGap - RESULTS_LAYOUT.title.height
 
 // ---------------------------------------------------------------------------
 // Data
@@ -181,9 +163,10 @@ export interface PlacedResult extends ResultEntry {
  * 2. DISPLAY ORDER — a separate user decision that overrides the spec's
  *    original "reading order = price rank" default: real teams first,
  *    alphabetical by team name, then non-team specials, alphabetical by
- *    their label. This mirrors event_filter.ts's sortByTeamName
- *    (teams-alphabetical-then-specials) but additionally sorts the non-team
- *    group alphabetically among itself, which sortByTeamName does not do.
+ *    their label. Same ordering as event_filter.ts's sortByTeamName
+ *    (teams-alphabetical-then-specials-alphabetical) — not reused directly
+ *    only because that helper takes Event[] and this sorts PlacedResult,
+ *    whose team/non-team split (`special`) is already computed upstream.
  *
  * `special` (already computed upstream via IsTeam — see useResultsData.ts)
  * is used as the team/non-team split instead of importing IsTeam/teams.ts
@@ -222,12 +205,12 @@ export function composeResults(
 
 /**
  * Run in a test and on mount in dev. The failure mode this catches is silent:
- * the grid overflows the canvas and the camera slides off the bottom edge,
- * which on a fixed stage just looks like a cropped page rather than an error.
+ * an inconsistent layout constant just renders as a subtly cropped or
+ * off-centre page on the fixed stage rather than an error.
  */
 export function checkResultsGeometry(entryCount: number = RESULTS_LAYOUT.slots): string[] {
   const problems: string[] = []
-  const { cols, rows, gap, tileWidth, tileHeight, gridHeight, slots } = RESULTS_LAYOUT
+  const { cols, rows, gap, tileWidth, tileHeight, gridWidth, gridLeft, gridHeight, slots } = RESULTS_LAYOUT
 
   const capacity = cols * rows
   if (capacity !== slots) {
@@ -238,9 +221,11 @@ export function checkResultsGeometry(entryCount: number = RESULTS_LAYOUT.slots):
   }
 
   const derivedWidth = cols * tileWidth + (cols - 1) * gap
-  const contentWidth = CANVAS.width - 2 * SPACE.contentInset
-  if (derivedWidth !== contentWidth) {
-    problems.push(`grid width ${derivedWidth} !== content width ${contentWidth}`)
+  if (derivedWidth !== gridWidth) {
+    problems.push(`grid width ${derivedWidth} !== declared ${gridWidth}`)
+  }
+  if (2 * gridLeft + gridWidth !== CANVAS.width) {
+    problems.push(`gridLeft ${gridLeft} does not centre width ${gridWidth} on canvas ${CANVAS.width}`)
   }
 
   const derivedHeight = rows * tileHeight + (rows - 1) * gap
@@ -248,9 +233,12 @@ export function checkResultsGeometry(entryCount: number = RESULTS_LAYOUT.slots):
     problems.push(`grid height ${derivedHeight} !== declared ${gridHeight}`)
   }
 
-  const total = RESULTS_HEIGHT_BUDGET.reduce((a, b) => a + b, 0)
-  if (total > CANVAS.height) {
-    problems.push(`height budget ${total} overflows canvas ${CANVAS.height}`)
+  if (RESULTS_TITLE_TOP < SPACE.pagePad) {
+    problems.push(`title top ${RESULTS_TITLE_TOP} rises above page padding ${SPACE.pagePad}`)
+  }
+  const gridBottom = RESULTS_GRID_TOP + gridHeight
+  if (gridBottom > CANVAS.height - SPACE.pagePad) {
+    problems.push(`grid bottom ${gridBottom} overflows canvas ${CANVAS.height} (minus padding)`)
   }
 
   return problems
