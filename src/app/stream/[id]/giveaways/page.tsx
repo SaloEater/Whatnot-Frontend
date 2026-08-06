@@ -117,7 +117,7 @@ export default function Page({params}: {params: {id: string}}) {
         const stored = localStorage.getItem(TIMEZONE_KEY)
         setTimezone(stored ?? Intl.DateTimeFormat().resolvedOptions().timeZone)
         setTimezoneList(Intl.supportedValuesOf('timeZone'))
-    }, [])
+    }, [streamId])
 
     function handleTimezoneChange(tz: string) {
         setTimezone(tz)
@@ -318,7 +318,7 @@ export default function Page({params}: {params: {id: string}}) {
                     <>
                         <div className="alert alert-warning">No giveaway entries found in this file.</div>
                         <div className="mb-3">
-                            <label className="form-label">Giveaway pattern (What is the text that is present in all giveaways, i.e. giveaway #1; giveaway #2; giveaway #3 - means that pattern is the word "giveaway")</label>
+                            <label className="form-label">Giveaway pattern (What is the text that is present in all giveaways, i.e. giveaway #1; giveaway #2; giveaway #3 - means that pattern is the word &quot;giveaway&quot;)</label>
                             <input
                                 type="text"
                                 className="form-control"
