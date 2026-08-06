@@ -8,7 +8,8 @@ import './boardComponent.css'
 
 const VIEWPORT_W = 1080
 const VIEWPORT_H = 1920
-const CARD_AREA_H = VIEWPORT_H / 2
+const CARD_AREA_H = VIEWPORT_H * 0.6
+const CARD_AREA_W = VIEWPORT_W * 0.85
 const FALLBACK_ASPECT = 3 / 4
 const GALLERY_BASE_W = 300
 const GALLERY_INTERVAL_MS = 5000
@@ -92,11 +93,11 @@ export default function Page({params}: {params: {id: string}}) {
             while (j < sortedPhotos.length) {
                 totalW += rowH * getAspect(sortedPhotos[j])
                 j++
-                if (totalW >= VIEWPORT_W) break
+                if (totalW >= CARD_AREA_W) break
             }
 
-            const isLastIncomplete = j >= sortedPhotos.length && totalW < VIEWPORT_W
-            const scaleFactor = isLastIncomplete ? 1 : VIEWPORT_W / totalW
+            const isLastIncomplete = j >= sortedPhotos.length && totalW < CARD_AREA_W
+            const scaleFactor = isLastIncomplete ? 1 : CARD_AREA_W / totalW
             const h = rowH * scaleFactor
             const centered = centerByPrice(sortedPhotos.slice(i, j))
             result.push({
@@ -120,42 +121,6 @@ export default function Page({params}: {params: {id: string}}) {
         return rows.reduce((s, r) => s + r.rowHeight, 0)
     }
 
-    // Second pass: grow rows that mix horizontal and vertical cards.
-    // Vertical cards (aspect < 1) gain height; horizontal cards (aspect >= 1)
-    // shrink in height and width to keep total row width = VIEWPORT_W.
-    // Portrait-only rows are not touched.
-    function stretchMixedRows(rows: PackedRow[]): PackedRow[] {
-        const leftover = CARD_AREA_H - totalHeight(rows)
-        if (leftover <= 1) return rows
-
-        const capacities = rows.map((r) => {
-            const aspects = r.photos.map(getAspect)
-            const sumV = aspects.filter((a) => a < 1).reduce((s, a) => s + a, 0)
-            if (sumV === 0 || !aspects.some((a) => a >= 1)) return 0
-            return Math.max(0, VIEWPORT_W / sumV - r.rowHeight)
-        })
-
-        const totalCap = capacities.reduce((s, c) => s + c, 0)
-        if (totalCap <= 0) return rows
-
-        const scale = Math.min(1, leftover / totalCap)
-
-        return rows.map((r, ri) => {
-            if (capacities[ri] <= 0) return r
-            const newH = r.rowHeight + capacities[ri] * scale
-            const aspects = r.photos.map(getAspect)
-            const sumV = aspects.filter((a) => a < 1).reduce((s, a) => s + a, 0)
-            const sumH = aspects.filter((a) => a >= 1).reduce((s, a) => s + a, 0)
-            const k = (VIEWPORT_W - newH * sumV) / sumH
-            return {
-                ...r,
-                rowHeight: newH,
-                widths:      aspects.map((a) => (a < 1 ? newH * a : k * a)),
-                cardHeights: aspects.map((a) => (a < 1 ? newH : k)),
-            }
-        })
-    }
-
     function packRows(): PackedRow[] {
         if (sortedPhotos.length === 0) return []
 
@@ -165,7 +130,38 @@ export default function Page({params}: {params: {id: string}}) {
             if (totalHeight(packRowsWithHeight(mid)) <= CARD_AREA_H) lo = mid
             else hi = mid
         }
-        return stretchMixedRows(packRowsWithHeight(lo))
+        const greedy = packRowsWithHeight(lo)
+
+        // Reassign the greedy row sizes so card counts ascend top→bottom:
+        // the expensive top rows hold the fewest cards, and every row spans
+        // the full width, so fewer cards means visibly taller cards.
+        const counts = greedy.map((r) => r.photos.length).sort((a, b) => a - b)
+        const rows: PackedRow[] = []
+        let idx = 0
+        for (const count of counts) {
+            const slice = sortedPhotos.slice(idx, idx + count)
+            idx += count
+            const h = Math.min(
+                CARD_AREA_W / slice.reduce((s, p) => s + getAspect(p), 0),
+                CARD_AREA_H * 0.5,
+            )
+            const centered = centerByPrice(slice)
+            rows.push({
+                photos: centered,
+                rowHeight: h,
+                widths: centered.map((p) => h * getAspect(p)),
+                cardHeights: centered.map(() => h),
+            })
+        }
+
+        const scale = Math.min(1, CARD_AREA_H / totalHeight(rows))
+        if (scale === 1) return rows
+        return rows.map((r) => ({
+            ...r,
+            rowHeight: r.rowHeight * scale,
+            widths: r.widths.map((w) => w * scale),
+            cardHeights: r.cardHeights.map((h) => h * scale),
+        }))
     }
 
     function handleMouseEnter(e: React.MouseEvent<HTMLDivElement>, photo: Photo) {

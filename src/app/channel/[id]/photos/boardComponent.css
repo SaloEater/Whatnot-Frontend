@@ -9,14 +9,16 @@
 .board-card-area {
     position: absolute;
     bottom: 0;
-    width: 1080px;
-    height: 960px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 918px; /* 85% of 1080 */
+    height: 1152px; /* 60% of 1920 */
     overflow: visible;
 }
 
 .board-row {
     display: flex;
-    width: 1080px;
+    width: 918px;
     justify-content: center;
     align-items: flex-start;
 }

@@ -21,18 +21,54 @@ export default function Page({params}: {params: {id: string}}) {
         localStorage.setItem(CARD_SIZE_KEY, String(size))
     }
 
-    const unsold = photos.filter((p) => !p.is_sold && !p.is_deleted)
-    const sold   = photos.filter((p) =>  p.is_sold && !p.is_deleted)
+    const byPriceDesc = (a: Photo, b: Photo) => b.price - a.price
+    const unsold = photos.filter((p) => !p.is_sold && !p.is_deleted).sort(byPriceDesc)
+    const sold   = photos.filter((p) =>  p.is_sold && !p.is_deleted).sort(byPriceDesc)
+
+    // Split the name into 2 lines at the word boundary that keeps them most balanced.
+    function splitName(name: string): string[] {
+        const words = name.split(' ').filter(Boolean)
+        if (words.length < 2) return [name]
+        let best = 1
+        let bestLen = Infinity
+        for (let i = 1; i < words.length; i++) {
+            const a = words.slice(0, i).join(' ').length
+            const b = words.slice(i).join(' ').length
+            const longest = Math.max(a, b)
+            if (longest < bestLen) { bestLen = longest; best = i }
+        }
+        return [words.slice(0, best).join(' '), words.slice(best).join(' ')]
+    }
+
+    // Largest font where the longest line still fits inside the card width,
+    // capped at 3x the base size. 0.55 approximates average glyph width.
+    function nameFontSize(lines: string[]): number {
+        const innerWidth = cardSize - 6
+        const maxSize = Math.max(10, cardSize * 0.12) * 3
+        const longest = Math.max(...lines.map((l) => l.length))
+        return Math.min(maxSize, innerWidth / (0.55 * longest))
+    }
 
     function renderCard(photo: Photo) {
+        const nameLines = splitName(photo.name || '—')
         return (
             <div key={photo.id} style={{
                 width: `${cardSize}px`,
                 flexShrink: 0,
                 padding: '3px',
                 background: 'rgba(255,255,255,0.08)',
+                border: '1px solid rgba(255,255,255,0.35)',
                 borderRadius: '4px',
             }}>
+                <div style={{
+                    fontSize: `${nameFontSize(nameLines)}px`,
+                    lineHeight: 1.2,
+                    textAlign: 'center',
+                    whiteSpace: 'nowrap',
+                    marginBottom: '2px',
+                }}>
+                    {nameLines.map((line, i) => <div key={i}>{line}</div>)}
+                </div>
                 <div
                     className="position-relative"
                     style={{cursor: 'pointer'}}
