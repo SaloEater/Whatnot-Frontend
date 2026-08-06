@@ -6,23 +6,21 @@
  * mock-sourced margins below) — the camera portal rectangle in particular is
  * computed from the board grid, never hand-typed.
  *
- * VERTICAL RHYTHM — the fig4h mock (Overlay Wireframes.dc.html) lays the
- * stat row / board / divider / checklist out as a flex column with margins,
- * inside a root that itself has 24px padding. Absolutely-positioned children
- * (frame border, meander bands) ignore that padding and are positioned from
- * the true canvas edge; the flex children don't get that for free, so their
- * margins are folded in here as fixed offsets:
- *   root padding-top            24
- *   + stat row margin-top       40   -> STAT_ROW_TOP = 64
- *   + board margin-top          24
- *   + divider margin-top        24
- *   + divider margin-bottom     16   -> CHECKLIST_TOP = 889
- *   + checklist margin-bottom   44   (trailing space before root's own
- *                                     bottom padding; not used to position
- *                                     anything below it)
- * These margin values are not in tokens.ts (the mock never made it into a
- * token) — they're recorded as MOCK_MARGIN below, next to the geometry they
- * produce, rather than silently inlined.
+ * VERTICAL RHYTHM — reworked from the fig4h mock's original order: both text
+ * rows now sit at the TOP (header labels row, then the stash-or-pass divider
+ * row directly under it), the board follows, and the checklist anchors to
+ * the canvas BOTTOM at exactly 60% of its height. Top-down:
+ *   top ornament band bottom (20 + 32)         -> HEADER_ROW_TOP = 52
+ *   + header row 80 (12px gap absorbed)        -> DIVIDER_TOP    = 132
+ *   + divider row 100 (margins folded in)      -> BOARD_TOP      = 232
+ * and bottom-up:
+ *   canvas 1920 - bottom ornament band (20 + 32)
+ *   - checklist minHeight 1194                 -> CHECKLIST_TOP  = 674
+ * CHECKLIST_TOP lands exactly on the board's bottom edge (232 + 442 = 674):
+ * the checklist panel CONNECTS to the board with no gap (the overlap check
+ * in checkLayoutGeometry keeps the two from drifting apart or into each
+ * other). The mock's margin values are recorded as MOCK_MARGIN below rather
+ * than silently inlined.
  */
 import { CANVAS, LAYOUT, SHELL, SPACE, TYPE } from './tokens'
 import type { ChecklistMode } from './types'
@@ -43,17 +41,36 @@ export const MOCK_MARGIN = {
 // Vertical stack — top to bottom
 // ---------------------------------------------------------------------------
 
-export const STAT_ROW_HEIGHT = 113
+/**
+ * The header labels row CONNECTS to the top ornament band: its top edge sits
+ * flush against the band's bottom (20 + 32 = 52), and its height absorbs the
+ * old 12px gap (68 -> 80) so its bottom edge — and everything below — stays
+ * put. Texts stay vertically centered in the taller row.
+ */
+export const HEADER_ROW_HEIGHT =
+  MOCK_MARGIN.rootPadding + MOCK_MARGIN.statRowTop + 68 - (SHELL.frame.band.top + SHELL.frame.band.height)
 
-export const STAT_ROW_TOP = MOCK_MARGIN.rootPadding + MOCK_MARGIN.statRowTop
-export const BOARD_TOP = STAT_ROW_TOP + STAT_ROW_HEIGHT + MOCK_MARGIN.boardTop
-export const DIVIDER_TOP = BOARD_TOP + LAYOUT.board.height + MOCK_MARGIN.dividerTop
-export const CHECKLIST_TOP = DIVIDER_TOP + LAYOUT.divider.height + MOCK_MARGIN.dividerBottom
+/**
+ * Divider (stash-or-pass) row height — the old divider strip plus ALL its
+ * folded margins, including the board's top margin: the row's bottom edge
+ * touches the board's top row of tiles (texts stay vertically centered).
+ */
+export const MID_ROW_HEIGHT =
+  MOCK_MARGIN.dividerTop + LAYOUT.divider.height + MOCK_MARGIN.dividerBottom + MOCK_MARGIN.boardTop
+
+export const HEADER_ROW_TOP = SHELL.frame.band.top + SHELL.frame.band.height
+/** The divider row sits DIRECTLY under the header row (flush). */
+export const DIVIDER_TOP = HEADER_ROW_TOP + HEADER_ROW_HEIGHT
+/** The board starts flush against the divider row's bottom edge. */
+export const BOARD_TOP = DIVIDER_TOP + MID_ROW_HEIGHT
+/** Checklist anchors to the BOTTOM ORNAMENT band: its bottom edge sits flush against the band's top. */
+export const CHECKLIST_TOP =
+  CANVAS.height - SHELL.frame.band.bottom - SHELL.frame.band.height - LAYOUT.checklist.minHeight
 export const CHECKLIST_BOTTOM = CHECKLIST_TOP + LAYOUT.checklist.minHeight
 
-/** Sanity total — should land near CANVAS.height (spec: "~1917 of 1920"). */
+/** Sanity total — checklist bottom + the ornament band under it lands at exactly CANVAS.height. */
 export const TOTAL_CONTENT_HEIGHT =
-  CHECKLIST_BOTTOM + MOCK_MARGIN.checklistBottom + MOCK_MARGIN.rootPadding
+  CHECKLIST_BOTTOM + SHELL.frame.band.height + SHELL.frame.band.bottom
 
 // ---------------------------------------------------------------------------
 // Frame meander bands — absolutely positioned, independent of the flex flow
@@ -76,6 +93,11 @@ export function checkLayoutGeometry(): string[] {
   const problems: string[] = []
   if (TOTAL_CONTENT_HEIGHT > CANVAS.height) {
     problems.push(`content stack ${TOTAL_CONTENT_HEIGHT} exceeds canvas height ${CANVAS.height}`)
+  }
+  if (BOARD_TOP + LAYOUT.board.height > CHECKLIST_TOP) {
+    problems.push(
+      `board bottom ${BOARD_TOP + LAYOUT.board.height} overlaps checklist top ${CHECKLIST_TOP}`,
+    )
   }
   return problems
 }
@@ -108,39 +130,20 @@ export function checkLayoutGeometry(): string[] {
 /** Vertical gap between rows (used by the row stack AND the arrow columns, so arrows stay row-aligned). */
 export const CHECKLIST_ROW_GAP = 10
 
-/** Panel inner width available to the grid (contentWidth minus the panel's own borders). */
-const PANEL_INNER_WIDTH = LAYOUT.contentWidth - 2 * LAYOUT.checklist.panelBorder
-
 /**
  * Per-density-mode grid shape (see ChecklistMode in types.ts). Cards carry
- * no chrome (background/border/shadow removed at the render site), and the
- * horizontal card gap is PER MODE:
+ * no chrome (background/border/shadow removed at the render site):
  *
- *   mode 12: 3 rows x 4 cols at 190 x 266, 10px card gap -> grid 790,
- *            NO price labels (showPrice: false) — the cell is just the
- *            card, stack 3 * 266 + 2*10 = 818.
- *   mode  6 (DEFAULT): 2 rows x 4 cols, width FIXED at 185. The card GAP is
- *            derived so the grid sits exactly CHECKLIST_EDGE_MARGIN (30)
- *            from the panel's inner side edges: (860 - 2*30 - 4*185) / 3
- *            = 20 -> grid 800. The 30px edge arrows overlap the outer
- *            cards by a few px, carousel-style (they float at z-index 3).
- *            Card HEIGHT is a FIXED 300 (box aspect 185:300 ≈ 1:1.62,
- *            close to a slab capture's ~1:1.7, so slabs nearly fill it;
- *            plain 5:7 cards letterbox slightly). Stack: 2 * (42 + 300)
- *            + 10 = 694, centered -> ~133px to the top/bottom edges.
+ *   mode 12 (DEFAULT): 3 rows x 4 cols, 10px card gap, WITH price labels
+ *            (showPrice: true — inherited from the removed mode 6).
+ *
+ * Mode 6 (2 rows x 4 cols at 185 x 300) was removed entirely.
  */
-const MODE12_CARD_WIDTH = 190
-const MODE6_CARD_WIDTH = 185
-const MODE6_COLS = 4
-const MODE6_ROWS = 2
+/** 190 grown 15% — card height follows proportionally (7:5 aspect below). */
+const MODE12_CARD_WIDTH = 190 * 1.15
 
 /** Distance from the grid to the panel's edges (top/bottom outer, left/right inner). */
 export const CHECKLIST_EDGE_MARGIN = 30
-
-const MODE6_CARD_GAP =
-  (PANEL_INNER_WIDTH - 2 * CHECKLIST_EDGE_MARGIN - MODE6_COLS * MODE6_CARD_WIDTH) / (MODE6_COLS - 1)
-
-const MODE6_CARD_HEIGHT = 300
 
 export const CHECKLIST_MODE_LAYOUT: Record<
   ChecklistMode,
@@ -156,14 +159,6 @@ export const CHECKLIST_MODE_LAYOUT: Record<
     cardWidth: MODE12_CARD_WIDTH,
     cardHeight: MODE12_CARD_WIDTH * (7 / 5),
     cardGap: 10,
-    showPrice: false,
-  },
-  6: {
-    cols: MODE6_COLS,
-    rows: MODE6_ROWS,
-    cardWidth: MODE6_CARD_WIDTH,
-    cardHeight: MODE6_CARD_HEIGHT,
-    cardGap: MODE6_CARD_GAP,
     showPrice: true,
   },
 }

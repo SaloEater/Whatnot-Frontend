@@ -9,6 +9,9 @@ import {
   CHECKLIST_MODE_LAYOUT,
   CHECKLIST_TOP,
   DIVIDER_TOP,
+  HEADER_ROW_HEIGHT,
+  HEADER_ROW_TOP,
+  MID_ROW_HEIGHT,
   MOCK_MARGIN,
   CHECKLIST_ROW_GAP,
   checkLayoutGeometry,
@@ -82,11 +85,15 @@ function SegmentedTextRow({
   cells,
   height = SEGMENTED_ROW_HEIGHT,
   borderTop = false,
+  hugCenter = false,
 }: {
   cells: React.ReactNode[]
   height?: number
   borderTop?: boolean
+  /** Align each cell's content toward the PAGE CENTER (first cell right, last cell left) instead of centering it. */
+  hugCenter?: boolean
 }) {
+  const HUG_PAD = 24
   return (
     <div
       style={{
@@ -105,7 +112,10 @@ function SegmentedTextRow({
             flex: 1,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
+            justifyContent:
+              hugCenter && i === 0 ? 'flex-end' : hugCenter && i === cells.length - 1 ? 'flex-start' : 'center',
+            paddingRight: hugCenter && i === 0 ? HUG_PAD : undefined,
+            paddingLeft: hugCenter && i === cells.length - 1 ? HUG_PAD : undefined,
             boxSizing: 'border-box',
             // No cell borders — just a single separator line BETWEEN texts.
             ...(i > 0 ? { borderLeft: `2px solid ${SHELL.statTile.borderColor}` } : {}),
@@ -118,22 +128,57 @@ function SegmentedTextRow({
   )
 }
 
-/** Caption + value as inline TEXTS (the segmented rows carry no boxes), vertically centered on each other. */
-function StatCellText({ caption, value }: { caption: string; value: string }) {
+/**
+ * A TWO-LINE stacked caption (e.g. "STASH" / "OR PASS") with the VALUE
+ * beside it, both vertically centered in the row — the number sits on the
+ * row's midline next to the caption block. `align` sets which edge the
+ * caption lines share ('end'/'start' for cells hugging the page center).
+ */
+function StatCellText({
+  captionLines,
+  value,
+  align = 'center',
+}: {
+  captionLines: string[]
+  value: string
+  align?: 'start' | 'center' | 'end'
+}) {
   return (
-    <span style={{ display: 'flex', alignItems: 'center', gap: SHELL.statTile.innerGap }}>
+    <span
+      style={{
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        gap: SHELL.statTile.innerGap,
+        // 'start'-aligned cells (right of page center) lead with the NUMBER.
+        flexDirection: align === 'start' ? 'row-reverse' : 'row',
+      }}
+    >
       <span
         style={{
-          fontFamily: FONT.display,
-          fontWeight: FONT.weight.regular,
-          fontSize: TYPE.label,
-          letterSpacing: TRACKING.caption,
-          color: COLOR.ivory70,
-          textTransform: 'uppercase',
-          lineHeight: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 4,
+          alignItems: align === 'end' ? 'flex-end' : align === 'start' ? 'flex-start' : 'center',
         }}
       >
-        {caption}
+        {captionLines.map((line) => (
+          <span
+            key={line}
+            style={{
+              fontFamily: FONT.display,
+              fontWeight: FONT.weight.regular,
+              fontSize: TYPE.label,
+              letterSpacing: TRACKING.caption,
+              color: COLOR.ivory70,
+              textTransform: 'uppercase',
+              lineHeight: 1,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {line}
+          </span>
+        ))}
       </span>
       <span
         style={{
@@ -195,15 +240,16 @@ function HeaderLabelsRow({
     <div
       style={{
         position: 'absolute',
-        // Bottom edge flush against the board's top row of tiles.
-        top: BOARD_TOP - SEGMENTED_ROW_HEIGHT,
+        // Flush under the top ornament band; the divider row sits flush underneath.
+        top: HEADER_ROW_TOP,
         left: SPACE.contentInset,
         width: LAYOUT.contentWidth,
-        height: SEGMENTED_ROW_HEIGHT,
+        height: HEADER_ROW_HEIGHT,
         zIndex: 2,
       }}
     >
       <SegmentedTextRow
+        height={HEADER_ROW_HEIGHT}
         cells={[
           <InfoLabelText key="series" text={seriesLabel} tracking={TRACKING.label} />,
           <InfoLabelText key="count" text={countLabel} tracking={TRACKING.numeric} numeric />,
@@ -579,15 +625,11 @@ function Board({ placedRoster }: { placedRoster: PlacedRosterSlot[] }) {
 }
 
 /**
- * MID row (the former divider slot): the STASH OR PASS / SPIN 2 CHOOSE 1
- * stats — swapped here from the old top stat row. Two equal parts, same
- * segmented style as the header row. The bar spans the ENTIRE gap between
- * the board's bottom edge and the checklist panel's top edge
- * (dividerTop margin + strip + dividerBottom margin = 76px), touching the
- * board with a bronze border on that top side.
+ * MID row: the STASH OR PASS / SPIN 2 CHOOSE 1 stats. Two equal parts, same
+ * segmented style as the header row, sitting DIRECTLY under it at the top of
+ * the content stack (DIVIDER_TOP = header top + header height; the board
+ * follows below). Height MID_ROW_HEIGHT comes from geometry.ts.
  */
-const MID_ROW_HEIGHT = MOCK_MARGIN.dividerTop + LAYOUT.divider.height + MOCK_MARGIN.dividerBottom
-
 function MidStatsRow({
   stashOrPassValue,
   spin2ChooseValue,
@@ -602,27 +644,19 @@ function MidStatsRow({
         top: DIVIDER_TOP,
         left: SPACE.contentInset,
         width: LAYOUT.contentWidth,
-        height: LAYOUT.divider.height,
+        height: MID_ROW_HEIGHT,
         zIndex: 2,
       }}
     >
-      <div
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          // Reach up through the divider-top margin to the board's bottom edge.
-          top: -MOCK_MARGIN.dividerTop,
-        }}
-      >
-        <SegmentedTextRow
-          height={MID_ROW_HEIGHT}
-          cells={[
-            <StatCellText key="sop" caption="STASH OR PASS" value={stashOrPassValue} />,
-            <StatCellText key="s2c1" caption="SPIN 2 CHOOSE 1" value={spin2ChooseValue} />,
-          ]}
-        />
-      </div>
+      <SegmentedTextRow
+        height={MID_ROW_HEIGHT}
+        borderTop
+        hugCenter
+        cells={[
+          <StatCellText key="sop" captionLines={['STASH', 'OR PASS']} value={stashOrPassValue} align="end" />,
+          <StatCellText key="s2c1" captionLines={['PICK 2', 'CHOOSE 1']} value={spin2ChooseValue} align="start" />,
+        ]}
+      />
     </div>
   )
 }
@@ -686,10 +720,13 @@ function TierCardFrame({
   tier,
   url,
   onImageLoad,
+  glow = true,
 }: {
   tier: Tier
   url?: string
   onImageLoad?: (naturalWidth: number, naturalHeight: number) => void
+  /** False disables the outer halo + inset rim (mode 0's dense pack goes glow-free). */
+  glow?: boolean
 }) {
   const { color, wash, radius } = CARD_FRAME[tier]
   const s = CARD_FRAME_STROKE
@@ -735,8 +772,11 @@ function TierCardFrame({
       style={{
         position: 'absolute',
         inset: 0,
+        // 70% alpha ('b3') — the glow runs 30% weaker than the full tier colour.
         filter:
-          tier !== 'grey' ? `drop-shadow(0 0 3px ${color}) drop-shadow(0 0 7px ${color})` : undefined,
+          glow && tier !== 'grey'
+            ? `drop-shadow(0 0 3px ${color}b3) drop-shadow(0 0 7px ${color}b3)`
+            : undefined,
       }}
     >
     <div style={maskStyle}>
@@ -754,7 +794,7 @@ function TierCardFrame({
           borderTopLeftRadius: radius,
           borderTopRightRadius: radius,
           boxSizing: 'border-box',
-          boxShadow: tier !== 'grey' ? `inset 0 0 3px ${color}` : undefined,
+          boxShadow: glow && tier !== 'grey' ? `inset 0 0 3px ${color}b3` : undefined,
         }}
       />
       {/* Squared-notebook lattice on the FRAME's background, rotated 45°
@@ -855,6 +895,7 @@ function ChecklistCardTile({
   onZoomStart,
   onZoomEnd,
   onImageLoad,
+  glow = true,
 }: Omit<ChecklistCardView, 'id'> & {
   cardWidth: number
   cardHeight: number
@@ -864,6 +905,8 @@ function ChecklistCardTile({
   onZoomEnd: () => void
   /** Mode 0's packer measures true image aspects through this. */
   onImageLoad?: (naturalWidth: number, naturalHeight: number) => void
+  /** False renders the tier frame without its glow (mode 0). */
+  glow?: boolean
 }) {
   const { labelGap } = LAYOUT.checklist
 
@@ -940,7 +983,7 @@ function ChecklistCardTile({
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        <TierCardFrame tier={tier} url={thumbnail || url} onImageLoad={onImageLoad} />
+        <TierCardFrame tier={tier} url={thumbnail || url} onImageLoad={onImageLoad} glow={glow} />
       </div>
     </div>
   )
@@ -1138,80 +1181,157 @@ function PackedChecklist({
   cards,
   onZoomStart,
   onZoomEnd,
+  boxAspect,
+  gap = 0,
+  glow = false,
 }: {
   cards: ChecklistCardView[]
   onZoomStart: (req: ZoomRequest) => void
   onZoomEnd: () => void
+  /**
+   * Fixed card-box aspect (w/h). Unset = photos-board behaviour (boxes hug
+   * each MEASURED image, edge to edge). Mode 12's few-cards fallback passes
+   * its grid's 5:7 so the frame gutters — lattice, wash — stay visible.
+   */
+  boxAspect?: number
+  /** Card/row gap. 0 = photos-board parity; the fallback keeps mode 12's 10px. */
+  gap?: number
+  /** Tier-frame glow, as in the grid modes; mode 0 runs glow-free. */
+  glow?: boolean
 }) {
   const { panelPadding, panelBorder, minHeight } = LAYOUT.checklist
   const areaW = LAYOUT.contentWidth - 2 * panelBorder - 2 * panelPadding
-  const areaH = minHeight - 2 * panelBorder - 2 * panelPadding
-  const GAP = 10
+  // RULE: the mode-0 stack always STARTS at 5% of the panel's height (the
+  // 6/12 grids use the same idea at 2%). The pack area runs from there down
+  // to the panel's bottom inner edge.
+  const topInset = minHeight * 0.05
+  const areaH = minHeight - topInset - panelBorder - panelPadding
+  const GAP = gap
 
   const [dims, setDims] = useState<Record<number, { w: number; h: number }>>({})
   const aspectOf = (c: ChecklistCardView) => {
+    if (boxAspect != null) return boxAspect
     const d = dims[c.id]
     return d && d.h > 0 ? d.w / d.h : 5 / 7
   }
 
+  // Photos-board packRowsWithHeight semantics: a row keeps taking cards
+  // UNTIL it reaches/overflows the full width, and closes there (the rebuild
+  // step later sizes every row back to exact full width). Only the final row
+  // may come up short.
   const packWithHeight = (h: number): ChecklistCardView[][] => {
     const rows: ChecklistCardView[][] = []
     let row: ChecklistCardView[] = []
     let rowW = 0
     for (const c of cards) {
       const w = h * aspectOf(c)
-      const nextW = row.length === 0 ? w : rowW + GAP + w
-      if (row.length > 0 && nextW > areaW) {
+      rowW += (row.length > 0 ? GAP : 0) + w
+      row.push(c)
+      if (rowW >= areaW) {
         rows.push(row)
-        row = [c]
-        rowW = w
-      } else {
-        row.push(c)
-        rowW = nextW
+        row = []
+        rowW = 0
       }
     }
     if (row.length > 0) rows.push(row)
     return rows
   }
 
-  // Binary search the largest uniform row height that fits the area (the
-  // photos board's packRows approach, without its stretch pass).
+  // Most expensive in the MIDDLE of the row (photos board centerByPrice).
+  // `cards` is already price-desc, so array order IS price rank.
+  const centerByPrice = (slice: ChecklistCardView[]): ChecklistCardView[] => {
+    const result = new Array<ChecklistCardView>(slice.length)
+    const center = Math.floor(slice.length / 2)
+    slice.forEach((card, i) => {
+      if (i % 2 === 0) result[center + i / 2] = card
+      else result[center - Math.ceil(i / 2)] = card
+    })
+    return result
+  }
+
+  // Photos-board packRows() parity: binary search the largest uniform row
+  // height that fits the area, but use the greedy result ONLY to learn the
+  // row-count distribution. Counts are then reassigned ASCENDING top->bottom
+  // and every row rebuilt at its natural full-width height — the top row
+  // holds the fewest, most expensive cards, and since all rows span the same
+  // width, row heights are non-increasing downward.
+  // A row's rendered height at probe height h: overfilled rows rescale to
+  // exact full width (photos scaleFactor), an incomplete last row keeps h.
+  const rowRenderHeight = (row: ChecklistCardView[], h: number): number => {
+    const gaps = GAP * (row.length - 1)
+    const aspectSum = row.reduce((s, c) => s + aspectOf(c), 0)
+    const natural = (areaW - gaps) / aspectSum
+    return h * aspectSum + gaps < areaW ? h : natural
+  }
   let lo = 10
   let hi = areaH
   for (let i = 0; i < 24; i++) {
     const mid = (lo + hi) / 2
     const rows = packWithHeight(mid)
-    const total = rows.length * mid + (rows.length - 1) * GAP
+    const total = rows.reduce((s, r) => s + rowRenderHeight(r, mid), 0) + (rows.length - 1) * GAP
     if (total <= areaH) lo = mid
     else hi = mid
   }
-  const rowH = lo
-  const packed = packWithHeight(rowH)
+  const counts = packWithHeight(lo)
+    .map((r) => r.length)
+    .sort((a, b) => a - b)
+  // A 1-2 card row AMONG MANY full rows is a degenerate greedy REMAINDER
+  // (the card count just didn't divide by the row capacity), not a showcase
+  // row — merge it into the next-smallest row instead of promoting a lone
+  // giant card to the top. With 3 or fewer rows (small inventories) a 1-2
+  // card top row is real signal and stays: merging there collapses the
+  // layout into a couple of short rows that underfill the board.
+  while (counts.length > 3 && counts[0] <= 2) {
+    counts[1] += counts[0]
+    counts.shift()
+    counts.sort((a, b) => a - b)
+  }
+
+  const rows: { cards: ChecklistCardView[]; h: number }[] = []
+  let idx = 0
+  for (const count of counts) {
+    const slice = cards.slice(idx, idx + count)
+    idx += count
+    if (slice.length === 0) continue
+    const aspectSum = slice.reduce((s, c) => s + aspectOf(c), 0)
+    // Natural full-width height (gaps taken off the span), capped so a 1-2
+    // card row can't consume half the board.
+    const h = Math.min((areaW - GAP * (slice.length - 1)) / aspectSum, areaH * 0.5)
+    rows.push({ cards: centerByPrice(slice), h })
+  }
+
+  // If the stack overflows the area, shrink every row uniformly.
+  const heightSum = rows.reduce((s, r) => s + r.h, 0)
+  const fitScale = Math.min(1, (areaH - GAP * (rows.length - 1)) / heightSum)
 
   return (
     <div
       style={{
         width: areaW,
         height: areaH,
+        // Pull the box down so its top edge sits at exactly 5% of the panel
+        // (the panel's border+padding already contribute to the offset).
+        marginTop: topInset - panelBorder - panelPadding,
         display: 'flex',
         flexDirection: 'column',
         gap: GAP,
-        justifyContent: 'center',
+        justifyContent: 'flex-start',
         alignItems: 'center',
       }}
     >
-      {packed.map((row, ri) => (
+      {rows.map((row, ri) => (
         <div key={ri} style={{ display: 'flex', gap: GAP, justifyContent: 'center' }}>
-          {row.map((c) => (
+          {row.cards.map((c) => (
             <ChecklistCardTile
               key={c.id}
               price={c.price}
               url={c.url}
               thumbnail={c.thumbnail}
               tier={c.tier}
-              cardWidth={rowH * aspectOf(c)}
-              cardHeight={rowH}
+              cardWidth={row.h * fitScale * aspectOf(c)}
+              cardHeight={row.h * fitScale}
               showPrice={false}
+              glow={glow}
               onPauseChange={() => {}}
               onZoomStart={onZoomStart}
               onZoomEnd={onZoomEnd}
@@ -1309,12 +1429,29 @@ function Checklist({
     counts[rowIndex] = Math.max(0, (counts[rowIndex] ?? 0) + (paused ? 1 : -1))
   }
 
-  // Modes 6 and 12 anchor the grid's top at 2% of the panel's height
-  // (measured from the panel's outer top edge) instead of vertical
-  // centering; mode 0's packed board centers itself. The arrow columns
-  // follow the same anchor so they stay row-aligned (absolute children
-  // offset from just inside the border, hence the panelBorder correction).
-  const gridTopFromPanelTop = mode === 6 || mode === 12 ? minHeight * 0.02 : null
+  // With FEWER THAN 13 cards, mode 12's windowed grid is pointless (every
+  // card fits on screen anyway) — it falls back to the mode-0 packed board:
+  // all cards shown, packed and scaled exactly as mode 0 renders them.
+  // Rows are tier buckets (fillShortRows may duplicate a card across rows),
+  // so dedupe by id and restore the global price-desc order the packer's
+  // center-by-price logic relies on.
+  const allCardsById = new Map<number, ChecklistCardView>()
+  rows.forEach((r) =>
+    r.cards.forEach((c) => {
+      if (!allCardsById.has(c.id)) allCardsById.set(c.id, c)
+    }),
+  )
+  const priceNum = (c: ChecklistCardView) => parseFloat(c.price.replace(/[^0-9.]/g, '')) || 0
+  const allCards = Array.from(allCardsById.values()).sort((a, b) => priceNum(b) - priceNum(a))
+  const packAll = mode === 0 || allCards.length < 13
+
+  // Mode 12's grid anchors its top at 2% of the panel's height (measured
+  // from the panel's outer top edge); the packed board (mode 0 or the
+  // few-cards fallback) anchors itself at 5% via its own marginTop. The
+  // arrow columns follow the grid anchor so they stay row-aligned (absolute
+  // children offset from just inside the border, hence the panelBorder
+  // correction).
+  const gridTopFromPanelTop = mode === 12 ? minHeight * 0.02 : null
 
   const arrowColumn: React.CSSProperties = {
     position: 'absolute',
@@ -1342,13 +1479,21 @@ function Checklist({
         boxSizing: 'border-box',
         padding: panelPadding,
         display: 'flex',
-        alignItems: gridTopFromPanelTop != null ? 'flex-start' : 'center',
+        // Every mode anchors its content from the panel TOP (12 at 2%,
+        // mode 0 at 5% via PackedChecklist's own marginTop).
+        alignItems: 'flex-start',
         justifyContent: 'center',
       }}
     >
-      {mode === 0 ? (
+      {packAll ? (
         <PackedChecklist
-          cards={rows[0]?.cards ?? []}
+          cards={allCards}
+          // Mode 12's fallback keeps that mode's card look: fixed 5:7 boxes
+          // (frame gutters visible), its 10px gaps, and the tier glow. Mode 0
+          // stays pure photos-board: measured aspects, gapless, no glow.
+          boxAspect={mode === 12 ? 5 / 7 : undefined}
+          gap={mode === 12 ? CHECKLIST_MODE_LAYOUT[12].cardGap : 0}
+          glow={mode === 12}
           onZoomStart={(req) => setZoom({ req, closing: false })}
           onZoomEnd={() => setZoom((z) => (z ? { ...z, closing: true } : null))}
         />
@@ -1463,7 +1608,6 @@ function Checklist({
         }}
       >
         <ChecklistModeButton mode={0} active={mode === 0} onClick={() => onSetMode(0)} />
-        <ChecklistModeButton mode={6} active={mode === 6} onClick={() => onSetMode(6)} />
         <ChecklistModeButton mode={12} active={mode === 12} onClick={() => onSetMode(12)} />
       </div>
     </div>

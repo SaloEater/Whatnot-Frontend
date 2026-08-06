@@ -4,22 +4,10 @@ import type { Tier } from './board'
 import type { PlacedRosterSlot } from './roster'
 
 /**
- * Tier label shown inside the tile's top bar — the composite's take on the
- * /obs/prices/[id] "gem": black uppercase text centered on the tier-colored
- * fill, same text treatment as that page's gem label. Regular tiles show the
- * bare bar with no label, matching the prices page's gem-less regular cells.
- */
-const TIER_LABEL: Record<Tier, string | null> = {
-  gold: 'GOD',
-  silver: 'GIANT',
-  bronze: 'CHASER',
-  grey: null,
-}
-
-/**
- * Vivid tier-bar fills — the /obs/prices/[id] neon palette (its --neon
- * variables for best/good/mid), NOT the overlay's muted FRAME metals: the
- * bar should read unmistakably gold/silver/bronze from across a stream.
+ * Vivid tier colours — the /obs/prices/[id] neon palette (its --neon
+ * variables for best/good/mid), NOT the overlay's muted FRAME metals. The
+ * tile's tier BAR was removed; the colour survives as the tile's glow, which
+ * should read unmistakably gold/silver/bronze from across a stream.
  *
  * Exported: ResultTile.tsx reuses these for the results screen's tier glow,
  * so the two boards can't drift to different neon palettes.
@@ -28,7 +16,7 @@ export const TIER_BAR_COLOR: Record<Tier, string> = {
   gold: '#ffd700',
   silver: '#f5f5f5',
   bronze: '#cd6f19',
-  grey: '#909090', // unused — regular tiles render no bar
+  grey: '#909090', // unused — regular tiles don't glow
 }
 
 /**
@@ -36,9 +24,9 @@ export const TIER_BAR_COLOR: Record<Tier, string> = {
  * `tileRef` exposes the root element so the Board's Zuma FLIP can slide it
  * with a transform when its cell changes (grid placement is never animated).
  *
- * Vertical anatomy (live tiles): a 5px strip filled with the tier colour
- * across the very top, the tier badge under it, the logo in the flexible
- * middle, and the price sitting 2px off the bottom border.
+ * Vertical anatomy (live tiles): the logo in the flexible middle and the
+ * price sitting 2px off the bottom border — no tier bar; tier reads from
+ * the border colour and the glow alone.
  */
 /** Sweep time for one sheen pass — the token period's duty-cycle slice (9s * 0.18 ≈ 1.6s). */
 const SHEEN_SWEEP_S = parseFloat(MOTION.sheen.period) * MOTION.sheen.dutyCycle
@@ -71,13 +59,20 @@ export function BoardTile({
   // Special spots are visually identical to team tiles — only the art
   // differs (the Miscellaneous mark instead of a team logo).
   const imageSrc = slot.special ? '/images/Miscellaneous.webp' : `/images/teams/${slot.label}.webp`
-  const { lines, fontSize } = boardPriceLayout(slot.displayPrice ?? `$${slot.price}`, TYPE.price)
-  const tierLabel = TIER_LABEL[slot.tier]
+  // Regular (grey) teams show their price at HALF size and always on ONE
+  // line (at half size a full range fits the tile) — the medal tiers keep
+  // the full-size price with the range split, so value stands out where it
+  // matters. Rejoining the layout's lines undoes its range split without
+  // duplicating the "$100-$299" -> "$100-299" normalization.
+  const priceLayout = boardPriceLayout(slot.displayPrice ?? `$${slot.price}`, TYPE.price)
+  const isRegular = slot.tier === 'grey'
+  const lines = isRegular ? [priceLayout.lines.join('')] : priceLayout.lines
+  const fontSize = isRegular ? TYPE.price * 0.75 : priceLayout.fontSize
 
   // Tiered (gold/silver/bronze) AVAILABLE tiles glow in their vivid tier
   // colour — the /obs/prices neon-glow treatment (outer + inset). STATIC
   // box-shadow only; animating it would force per-frame repaints.
-  const glowColor = !displaySold && tierLabel ? TIER_BAR_COLOR[slot.tier] : null
+  const glowColor = !displaySold && slot.tier !== 'grey' ? TIER_BAR_COLOR[slot.tier] : null
   const glow = glowColor
     ? `0 0 6px ${glowColor}, 0 0 14px ${glowColor}, inset 0 0 6px ${glowColor}`
     : undefined
@@ -124,37 +119,6 @@ export function BoardTile({
               }}
               aria-hidden
             />
-          )}
-          {/* Tier bar: 20px fill in the tier colour with the gem-style label
-              filling it (black uppercase, prices-page text treatment).
-              Regular tiles get NO bar at all. */}
-          {tierLabel && (
-            <div
-              style={{
-                height: 20,
-                width: '100%',
-                flexShrink: 0,
-                background: TIER_BAR_COLOR[slot.tier],
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <span
-                style={{
-                  fontFamily: FONT.display,
-                  fontWeight: FONT.weight.semibold,
-                  fontSize: 19,
-                  letterSpacing: '.08em',
-                  textTransform: 'uppercase',
-                  color: '#000000',
-                  textShadow: '0 0 1px rgba(0,0,0,0.5), 0 0 2px rgba(0,0,0,0.3)',
-                  lineHeight: 1,
-                }}
-              >
-                {tierLabel}
-              </span>
-            </div>
           )}
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}

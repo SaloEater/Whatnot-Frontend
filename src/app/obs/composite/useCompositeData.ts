@@ -56,17 +56,15 @@ import type { ChecklistMode, ChecklistRowState, PlacedRosterSlot, PricedChecklis
 const SERIES_POLL_MS = 60000
 const WIDGET_POLL_MS = 60000
 /** Cards per row window, per density mode — must match CHECKLIST_MODE_LAYOUT's cols. Mode 0 shows everything (no windowing). */
-const CHECKLIST_MODE_WINDOW: Record<ChecklistMode, number> = { 12: 4, 6: 4, 0: Number.POSITIVE_INFINITY }
+const CHECKLIST_MODE_WINDOW: Record<ChecklistMode, number> = { 12: 4, 0: Number.POSITIVE_INFINITY }
 /**
  * Per-row drift interval — the time a row takes to travel ONE card span —
  * indexed by VISUAL row (0 = top), per density mode. Rows lower on the panel
  * drift faster — a deliberate choice so the eye is drawn to "what's new"
- * nearer the bottom without every row moving in lockstep. Mode 6 has only
- * two rows, so it keeps the ends of the mode-12 range.
+ * nearer the bottom without every row moving in lockstep.
  */
 const CHECKLIST_MODE_INTERVALS_MS: Record<ChecklistMode, readonly number[]> = {
   12: [30000, 22000, 15000],
-  6: [30000, 15000],
   0: [], // everything is visible at once — nothing scrolls
 }
 
@@ -219,35 +217,26 @@ interface ChecklistPage {
 }
 
 /**
- * Row = tier bucket: row 1 is everything >= bestThreshold, row 2 is
- * everything >= goodThreshold (and below best), row 3 is the rest. Sorted
- * price-desc within each bucket. Uses the SAME thresholds the board prices
- * against (resolveThresholds(priceRanges), or the mock equivalent) — one
- * tier system across the overlay, not a second invented cutoff.
+ * Mode 12 rows are POSITIONAL, not threshold buckets: row 1 is a SHOWCASE of
+ * the 4 most expensive cards (exactly the visible window, so it never
+ * scrolls), and the remainder splits evenly across rows 2 and 3 — upper half
+ * by price into row 2, lower half into row 3 — which scroll. Per-card tier
+ * frames still come from the shared thresholds (cardTier), so the medal
+ * system is untouched; only the ROW assignment changed.
  */
 function bucketByTier(
   items: readonly PricedChecklistItem[],
-  thresholds: TierThresholds,
+  _thresholds: TierThresholds,
   mode: ChecklistMode,
 ): PricedChecklistItem[][] {
-  const best: PricedChecklistItem[] = []
-  const good: PricedChecklistItem[] = []
-  const rest: PricedChecklistItem[] = []
-
-  for (const item of items) {
-    if (item.price >= thresholds.bestThreshold) best.push(item)
-    else if (item.price >= thresholds.goodThreshold) good.push(item)
-    else rest.push(item)
-  }
-
   const byPriceDesc = (a: PricedChecklistItem, b: PricedChecklistItem) => b.price - a.price
-  // Mode 0 shows the whole series as ONE packed board — no tier rows at all.
-  if (mode === 0) return [[...items].sort(byPriceDesc)]
-  // Mode 6 has only two rows: best keeps its own row, good and rest pool
-  // into the second. good items all sit above goodThreshold and rest all
-  // below it, so concatenating the two sorted buckets stays price-desc.
-  if (mode === 6) return [best.sort(byPriceDesc), [...good.sort(byPriceDesc), ...rest.sort(byPriceDesc)]]
-  return [best.sort(byPriceDesc), good.sort(byPriceDesc), rest.sort(byPriceDesc)]
+  const sorted = [...items].sort(byPriceDesc)
+  // Mode 0 shows the whole series as ONE packed board — no rows at all.
+  if (mode === 0) return [sorted]
+  const top = sorted.slice(0, 4)
+  const rest = sorted.slice(4)
+  const mid = Math.ceil(rest.length / 2)
+  return [top, rest.slice(0, mid), rest.slice(mid)]
 }
 
 /** Tier for a single card, from its own price against the shared thresholds. */

@@ -190,12 +190,17 @@ export const LAYOUT = {
     /** Camera portal removed: the full 8x5 grid holds 40 cards. */
     cols: 8,
     rows: 5,
-    rowHeight: 116,
+    /**
+     * Sized so the board fits between the top header+divider rows and a
+     * checklist taking 60% of the canvas (see geometry.ts's vertical stack).
+     * Tiles carry no tier bar anymore — logo + price fit in 82px.
+     */
+    rowHeight: 82,
     gap: SPACE.gridGap,
     /** (864 - 7*8) / 8 */
     tileWidth: 101,
-    /** 5*116 + 4*8 */
-    height: 612,
+    /** 5*82 + 4*8 */
+    height: 442,
   },
 
   /**
@@ -208,8 +213,13 @@ export const LAYOUT = {
   divider: { height: 36 },
 
   checklist: {
-    /** Hard floor: exactly 50% of canvas height. */
-    minHeight: 960,
+    /**
+     * Panel height: spans from the board's bottom edge (geometry.ts
+     * BOARD_TOP 232 + board height 442 = 674) down to the bottom ornament
+     * band's top edge (1920 - 20 - 32 = 1868) — the checklist CONNECTS to
+     * the board above and the ornament below, no gaps. ~62% of the canvas.
+     */
+    minHeight: 1194,
     panelPadding: 20,
     panelBorder: 2,
     cols: 3,
