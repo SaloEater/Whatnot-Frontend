@@ -136,6 +136,22 @@ export default function Page({params}: {params: {id: string}}) {
         // the expensive top rows hold the fewest cards, and every row spans
         // the full width, so fewer cards means visibly taller cards.
         const counts = greedy.map((r) => r.photos.length).sort((a, b) => a - b)
+
+        // Smooth extreme splits (e.g. a leftover row of 2 next to rows of 5):
+        // move cards up from the row below until no adjacent pair differs by
+        // more than 1. Keeps counts ascending, so 2/5/5/5 becomes 3/4/5/5.
+        let changed = true
+        while (changed) {
+            changed = false
+            for (let i = 0; i < counts.length - 1; i++) {
+                if (counts[i + 1] - counts[i] >= 2) {
+                    counts[i] += 1
+                    counts[i + 1] -= 1
+                    changed = true
+                }
+            }
+        }
+
         const rows: PackedRow[] = []
         let idx = 0
         for (const count of counts) {
