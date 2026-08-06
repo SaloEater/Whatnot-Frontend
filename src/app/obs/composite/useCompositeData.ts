@@ -54,7 +54,8 @@ import type { ChecklistMode, ChecklistRowState, PlacedRosterSlot, PricedChecklis
 // pick2, boxes-per-break) — everything else ("changes rarely" per the spec's
 // own 60-120s guidance) is covered by useCompositeSources's own cadences.
 const SERIES_POLL_MS = 60000
-const WIDGET_POLL_MS = 60000
+/** Stash-or-pass / pick2 poll — 10s so mid-break price changes land fast (the BE caches these). */
+const WIDGET_POLL_MS = 10000
 /** Cards per row window, per density mode — must match CHECKLIST_MODE_LAYOUT's cols. Mode 0 shows everything (no windowing). */
 const CHECKLIST_MODE_WINDOW: Record<ChecklistMode, number> = { 12: 4, 0: Number.POSITIVE_INFINITY }
 /**
