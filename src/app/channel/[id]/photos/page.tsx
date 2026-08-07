@@ -14,6 +14,14 @@ const FALLBACK_ASPECT = 3 / 4
 const GALLERY_BASE_W = 300
 const GALLERY_INTERVAL_MS = 5000
 
+/**
+ * Normalize a rotation to the SHORTEST arc, (-180, 180]: a 270° photo turns
+ * -90° during the hover zoom instead of sweeping three quarters of a circle.
+ */
+function shortestRotation(deg: number): number {
+    return (((deg % 360) + 540) % 360) - 180
+}
+
 function centerByPrice(cards: Photo[]): Photo[] {
     const sorted = [...cards].sort((a, b) => b.price - a.price)
     const result = new Array<Photo>(sorted.length)
@@ -301,7 +309,7 @@ export default function Page({params}: {params: {id: string}}) {
                                     <div
                                         className="board-card-visual"
                                         style={hovered ? {
-                                            transform: `translate(${hoverData.current.dx}px, ${hoverData.current.dy}px) scale(${hoverData.current.scale}) rotate(${photo.rotation ?? 0}deg)`,
+                                            transform: `translate(${hoverData.current.dx}px, ${hoverData.current.dy}px) scale(${hoverData.current.scale}) rotate(${shortestRotation(photo.rotation ?? 0)}deg)`,
                                             boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
                                         } : {}}
                                     >

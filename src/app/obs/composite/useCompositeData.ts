@@ -89,7 +89,7 @@ function readMockFlag(): boolean {
   return new URLSearchParams(window.location.search).get('mock') === '1'
 }
 
-export function useCompositeData(channelId: number, checklistMode: ChecklistMode = 12): CompositeData {
+export function useCompositeData(channelId: number, checklistMode: ChecklistMode = 0): CompositeData {
   // Static; OBS loads this page once with a fixed URL, so a one-time read is enough.
   const [isMock] = useState(readMockFlag)
 

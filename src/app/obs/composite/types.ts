@@ -55,7 +55,7 @@ export interface ChecklistRowState {
 
 /**
  * Checklist density: how many cards the preview shows at once.
- * 12 = 3 rows x 4 cols with price labels (default), 0 = ALL cards at once,
+ * 12 = 3 rows x 4 cols with price labels, 0 (DEFAULT) = ALL cards at once,
  * packed to fit like /channel/[id]/photos (no tier rows, no scrolling, no
  * prices). The value doubles as the button label in the panel's corner
  * toggle. (Mode 6 — 2 rows x 4 cols — was removed; 12 took its price

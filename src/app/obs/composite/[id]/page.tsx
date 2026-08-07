@@ -698,6 +698,8 @@ interface ZoomRequest {
   tier: Tier
   /** Card box in CANVAS px (nominal card dims, measured position). */
   rect: { x: number; y: number; w: number; h: number }
+  /** Photo.rotation (degrees) — applied to the ZOOMED clone only; tiles render upright. */
+  rotation?: number
 }
 
 /**
@@ -881,13 +883,16 @@ function TierCardFrame({
   )
 }
 
-// NOTE: the Photo.rotation field is deliberately IGNORED in the checklist —
-// every card renders upright in its portrait box, as captured.
+// NOTE: the Photo.rotation field is IGNORED for the tile itself — every card
+// renders upright in its portrait box, as captured. The hover ZOOM is the
+// exception: the zoomed clone rotates to the photo's true orientation
+// (mirroring /channel/[id]/photos).
 function ChecklistCardTile({
   price,
   url,
   thumbnail,
   tier,
+  rotation,
   cardWidth,
   cardHeight,
   showPrice,
@@ -942,7 +947,7 @@ function ChecklistCardTile({
     hoverTimerRef.current = setTimeout(() => {
       hoverTimerRef.current = null
       const rect = measureRect()
-      if (rect) onZoomStart({ url, tier, rect })
+      if (rect) onZoomStart({ url, tier, rect, rotation })
     }, 500)
   }
 
@@ -1009,7 +1014,10 @@ function ChecklistZoomOverlay({
   onClosed: () => void
 }) {
   const [active, setActive] = useState(false)
-  const { rect, url, tier } = req
+  const { rect, url } = req
+  // Normalize to the SHORTEST arc, (-180, 180]: a 270° photo turns -90°
+  // instead of sweeping three quarters of a circle during the zoom.
+  const rotation = ((((req.rotation ?? 0) % 360) + 540) % 360) - 180
 
   useEffect(() => {
     const raf = requestAnimationFrame(() => setActive(true))
@@ -1024,7 +1032,13 @@ function ChecklistZoomOverlay({
   }, [closing, onClosed])
 
   const zoomFraction = 0.8
-  const scale = Math.min((CANVAS.width * zoomFraction) / rect.w, (CANVAS.height * zoomFraction) / rect.h)
+  // A photo rotated a quarter-turn presents its HEIGHT across the canvas
+  // width (and vice versa) — fit against the swapped box dims, as the
+  // photos-board reference does.
+  const quarterTurned = rotation % 180 !== 0
+  const scale = quarterTurned
+    ? Math.min((CANVAS.width * zoomFraction) / rect.h, (CANVAS.height * zoomFraction) / rect.w)
+    : Math.min((CANVAS.width * zoomFraction) / rect.w, (CANVAS.height * zoomFraction) / rect.h)
   const dx = CANVAS.width / 2 - (rect.x + rect.w / 2)
   const dy = CANVAS.height / 2 - (rect.y + rect.h / 2)
 
@@ -1039,7 +1053,8 @@ function ChecklistZoomOverlay({
         zIndex: 10,
         pointerEvents: 'none',
         transition: 'transform 200ms ease-out',
-        transform: active ? `translate(${dx}px, ${dy}px) scale(${scale})` : undefined,
+        // Rotation rides the same transform, so the card turns upright as it zooms.
+        transform: active ? `translate(${dx}px, ${dy}px) scale(${scale}) rotate(${rotation}deg)` : undefined,
       }}
       aria-hidden
     >
@@ -1328,6 +1343,7 @@ function PackedChecklist({
               url={c.url}
               thumbnail={c.thumbnail}
               tier={c.tier}
+              rotation={c.rotation}
               cardWidth={row.h * fitScale * aspectOf(c)}
               cardHeight={row.h * fitScale}
               showPrice={false}
@@ -1539,6 +1555,7 @@ function Checklist({
                 url={c.url}
                 thumbnail={c.thumbnail}
                 tier={c.tier}
+                rotation={c.rotation}
                 cardWidth={CHECKLIST_MODE_LAYOUT[mode].cardWidth}
                 cardHeight={CHECKLIST_MODE_LAYOUT[mode].cardHeight}
                 showPrice={CHECKLIST_MODE_LAYOUT[mode].showPrice}
@@ -1616,7 +1633,7 @@ function Checklist({
 
 export default function Page({ params }: { params: { id: string } }) {
   const channelId = parseInt(params.id)
-  const [checklistMode, setChecklistMode] = useState<ChecklistMode>(12)
+  const [checklistMode, setChecklistMode] = useState<ChecklistMode>(0)
   const data = useCompositeData(channelId, checklistMode)
 
   useEffect(() => {
