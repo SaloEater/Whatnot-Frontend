@@ -283,39 +283,48 @@ function HeaderLabelsRow({
 const ZUMA_SLOWMO = 3
 
 /**
- * Sheen lottery — one tile at a time: roll the TIER first (weights below,
- * higher tier = higher chance), then a uniform pick among that tier's
- * AVAILABLE teams. Regular (grey) tiles never sheen. Empty tiers drop out of
- * the roll and their weight renormalizes across the rest.
+ * Sheen lottery — 3-5 tiles PER ROLL, sweeping simultaneously: for each pick,
+ * roll the TIER first (weights below, higher tier = higher chance), then a
+ * uniform pick among that tier's AVAILABLE teams, without replacement — no
+ * tile is picked twice in one roll. Regular (grey) tiles never sheen. Empty
+ * (or exhausted) tiers drop out of the roll and their weight renormalizes
+ * across the rest.
  */
 const SHEEN_TIER_WEIGHTS: ReadonlyArray<[Tier, number]> = [
   ['gold', 45],
   ['silver', 30],
   ['bronze', 25],
 ]
+/** How many tiles sheen together on one roll (uniform in [min, max]). */
+const SHEEN_BATCH_MIN = 3
+const SHEEN_BATCH_MAX = 5
 /** Random cooldown between sheens, milliseconds. */
 const SHEEN_COOLDOWN_MIN_MS = 5000
 const SHEEN_COOLDOWN_MAX_MS = 13000
 
-function pickSheenTarget(slots: readonly PlacedRosterSlot[]): PlacedRosterSlot | null {
+function pickSheenTargets(slots: readonly PlacedRosterSlot[], count: number): PlacedRosterSlot[] {
   const byTier = new Map<Tier, PlacedRosterSlot[]>()
   for (const s of slots) {
     if (s.sold) continue
     if (!byTier.has(s.tier)) byTier.set(s.tier, [])
     byTier.get(s.tier)!.push(s)
   }
-  const candidates = SHEEN_TIER_WEIGHTS.filter(([tier]) => (byTier.get(tier)?.length ?? 0) > 0)
-  if (candidates.length === 0) return null
-  const total = candidates.reduce((sum, [, w]) => sum + w, 0)
-  let roll = Math.random() * total
-  for (const [tier, weight] of candidates) {
-    roll -= weight
-    if (roll <= 0) {
-      const pool = byTier.get(tier)!
-      return pool[Math.floor(Math.random() * pool.length)]
+  const picked: PlacedRosterSlot[] = []
+  for (let i = 0; i < count; i++) {
+    const candidates = SHEEN_TIER_WEIGHTS.filter(([tier]) => (byTier.get(tier)?.length ?? 0) > 0)
+    if (candidates.length === 0) break
+    const total = candidates.reduce((sum, [, w]) => sum + w, 0)
+    let roll = Math.random() * total
+    for (const [tier, weight] of candidates) {
+      roll -= weight
+      if (roll <= 0) {
+        const pool = byTier.get(tier)!
+        picked.push(...pool.splice(Math.floor(Math.random() * pool.length), 1))
+        break
+      }
     }
   }
-  return null
+  return picked
 }
 
 /**
@@ -384,8 +393,8 @@ function Board({ placedRoster }: { placedRoster: PlacedRosterSlot[] }) {
   )
   const tileRefs = useRef<Map<number, HTMLDivElement>>(new Map())
 
-  // --- sheen lottery: one tile at a time on a 5-13s random cooldown ---
-  const [sheen, setSheen] = useState<{ id: number; epoch: number } | null>(null)
+  // --- sheen lottery: 3-5 tiles per roll on a 5-13s random cooldown ---
+  const [sheen, setSheen] = useState<{ ids: ReadonlySet<number>; epoch: number } | null>(null)
   const displayedRef = useRef(displayed)
   useEffect(() => {
     displayedRef.current = displayed
@@ -398,8 +407,12 @@ function Board({ placedRoster }: { placedRoster: PlacedRosterSlot[] }) {
         SHEEN_COOLDOWN_MIN_MS + Math.random() * (SHEEN_COOLDOWN_MAX_MS - SHEEN_COOLDOWN_MIN_MS)
       timer = setTimeout(() => {
         if (cancelled) return
-        const target = pickSheenTarget(displayedRef.current)
-        if (target) setSheen((prev) => ({ id: target.id, epoch: (prev?.epoch ?? 0) + 1 }))
+        const count =
+          SHEEN_BATCH_MIN + Math.floor(Math.random() * (SHEEN_BATCH_MAX - SHEEN_BATCH_MIN + 1))
+        const targets = pickSheenTargets(displayedRef.current, count)
+        if (targets.length > 0) {
+          setSheen((prev) => ({ ids: new Set(targets.map((t) => t.id)), epoch: (prev?.epoch ?? 0) + 1 }))
+        }
         schedule()
       }, delay)
     }
@@ -613,7 +626,7 @@ function Board({ placedRoster }: { placedRoster: PlacedRosterSlot[] }) {
           key={s.id}
           slot={s}
           preFlip={preFlipIds.has(s.id)}
-          sheenEpoch={sheen && sheen.id === s.id ? sheen.epoch : undefined}
+          sheenEpoch={sheen && sheen.ids.has(s.id) ? sheen.epoch : undefined}
           tileRef={(el) => {
             if (el) tileRefs.current.set(s.id, el)
             else tileRefs.current.delete(s.id)
