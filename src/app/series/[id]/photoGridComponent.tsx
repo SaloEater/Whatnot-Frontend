@@ -4,6 +4,7 @@ import React, {FC, useState} from "react";
 import {Photo} from "@/app/entity/entities";
 import {getEndpoints, post} from "@/app/lib/backend";
 import {Teams} from "@/app/common/teams";
+import {splitName, nameFontSize} from "@/app/common/cardName";
 
 interface PhotoGridComponentProps {
     photos: Photo[]
@@ -85,8 +86,27 @@ export const PhotoGridComponent: FC<PhotoGridComponentProps> = ({photos, deleted
         const imgLoaded = loadedImages.has(photo.id)
         const rotation = photo.rotation ?? 0
         const rotatedSideways = rotation === 90 || rotation === 270
+        const nameLines = splitName(photo.name || '—')
+        // Columns are fluid, so the name is sized in container-width percent
+        // (cqw) instead of px — same fit rule as the photo board controls,
+        // capped at the 36% that rule reaches on a full-size control card.
+        const nameSize = nameFontSize(nameLines, 100, 36)
         return (
-            <div key={photo.id} className="col-6 col-sm-4 col-md-3">
+            <div key={photo.id} className="col-6 col-sm-4 col-md-3" style={{containerType: 'inline-size'}}>
+                <div style={{
+                    fontSize: `${nameSize}cqw`,
+                    lineHeight: 1.2,
+                    textAlign: 'center',
+                    whiteSpace: 'nowrap',
+                    marginBottom: '2px',
+                    // Same plate as the photo board controls cards.
+                    background: 'rgba(255,255,255,0.08)',
+                    border: '1px solid rgba(255,255,255,0.35)',
+                    borderRadius: '4px',
+                    padding: '3px',
+                }}>
+                    {nameLines.map((line, i) => <div key={i}>{line}</div>)}
+                </div>
                 <div className="position-relative">
                     <div
                         className="rounded"

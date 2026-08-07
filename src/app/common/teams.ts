@@ -46,3 +46,10 @@ export function IsNone(team: string): string {
 export function IsTeam(team: string): boolean {
     return Teams.indexOf(team) != -1
 }
+/**
+ * Team logo art, matching /obs/composite's BoardTile: the Miscellaneous mark
+ * stands in for the catch-all bucket, every real team has its own file.
+ */
+export function TeamIconSrc(team: string): string {
+    return team === "Miscellaneous" ? "/images/Miscellaneous.webp" : `/images/teams/${team}.webp`
+}

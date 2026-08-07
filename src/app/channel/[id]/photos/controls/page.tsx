@@ -3,6 +3,8 @@
 import React, {useState} from 'react'
 import {Photo} from '@/app/entity/entities'
 import {usePhotoBoard} from '../usePhotoBoard'
+import {splitName, nameFontSize} from '@/app/common/cardName'
+import {TeamIconSrc} from '@/app/common/teams'
 
 const CARD_SIZE_KEY = 'photos-controls-card-size'
 
@@ -25,28 +27,9 @@ export default function Page({params}: {params: {id: string}}) {
     const unsold = photos.filter((p) => !p.is_sold && !p.is_deleted).sort(byPriceDesc)
     const sold   = photos.filter((p) =>  p.is_sold && !p.is_deleted).sort(byPriceDesc)
 
-    // Split the name into 2 lines at the word boundary that keeps them most balanced.
-    function splitName(name: string): string[] {
-        const words = name.split(' ').filter(Boolean)
-        if (words.length < 2) return [name]
-        let best = 1
-        let bestLen = Infinity
-        for (let i = 1; i < words.length; i++) {
-            const a = words.slice(0, i).join(' ').length
-            const b = words.slice(i).join(' ').length
-            const longest = Math.max(a, b)
-            if (longest < bestLen) { bestLen = longest; best = i }
-        }
-        return [words.slice(0, best).join(' '), words.slice(best).join(' ')]
-    }
-
-    // Largest font where the longest line still fits inside the card width,
-    // capped at 3x the base size. 0.55 approximates average glyph width.
-    function nameFontSize(lines: string[]): number {
-        const innerWidth = cardSize - 6
-        const maxSize = Math.max(10, cardSize * 0.12) * 3
-        const longest = Math.max(...lines.map((l) => l.length))
-        return Math.min(maxSize, innerWidth / (0.55 * longest))
+    // Fits the name inside the card width, capped at 3x the base size.
+    function cardNameFontSize(lines: string[]): number {
+        return nameFontSize(lines, cardSize - 6, Math.max(10, cardSize * 0.12) * 3)
     }
 
     function renderCard(photo: Photo) {
@@ -61,7 +44,7 @@ export default function Page({params}: {params: {id: string}}) {
                 borderRadius: '4px',
             }}>
                 <div style={{
-                    fontSize: `${nameFontSize(nameLines)}px`,
+                    fontSize: `${cardNameFontSize(nameLines)}px`,
                     lineHeight: 1.2,
                     textAlign: 'center',
                     whiteSpace: 'nowrap',
@@ -91,6 +74,25 @@ export default function Page({params}: {params: {id: string}}) {
                             background: 'rgba(128,128,128,0.4)',
                             pointerEvents: 'none',
                         }} />
+                    )}
+                    {photo.team && (
+                        <img
+                            src={TeamIconSrc(photo.team)}
+                            alt={photo.team}
+                            title={photo.team}
+                            style={{
+                                position: 'absolute', bottom: '2px', left: '2px',
+                                // A third of the card's rendered height — the image box
+                                // is this element's positioning parent, so percentages
+                                // track the photo whatever its aspect ratio.
+                                height: '33%', width: 'auto', maxWidth: '100%',
+                                objectFit: 'contain',
+                                pointerEvents: 'none',
+                                background: '#000',
+                                borderRadius: '2px',
+                                padding: '1px',
+                            }}
+                        />
                     )}
                 </div>
             </div>
