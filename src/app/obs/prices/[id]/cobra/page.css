@@ -1,0 +1,253 @@
+body {
+    margin: 0;
+    font-family: var(--font-exo2), sans-serif;
+    /* Bootstrap's dark theme puts #212529 on the body; clear it so the only
+       painted surfaces are the cards themselves. */
+    background: transparent;
+}
+
+/* ── Root ── */
+.cobra-root {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+    gap: 1px;
+}
+
+
+.cobra-waiting {
+    color: #fff;
+    font-size: 1.5rem;
+    padding: 20px;
+}
+
+/* ── Rows ──
+   Heights come from the inline flex-grow weights set in page.tsx: each row is
+   either as tall as the row above it or 10% shorter, never taller. */
+.cobra-row {
+    display: flex;
+    flex: 1 1 0%;
+    min-height: 0;
+    overflow: hidden;
+    width: 100%;
+    justify-content: center;
+}
+
+/* ── Tier neon variables ──
+   --neon-soft is the tier colour at 45% alpha, for wide low-intensity glows.
+   --neon-faint drives the price glow only: 32% alpha on the top two tiers
+   (70% of --neon-soft), 18% on the bottom two.
+   --neon-pale is 30% tier colour over white, the badge gradient's early stop.
+   --neon-vivid is the tier colour at 1.2x HSL saturation then darkened 15%,
+   the badge gradient's late stop.
+   All are precomputed rather than color-mix()'d, since OBS ships an older CEF
+   than color-mix() requires. */
+.cobra-cell--best    { --neon: #9eedf6; --neon-mid: #c5f4fa; --neon-soft: rgba(158,237,246,0.45); --neon-faint: rgba(158,237,246,0.32); --neon-pale: #e2fafc; --neon-vivid: #195FC2; }
+.cobra-cell--good    { --neon: #2ef079; --neon-mid: #82f6af; --neon-soft: rgba(46,240,121,0.45);  --neon-faint: rgba(46,240,121,0.32);  --neon-pale: #c0fbd7; --neon-vivid: #1ad964; }
+.cobra-cell--mid     { --neon: #f25d26; --neon-mid: #f79e7d; --neon-soft: rgba(242,93,38,0.45);   --neon-faint: rgba(242,93,38,0.18);   --neon-pale: #F3A445; --neon-vivid: #F02C02; }
+.cobra-cell--regular { --neon: #ebdb61; --neon-mid: #f3e9a0; --neon-soft: rgba(235,219,97,0.45);  --neon-faint: rgba(235,219,97,0.18);  --neon-pale: #f9f4d0; --neon-vivid: #d4c447; }
+
+/* ── Cell base ── */
+.cobra-cell {
+    /* Dimmer than the tier colour but spread ~2.4x wider. */
+    --neon-glow: 0 0 5px var(--neon-faint), 0 0 14px var(--neon-faint), 0 0 34px var(--neon-faint);
+    /* One specular pass: the composite board's 9s period x 0.18 duty cycle. */
+    --sheen-sweep: 1.62s;
+    position: relative;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    margin: 6px;
+    border: 2px solid var(--neon);
+    border-radius: 10px;
+    /* Weak white bloom centred on the top edge, falling off into the black. */
+    background:
+        radial-gradient(circle at 50% 0%, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 72%),
+        #000000;
+    /* Outer bloom — dimmer than the frame but thrown wider — then a tight
+       inner halo hugging it. */
+    box-shadow:
+        0 0 26px var(--neon-soft),
+        0 0 60px var(--neon-soft),
+        inset 0 0 6px var(--neon),
+        inset 0 0 16px var(--neon-soft);
+}
+
+/* Glow falls away down the tiers: Chaser keeps only the inner halo, Side Card
+   has none at all. These must follow .cobra-cell — same specificity, so source
+   order is what decides. */
+.cobra-cell--mid {
+    box-shadow:
+        inset 0 0 6px var(--neon),
+        inset 0 0 16px var(--neon-soft);
+}
+
+.cobra-cell--regular {
+    box-shadow: none;
+}
+
+/* The price is pinned 3.5px off the bottom frame on every tier; the name takes
+   the remaining space and centres itself within it. */
+.cobra-cell__content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 0.4em;
+    padding: 0 1em 3.5px;
+    min-height: 0;
+}
+
+/* ── Sheen ──
+   Two one-shot specular sweeps, fired per-cell by the lottery in page.tsx: the
+   card sweeps left-to-right, then the tier badge answers on the diagonal, from
+   its bottom-right corner out the top-left. The badge's delay is exactly one
+   sweep, so it starts as the card's finishes.
+
+   The card's clip layer is a separate box rather than overflow:hidden on the
+   cell, so the sweep is bounded by the frame while the badge's glow can still
+   spill outside it. */
+.cobra-cell__sheen-clip {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    border-radius: 10px;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.cobra-cell__sheen {
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(105deg, transparent 38%, rgba(232,223,203,0.50) 50%, transparent 62%);
+    transform: translateX(-100%);
+    animation: cobra-sheen-once var(--sheen-sweep) linear forwards;
+}
+
+/* Parked past the bottom-right corner until the delay elapses, then sweeps
+   diagonally up and out the top-left. */
+.cobra-cell__gem-sheen {
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(330deg, transparent 38%, rgba(232,223,203,0.50) 50%, transparent 62%);
+    transform: translate(100%, 100%);
+    animation: cobra-gem-sheen-once var(--sheen-sweep) linear var(--sheen-sweep) forwards;
+    pointer-events: none;
+}
+
+@keyframes cobra-sheen-once {
+    from { transform: translateX(-100%); }
+    to   { transform: translateX(100%); }
+}
+
+@keyframes cobra-gem-sheen-once {
+    from { transform: translate(100%, 100%); }
+    to   { transform: translate(-100%, -100%); }
+}
+
+/* ── Tier badge ──
+   A normal-flow flex item pinned to the cell's right edge, so the name/price
+   block below it starts underneath rather than behind it. Width collapses to
+   fit the label. */
+.cobra-cell__gem {
+    align-self: flex-end;
+    margin: 14px 14px 0 0;
+    /* Bounds the badge's own sheen to the pill. The outer glow is a box-shadow,
+       so it still spills past this clip. */
+    position: relative;
+    overflow: hidden;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    padding: 0 0.7em;
+    border: 2px solid var(--neon);
+    border-radius: 24px;
+    /* White at both corners; a 30% wash of the tier colour arrives early, then
+       ramps past full strength to 1.2x saturation before falling back to white. */
+    background: linear-gradient(135deg,
+        #ffffff            0%,
+        var(--neon-pale)   5%,
+        var(--neon-vivid) 80%,
+        #ffffff          100%);
+    box-shadow: 0 0 14px var(--neon-soft), 0 0 36px var(--neon-soft);
+    font-size: 1.05rem;
+    font-weight: 300;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+/* "Side Card Team" is the longest label and lands on the densest rows (up to
+   MAX_ROW_CELLS), so it gets a smaller badge to stay inside its cell — and no
+   glow, matching its unlit frame. */
+.cobra-cell--regular .cobra-cell__gem {
+    font-size: 0.77rem;
+    box-shadow: none;
+}
+
+.cobra-cell__gem-label {
+    color: #000000;
+    font-size: 1em;
+    font-weight: 500;
+    text-shadow: 0 0 1px rgba(0,0,0,0.9), 0 0 4px rgba(0,0,0,0.6);
+}
+
+/* ── Name ── */
+.cobra-cell__name {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Names bleed ~15% of their colour into the surrounding area — a soft halo,
+   not the tight multi-stop neon the price uses. */
+.cobra-cell__name-prefix {
+    color: #ffffff;
+    font-weight: 900;
+    line-height: 1.2;
+    text-shadow: 0 0 12px rgba(255,255,255,0.15), 0 0 34px rgba(255,255,255,0.15);
+}
+
+.cobra-cell__name-last {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-weight: 900;
+    line-height: 1.2;
+    text-shadow: 0 0 12px rgba(255,255,255,0.15), 0 0 34px rgba(255,255,255,0.15);
+}
+
+/* Tier-specific font sizes */
+.cobra-cell--best    .cobra-cell__name-prefix { font-size: 2.2rem; }
+.cobra-cell--best    .cobra-cell__name-last   { font-size: 3rem; }
+
+.cobra-cell--good    .cobra-cell__name-prefix { font-size: 1.95rem; }
+.cobra-cell--good    .cobra-cell__name-last   { font-size: 2.75rem; }
+
+.cobra-cell--mid     .cobra-cell__name-prefix { font-size: 1.7rem; }
+.cobra-cell--mid     .cobra-cell__name-last   { font-size: 2.5rem; }
+
+.cobra-cell--regular .cobra-cell__name-prefix { font-size: 1.632rem; }
+.cobra-cell--regular .cobra-cell__name-last   { font-size: 2.4rem; }
+
+/* ── Price ── */
+.cobra-cell__price {
+    flex: 0 0 auto;
+    color: var(--neon);
+    font-weight: 900;
+    text-shadow: var(--neon-glow);
+}
+
+.cobra-cell--best    .cobra-cell__price { font-size: 2.8rem; }
+.cobra-cell--good    .cobra-cell__price { font-size: 2.6rem; }
+.cobra-cell--mid     .cobra-cell__price { font-size: 2.2rem; }
+.cobra-cell--regular .cobra-cell__price { font-size: 1.6rem; }

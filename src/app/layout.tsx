@@ -6,7 +6,7 @@ import BootstrapClient from "@/components/BootstrapClient";
 import BreadcrumbsComponent from "@/app/component/breadcrumbsComponent";
 
 const inter = Inter({ subsets: ["latin"] });
-const exo2 = Exo_2({ subsets: ["latin"], weight: "300", variable: "--font-exo2" });
+const exo2 = Exo_2({ subsets: ["latin"], weight: ["300", "900"], variable: "--font-exo2" });
 
 export const metadata: Metadata = {
   title: "Create Next App",
