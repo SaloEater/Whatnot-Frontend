@@ -10,6 +10,7 @@ interface PhotoGridComponentProps {
     photos: Photo[]
     deletedPhotos?: Photo[]
     isLoading?: boolean
+    devMode?: boolean
     onDelete: (id: number) => void
     onRestore?: (id: number) => void
     onTeamChange: (id: number, team: string) => void
@@ -22,7 +23,7 @@ type SortDir   = 'asc'   | 'desc'
 
 const ROTATIONS = [0, 90, 180, 270] as const
 
-export const PhotoGridComponent: FC<PhotoGridComponentProps> = ({photos, deletedPhotos = [], isLoading, onDelete, onRestore, onTeamChange, onPriceChange, onRotationChange}) => {
+export const PhotoGridComponent: FC<PhotoGridComponentProps> = ({photos, deletedPhotos = [], isLoading, devMode = false, onDelete, onRestore, onTeamChange, onPriceChange, onRotationChange}) => {
     const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set())
     const [sortField, setSortField] = useState<SortField>('price')
     const [sortDir,   setSortDir]   = useState<SortDir>('desc')
@@ -140,14 +141,16 @@ export const PhotoGridComponent: FC<PhotoGridComponentProps> = ({photos, deleted
                         >Restore</button>
                     ) : (
                         <>
+                            {devMode && (
+                                <button
+                                    className="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 p-0 lh-1"
+                                    style={{width: '22px', height: '22px', fontSize: '12px'}}
+                                    onClick={() => deletePhoto(photo.id)}
+                                >×</button>
+                            )}
                             <button
-                                className="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 p-0 lh-1"
-                                style={{width: '22px', height: '22px', fontSize: '12px'}}
-                                onClick={() => deletePhoto(photo.id)}
-                            >×</button>
-                            <button
-                                className="btn btn-sm btn-secondary position-absolute top-0 end-0 m-1 p-0 lh-1"
-                                style={{width: '22px', height: '22px', fontSize: '13px', right: '30px'}}
+                                className="btn btn-sm btn-secondary position-absolute top-0 m-1 p-0 lh-1"
+                                style={{width: '22px', height: '22px', fontSize: '13px', right: devMode ? '30px' : '0'}}
                                 onClick={() => setRotatingPhoto(photo)}
                                 title="Rotate"
                             >↻</button>

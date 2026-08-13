@@ -35,6 +35,7 @@ export default function Page({params}: {params: {id: string}}) {
     const [editingDefaultPrice, setEditingDefaultPrice] = useState(false)
     const [priceFrom, setPriceFrom] = useState('')
     const [priceTo, setPriceTo] = useState('')
+    const [devMode, setDevMode] = useState(false)
 
     useEffect(() => {
         post(getEndpoints().series_get, {id: seriesId}).then((data: Series) => {
@@ -135,6 +136,18 @@ export default function Page({params}: {params: {id: string}}) {
 
     return (
         <main className="container py-3">
+            <div className="position-fixed bottom-0 end-0 m-3 z-3">
+                <div className="form-check form-switch">
+                    <input
+                        className="form-check-input"
+                        type="checkbox"
+                        id="devModeSwitch"
+                        checked={devMode}
+                        onChange={(e) => setDevMode(e.target.checked)}
+                    />
+                    <label className="form-check-label" htmlFor="devModeSwitch">dev</label>
+                </div>
+            </div>
             <div className="d-flex align-items-center gap-2 mb-3">
                 {editingName ? (
                     <>
@@ -236,6 +249,7 @@ export default function Page({params}: {params: {id: string}}) {
             </div>
 
             <PhotoGridComponent
+                devMode={devMode}
                 photos={photos}
                 deletedPhotos={deletedPhotos}
                 isLoading={photosLoading}
