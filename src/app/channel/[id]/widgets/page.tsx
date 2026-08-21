@@ -64,6 +64,8 @@ export default function Page({params}: {params: {id: string}}) {
     const [orientation, setOrientation] = useState<string | null>(null)
     const [cbSaving, setCbSaving] = useState(false)
     const [cbStatus, setCbStatus] = useState<'idle' | 'ok' | 'error'>('idle')
+    const [showHorizontalRow, setShowHorizontalRow] = useState(false)
+    const [showOnlyAvailableTeams, setShowOnlyAvailableTeams] = useState(false)
 
     const [presets, setPresets] = useState<WidgetPreset[]>([])
     const [selectedPresetId, setSelectedPresetId] = useState<number | null>(null)
@@ -92,7 +94,11 @@ export default function Page({params}: {params: {id: string}}) {
                 }
             })
         post(getEndpoints().widget_cards_board_get, {channel_id: channelId})
-            .then((d: {orientation: string}) => setOrientation(d?.orientation ?? 'list'))
+            .then((d: {orientation: string, show_horizontal_row: boolean, show_only_available_teams: boolean}) => {
+                setOrientation(d?.orientation ?? 'list')
+                setShowHorizontalRow(d?.show_horizontal_row ?? false)
+                setShowOnlyAvailableTeams(d?.show_only_available_teams ?? false)
+            })
         post(getEndpoints().widget_presets_list, {channel_id: channelId})
             .then((d: {presets: WidgetPreset[]}) => setPresets(d?.presets ?? []))
     }, [channelId])
@@ -208,7 +214,12 @@ export default function Page({params}: {params: {id: string}}) {
         setCbSaving(true)
         setCbStatus('idle')
         try {
-            await post(getEndpoints().widget_cards_board_update, {channel_id: channelId, orientation})
+            await post(getEndpoints().widget_cards_board_update, {
+                channel_id: channelId,
+                orientation,
+                show_horizontal_row: showHorizontalRow,
+                show_only_available_teams: showOnlyAvailableTeams,
+            })
             setCbStatus('ok')
         } catch {
             setCbStatus('error')
@@ -469,6 +480,28 @@ export default function Page({params}: {params: {id: string}}) {
                                 </button>
                                 {cbStatus === 'ok'    && <span className="text-success">Saved</span>}
                                 {cbStatus === 'error' && <span className="text-danger">Error</span>}
+                            </div>
+                            <div className="form-check mt-2">
+                                <input
+                                    type="checkbox"
+                                    className="form-check-input"
+                                    id="showHorizontalRowCheck"
+                                    checked={showHorizontalRow}
+                                    disabled={orientation === null}
+                                    onChange={(e) => { setShowHorizontalRow(e.target.checked); setCbStatus('idle') }}
+                                />
+                                <label className="form-check-label" htmlFor="showHorizontalRowCheck">Show horizontal row</label>
+                            </div>
+                            <div className="form-check">
+                                <input
+                                    type="checkbox"
+                                    className="form-check-input"
+                                    id="showOnlyAvailableTeamsCheck"
+                                    checked={showOnlyAvailableTeams}
+                                    disabled={orientation === null}
+                                    onChange={(e) => { setShowOnlyAvailableTeams(e.target.checked); setCbStatus('idle') }}
+                                />
+                                <label className="form-check-label" htmlFor="showOnlyAvailableTeamsCheck">Show only available teams</label>
                             </div>
                         </div>
                     </div>

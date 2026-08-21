@@ -1,8 +1,10 @@
 'use client'
 
 import React, {useEffect, useRef, useState} from 'react'
-import {Photo} from '@/app/entity/entities'
+import {Event, NoCustomer, Photo} from '@/app/entity/entities'
 import {getEndpoints, post} from '@/app/lib/backend'
+import {useChannel} from '@/app/hooks/useChannel'
+import {useActiveStream} from '@/app/hooks/useActiveStream'
 import {usePhotoBoard} from './usePhotoBoard'
 import './boardComponent.css'
 
@@ -22,6 +24,10 @@ function shortestRotation(deg: number): number {
     return (((deg % 360) + 540) % 360) - 180
 }
 
+function normalizeTeam(team: string): string {
+    return team.trim().toLowerCase()
+}
+
 function centerByPrice(cards: Photo[]): Photo[] {
     const sorted = [...cards].sort((a, b) => b.price - a.price)
     const result = new Array<Photo>(sorted.length)
@@ -36,6 +42,8 @@ function centerByPrice(cards: Photo[]): Photo[] {
 export default function Page({params}: {params: {id: string}}) {
     const channelId = parseInt(params.id)
     const {photos} = usePhotoBoard(channelId)
+    const [channel] = useChannel(channelId)
+    const stream = useActiveStream(channel)
 
     const [displayPhotos, setDisplayPhotos] = useState<Photo[]>([])
     const prevIdsRef = useRef<string>('')
@@ -43,6 +51,10 @@ export default function Page({params}: {params: {id: string}}) {
     const [cardDims, setCardDims] = useState<Record<number, {w: number; h: number}>>({})
 
     const [orientation, setOrientation] = useState<string>('list')
+    const [showHorizontalRow, setShowHorizontalRow] = useState(false)
+    const [showOnlyAvailableTeams, setShowOnlyAvailableTeams] = useState(false)
+    // null = no filtering (option off, or no active break to derive availability from)
+    const [availableTeams, setAvailableTeams] = useState<Set<string> | null>(null)
     const [galleryIndex, setGalleryIndex] = useState(0)
 
     const [hoveredId, setHoveredId] = useState<number | null>(null)
@@ -52,7 +64,10 @@ export default function Page({params}: {params: {id: string}}) {
     const elevationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     useEffect(() => {
-        const unsold = photos.filter((p) => !p.is_sold && !p.is_deleted)
+        const unsold = photos.filter((p) =>
+            !p.is_sold && !p.is_deleted &&
+            (availableTeams === null || !p.team?.trim() || availableTeams.has(normalizeTeam(p.team)))
+        )
         const ids = unsold
             .slice()
             .sort((a, b) => a.id - b.id)
@@ -62,17 +77,42 @@ export default function Page({params}: {params: {id: string}}) {
             prevIdsRef.current = ids
             setDisplayPhotos([...unsold].sort((a, b) => b.price - a.price))
         }
-    }, [photos])
+    }, [photos, availableTeams])
 
     useEffect(() => {
         function fetchOrientation() {
             post(getEndpoints().widget_cards_board_get, {channel_id: channelId})
-                .then((d: {orientation: string}) => { if (d?.orientation) setOrientation(d.orientation) })
+                .then((d: {orientation: string, show_horizontal_row: boolean, show_only_available_teams: boolean}) => {
+                    if (d?.orientation) setOrientation(d.orientation)
+                    setShowHorizontalRow(d?.show_horizontal_row ?? false)
+                    setShowOnlyAvailableTeams(d?.show_only_available_teams ?? false)
+                })
         }
         fetchOrientation()
         const id = setInterval(fetchOrientation, 5000)
         return () => clearInterval(id)
     }, [channelId])
+
+    // Available (untaken) teams of the active break — same rule as obs/prices.
+    useEffect(() => {
+        const breakId = stream?.active_break_id
+        if (!showOnlyAvailableTeams || !breakId) {
+            setAvailableTeams(null)
+            return
+        }
+        function fetchAvailableTeams() {
+            post(getEndpoints().break_events, {break_id: breakId})
+                .then((resp: {events: Event[]}) => {
+                    const teams = (resp?.events ?? [])
+                        .filter((e) => !e.is_giveaway && (e.customer === '' || e.customer === NoCustomer))
+                        .map((e) => normalizeTeam(e.team))
+                    setAvailableTeams(new Set(teams))
+                })
+        }
+        fetchAvailableTeams()
+        const id = setInterval(fetchAvailableTeams, 15000)
+        return () => clearInterval(id)
+    }, [stream?.active_break_id, showOnlyAvailableTeams])
 
     useEffect(() => {
         if (orientation !== 'gallery' || displayPhotos.length <= 1) return
@@ -85,29 +125,35 @@ export default function Page({params}: {params: {id: string}}) {
         return d ? d.w / d.h : FALLBACK_ASPECT
     }
 
+    // Aspect as displayed on the board: a 90°/270° rotation swaps width and height.
+    function getDisplayAspect(photo: Photo): number {
+        const aspect = getAspect(photo)
+        return (photo.rotation ?? 0) % 180 === 0 ? aspect : 1 / aspect
+    }
+
     // Sort by price descending only — mixed orientation per row.
     const sortedPhotos = [...displayPhotos]
 
-    type PackedRow = {photos: Photo[]; rowHeight: number; widths: number[]; cardHeights: number[]}
+    type PackedRow = {photos: Photo[]; rowHeight: number; widths: number[]; cardHeights: number[]; rotated?: boolean}
 
-    function packRowsWithHeight(rowH: number): PackedRow[] {
+    function packRowsWithHeight(list: Photo[], rowH: number): PackedRow[] {
         const result: PackedRow[] = []
         let i = 0
 
-        while (i < sortedPhotos.length) {
+        while (i < list.length) {
             let totalW = 0
             let j = i
 
-            while (j < sortedPhotos.length) {
-                totalW += rowH * getAspect(sortedPhotos[j])
+            while (j < list.length) {
+                totalW += rowH * getAspect(list[j])
                 j++
                 if (totalW >= CARD_AREA_W) break
             }
 
-            const isLastIncomplete = j >= sortedPhotos.length && totalW < CARD_AREA_W
+            const isLastIncomplete = j >= list.length && totalW < CARD_AREA_W
             const scaleFactor = isLastIncomplete ? 1 : CARD_AREA_W / totalW
             const h = rowH * scaleFactor
-            const centered = centerByPrice(sortedPhotos.slice(i, j))
+            const centered = centerByPrice(list.slice(i, j))
             result.push({
                 photos: centered,
                 rowHeight: h,
@@ -129,16 +175,16 @@ export default function Page({params}: {params: {id: string}}) {
         return rows.reduce((s, r) => s + r.rowHeight, 0)
     }
 
-    function packRows(): PackedRow[] {
-        if (sortedPhotos.length === 0) return []
+    function packList(list: Photo[], budget: number): PackedRow[] {
+        if (list.length === 0) return []
 
-        let lo = 10, hi = CARD_AREA_H
+        let lo = 10, hi = budget
         for (let iter = 0; iter < 24; iter++) {
             const mid = (lo + hi) / 2
-            if (totalHeight(packRowsWithHeight(mid)) <= CARD_AREA_H) lo = mid
+            if (totalHeight(packRowsWithHeight(list, mid)) <= budget) lo = mid
             else hi = mid
         }
-        const greedy = packRowsWithHeight(lo)
+        const greedy = packRowsWithHeight(list, lo)
 
         // Reassign the greedy row sizes so card counts ascend top→bottom:
         // the expensive top rows hold the fewest cards, and every row spans
@@ -163,11 +209,11 @@ export default function Page({params}: {params: {id: string}}) {
         const rows: PackedRow[] = []
         let idx = 0
         for (const count of counts) {
-            const slice = sortedPhotos.slice(idx, idx + count)
+            const slice = list.slice(idx, idx + count)
             idx += count
             const h = Math.min(
                 CARD_AREA_W / slice.reduce((s, p) => s + getAspect(p), 0),
-                CARD_AREA_H * 0.5,
+                budget * 0.5,
             )
             const centered = centerByPrice(slice)
             rows.push({
@@ -178,7 +224,7 @@ export default function Page({params}: {params: {id: string}}) {
             })
         }
 
-        const scale = Math.min(1, CARD_AREA_H / totalHeight(rows))
+        const scale = Math.min(1, budget / totalHeight(rows))
         if (scale === 1) return rows
         return rows.map((r) => ({
             ...r,
@@ -188,10 +234,36 @@ export default function Page({params}: {params: {id: string}}) {
         }))
     }
 
-    function handleMouseEnter(e: React.MouseEvent<HTMLDivElement>, photo: Photo) {
+    function packRows(): PackedRow[] {
+        if (!showHorizontalRow) return packList(sortedPhotos, CARD_AREA_H)
+
+        // Pin the 3 most expensive landscape cards as a full-width first row;
+        // everything else packs below it as usual.
+        const horizontal = sortedPhotos.filter((p) => getDisplayAspect(p) >= 1).slice(0, 3)
+        if (horizontal.length === 0) return packList(sortedPhotos, CARD_AREA_H)
+
+        const h = Math.min(
+            CARD_AREA_W / horizontal.reduce((s, p) => s + getDisplayAspect(p), 0),
+            CARD_AREA_H * 0.5,
+        )
+        const centered = centerByPrice(horizontal)
+        const firstRow: PackedRow = {
+            photos: centered,
+            rowHeight: h,
+            widths: centered.map((p) => h * getDisplayAspect(p)),
+            cardHeights: centered.map(() => h),
+            rotated: true,
+        }
+
+        const pinned = new Set(horizontal.map((p) => p.id))
+        const rest = sortedPhotos.filter((p) => !pinned.has(p.id))
+        return [firstRow, ...packList(rest, CARD_AREA_H - h)]
+    }
+
+    function handleMouseEnter(e: React.MouseEvent<HTMLDivElement>, photo: Photo, alreadyRotated: boolean) {
         const rect = e.currentTarget.getBoundingClientRect()
         const rotation = photo.rotation ?? 0
-        const scale = rotation % 180 !== 0
+        const scale = !alreadyRotated && rotation % 180 !== 0
             ? Math.min(
                 VIEWPORT_W * 0.8 / rect.height,
                 VIEWPORT_H * 0.8 / rect.width,
@@ -294,6 +366,9 @@ export default function Page({params}: {params: {id: string}}) {
                         {row.photos.map((photo, ci) => {
                             const hovered = hoveredId === photo.id
                             const isElevated = hovered || elevatedId === photo.id
+                            const rotation = photo.rotation ?? 0
+                            const rotateInBox = !!row.rotated && rotation !== 0
+                            const swap = rotateInBox && rotation % 180 !== 0
                             return (
                                 <div
                                     key={photo.id}
@@ -303,19 +378,27 @@ export default function Page({params}: {params: {id: string}}) {
                                         height: `${row.cardHeights[ci]}px`,
                                         ...(hovered || elevatedId === photo.id ? {zIndex: 10} : {})
                                     }}
-                                    onMouseEnter={(e) => handleMouseEnter(e, photo)}
+                                    onMouseEnter={(e) => handleMouseEnter(e, photo, !!row.rotated)}
                                     onMouseLeave={handleMouseLeave}
                                 >
                                     <div
                                         className="board-card-visual"
                                         style={hovered ? {
-                                            transform: `translate(${hoverData.current.dx}px, ${hoverData.current.dy}px) scale(${hoverData.current.scale}) rotate(${shortestRotation(photo.rotation ?? 0)}deg)`,
+                                            transform: `translate(${hoverData.current.dx}px, ${hoverData.current.dy}px) scale(${hoverData.current.scale})${row.rotated ? '' : ` rotate(${shortestRotation(rotation)}deg)`}`,
                                             boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
                                         } : {}}
                                     >
                                         <img
                                             src={isElevated ? photo.url : (photo.thumbnail || photo.url)}
                                             alt={photo.name || 'card'}
+                                            style={rotateInBox ? {
+                                                position: 'absolute',
+                                                top: '50%',
+                                                left: '50%',
+                                                width: `${swap ? row.cardHeights[ci] : row.widths[ci]}px`,
+                                                height: `${swap ? row.widths[ci] : row.cardHeights[ci]}px`,
+                                                transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+                                            } : undefined}
                                             onLoad={(e) => {
                                                 const img = e.currentTarget
                                                 setCardDims((prev) => ({

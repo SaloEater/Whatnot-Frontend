@@ -7,6 +7,9 @@ import {splitName, nameFontSize} from '@/app/common/cardName'
 import {TeamIconSrc} from '@/app/common/teams'
 
 const CARD_SIZE_KEY = 'photos-controls-card-size'
+const SORT_KEY = 'photos-controls-sort'
+
+type SortMode = 'price' | 'team'
 
 export default function Page({params}: {params: {id: string}}) {
     const channelId = parseInt(params.id)
@@ -23,9 +26,23 @@ export default function Page({params}: {params: {id: string}}) {
         localStorage.setItem(CARD_SIZE_KEY, String(size))
     }
 
+    const [sortMode, setSortMode] = useState<SortMode>(() => {
+        if (typeof localStorage === 'undefined') return 'price'
+        return localStorage.getItem(SORT_KEY) === 'team' ? 'team' : 'price'
+    })
+
+    function updateSortMode(mode: SortMode) {
+        setSortMode(mode)
+        localStorage.setItem(SORT_KEY, mode)
+    }
+
     const byPriceDesc = (a: Photo, b: Photo) => b.price - a.price
-    const unsold = photos.filter((p) => !p.is_sold && !p.is_deleted).sort(byPriceDesc)
-    const sold   = photos.filter((p) =>  p.is_sold && !p.is_deleted).sort(byPriceDesc)
+    // Team name A→Z, most expensive first within a team.
+    const byTeamThenPrice = (a: Photo, b: Photo) =>
+        (a.team || '').localeCompare(b.team || '') || byPriceDesc(a, b)
+    const sorter = sortMode === 'team' ? byTeamThenPrice : byPriceDesc
+    const unsold = photos.filter((p) => !p.is_sold && !p.is_deleted).sort(sorter)
+    const sold   = photos.filter((p) =>  p.is_sold && !p.is_deleted).sort(sorter)
 
     // Fits the name inside the card width, capped at 3x the base size.
     function cardNameFontSize(lines: string[]): number {
@@ -101,16 +118,33 @@ export default function Page({params}: {params: {id: string}}) {
 
     return (
         <main className="container-fluid py-3">
-            <div className="d-flex align-items-center gap-3 mb-3" style={{maxWidth: '300px'}}>
-                <label className="text-nowrap small">Size: {cardSize}px</label>
-                <input
-                    type="range"
-                    className="form-range"
-                    min={40}
-                    max={500}
-                    value={cardSize}
-                    onChange={(e) => updateCardSize(parseInt(e.target.value))}
-                />
+            <div className="d-flex align-items-center gap-4 mb-3 flex-wrap">
+                <div className="d-flex align-items-center gap-3" style={{width: '300px'}}>
+                    <label className="text-nowrap small">Size: {cardSize}px</label>
+                    <input
+                        type="range"
+                        className="form-range"
+                        min={40}
+                        max={500}
+                        value={cardSize}
+                        onChange={(e) => updateCardSize(parseInt(e.target.value))}
+                    />
+                </div>
+                <div className="d-flex align-items-center gap-2">
+                    <span className="text-nowrap small">Sort:</span>
+                    <div className="btn-group btn-group-sm" role="group" aria-label="Sort cards">
+                        <button
+                            type="button"
+                            className={`btn ${sortMode === 'price' ? 'btn-primary' : 'btn-outline-primary'}`}
+                            onClick={() => updateSortMode('price')}
+                        >Price</button>
+                        <button
+                            type="button"
+                            className={`btn ${sortMode === 'team' ? 'btn-primary' : 'btn-outline-primary'}`}
+                            onClick={() => updateSortMode('team')}
+                        >Team</button>
+                    </div>
+                </div>
             </div>
             <div style={{display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center'}}>
                 {unsold.map((p) => renderCard(p))}
