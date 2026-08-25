@@ -1,9 +1,0 @@
-/*
- * Scoped to /obs/composite/[id]/results. All shared rules (font-faces,
- * transparent body, .composite-stage-outer/.composite-canvas) live in
- * src/app/obs/composite/composite.css, shared with the live overlay's
- * [id]/page.css. This screen adds nothing of its own to the shell — it is
- * static (spec overlay-1f-spec.md §2: "no ambient motion, no Zuma reflow") —
- * so this file is just the import.
- */
-@import '../../composite.css';
