@@ -196,15 +196,14 @@ function LayoutPageInner({channelId, devMode}: {channelId: number; devMode: bool
         }
     }, [channelId])
 
-    // Preload every registry entry's declared URLs, plus any element-level image (today: the
-    // `frame` kind's `image`), whenever the config's element set changes.
+    // Preload every registry entry's declared URLs whenever the config's element set changes.
+    // (The `frame` kind used to also preload an element-level `image` URL — obs-layout-plan.md
+    // §2.5 replaced that field with code-drawn `borders`, so there is nothing element-level left
+    // to preload here.)
     useEffect(() => {
         const urls = new Set<string>()
         for (const element of Object.values(config.elements)) {
             REGISTRY[registryIdOf(element)].preload.forEach((url) => urls.add(url))
-            if ('image' in element && typeof element.image === 'string' && element.image) {
-                urls.add(element.image)
-            }
         }
         urls.forEach(preloadUrl)
     }, [config])

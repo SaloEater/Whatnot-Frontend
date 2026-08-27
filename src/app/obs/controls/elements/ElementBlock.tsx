@@ -4,7 +4,6 @@
 // (see obs-layout-plan.md §1.6/§1.7, now folded into the controls page). Replaces the table row
 // this element used to be in the old channel/[id]/widgets LayoutBuilder.
 
-import {useState} from 'react'
 import type {Box, Element, LayoutConfig, PlacementKey, Phase} from '@/app/obs/layout/schema'
 import {CANVAS} from '@/app/obs/layout/schema'
 import {REGISTRY, registryIdOf} from '@/app/obs/layout/registry'
@@ -12,6 +11,7 @@ import {resolveBox} from '@/app/obs/layout/config'
 import {SCENE_EVENTS} from '@/app/obs/layout/sceneEvents'
 import type {SceneEventName} from '@/app/obs/layout/sceneEvents'
 import ElementSettings from './ElementSettings'
+import {useFoldState} from './useFoldState'
 
 const SCENE_EVENT_LABELS: Record<SceneEventName, string> = Object.fromEntries(
     SCENE_EVENTS.map((e) => [e.name, e.label])
@@ -46,7 +46,8 @@ export default function ElementBlock({
     onPatchElement,
     onRemove,
 }: Props) {
-    const [open, setOpen] = useState(true)
+    // Folded/open is remembered per channel + stage in localStorage (useFoldState).
+    const [open, setOpen] = useFoldState(channelId, currentPhase, elementKey)
 
     const regId = registryIdOf(element)
     const entry = REGISTRY[regId]
@@ -124,7 +125,7 @@ export default function ElementBlock({
     return (
         <div className="ctl-el-block">
             <div className="ctl-el-header">
-                <button type="button" className="btn btn-sm btn-link ctl-el-chevron" onClick={() => setOpen(o => !o)}>
+                <button type="button" className="btn btn-sm btn-link ctl-el-chevron" onClick={() => setOpen(!open)}>
                     {open ? '▾' : '▸'}
                 </button>
                 <div className="form-check form-check-inline ctl-el-visible">
@@ -283,6 +284,7 @@ export default function ElementBlock({
                             seriesId={seriesId}
                             elementKey={elementKey}
                             element={element}
+                            currentPhase={currentPhase}
                             config={config}
                             onPatchElement={onPatchElement}
                         />

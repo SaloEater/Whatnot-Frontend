@@ -106,13 +106,9 @@ export default function Page({params}: { params: { id: string } }) {
 
     async function runApply(next: OverlayState, cue?: BusPayload['cue']): Promise<ApplyResult> {
         const result = await controls.apply(next, cue)
-        if (result.error) {
-            setNotice({type: 'danger', message: result.error})
-        } else if (result.warning) {
-            setNotice({type: 'warning', message: result.warning})
-        } else {
-            setNotice(null)
-        }
+        // Undelivered-to-OBS is NOT a notice: it is a standing condition, shown (and cleared) in
+        // the OBS tab via controls.undelivered. Only real failures interrupt here.
+        setNotice(result.error ? {type: 'danger', message: result.error} : null)
         return result
     }
 
@@ -219,16 +215,19 @@ export default function Page({params}: { params: { id: string } }) {
         obs.getMediaInputNames().then(setMediaInputs).catch(() => setMediaInputs([]))
     }, [isConnected, obs])
 
+    // Real save failures raise the notice; "saved but not delivered to OBS" is a standing
+    // condition rather than an event, so it lives in the OBS tab instead (controls.undelivered).
+    function reportPush(result: {error?: string; warning?: string}) {
+        if (result.error) setNotice({type: 'danger', message: result.error})
+    }
+
     async function saveBinding(field: 'transitionSource' | 'cameraItem', value: string) {
         const trimmed = value.trim()
         const next = {
             ...controls.config,
             obsBindings: {...controls.config.obsBindings, [field]: trimmed || undefined},
         }
-        const result = await controls.pushConfig(next)
-        if (result.error) {
-            setNotice({type: 'danger', message: result.error})
-        }
+        reportPush(await controls.pushConfig(next))
     }
 
     async function saveUseTransition(value: boolean) {
@@ -236,10 +235,7 @@ export default function Page({params}: { params: { id: string } }) {
             ...controls.config,
             obsBindings: {...controls.config.obsBindings, useTransition: value},
         }
-        const result = await controls.pushConfig(next)
-        if (result.error) {
-            setNotice({type: 'danger', message: result.error})
-        }
+        reportPush(await controls.pushConfig(next))
     }
 
     const phaseIndex = PHASES.indexOf(controls.state.phase)
@@ -262,6 +258,15 @@ export default function Page({params}: { params: { id: string } }) {
                             Re-sync OBS
                         </button>
                     </div>
+
+                    {/* Standing condition, not an event: raised by any change that could not be
+                        delivered to OBS and cleared by the first one that is — including the
+                        automatic resend on reconnect. */}
+                    {controls.undelivered && (
+                        <div className="alert alert-warning py-2 px-2 small mb-0 mt-2" role="alert">
+                            {controls.undelivered}
+                        </div>
+                    )}
 
                     <hr/>
 
@@ -431,7 +436,12 @@ export default function Page({params}: { params: { id: string } }) {
                         <div className="alert alert-secondary">Loading layout config/state…</div>
                     )}
 
-                    <ElementsPanel controls={controls} channelId={channelId} seriesId={breakObj?.series_id}/>
+                    <ElementsPanel
+                        controls={controls}
+                        channelId={channelId}
+                        seriesId={breakObj?.series_id}
+                        onPushResult={reportPush}
+                    />
                 </div>
 
                 <div className="w-15p ctl-side-panel">

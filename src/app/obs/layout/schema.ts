@@ -16,6 +16,10 @@ export type PlacementKey = Phase | 'all'
 
 export type Box = { x: number; y: number; w: number; h: number }
 
+// Per-side widths (px, >= 0) — used by the `frame` element's `borders` (obs-layout-plan.md §2.5).
+// Kept separate from `Box`: a border has no x/y, only four independent thicknesses.
+export type Sides = { top: number; right: number; bottom: number; left: number }
+
 export type ElementKind =
     | 'board'
     | 'results'
@@ -49,7 +53,17 @@ export type Reactions = Partial<Record<SceneEventName, boolean>>
 export type Element =
     | { kind: 'board'; variant: BoardVariant; placements: Partial<Record<PlacementKey, Box>>; z?: number; reactions?: Reactions }
     | { kind: 'widget'; widget: WidgetId; placements: Partial<Record<PlacementKey, Box>>; z?: number; reactions?: Reactions }
-    | { kind: 'results' | 'cards' | 'ripbar' | 'reserved'; placements: Partial<Record<PlacementKey, Box>>; z?: number; reactions?: Reactions }
+    | { kind: 'cards' | 'ripbar' | 'reserved'; placements: Partial<Record<PlacementKey, Box>>; z?: number; reactions?: Reactions }
+    // `results` carries its own column count (obs-layout-plan.md §2.3 + the 1f refactor); the
+    // grid and the ordering interleave both read it, so they can never disagree.
+    | {
+          kind: 'results'
+          columns?: number
+          sort?: ResultsSort
+          placements: Partial<Record<PlacementKey, Box>>
+          z?: number
+          reactions?: Reactions
+      }
     // Compact/configurable sibling of `results` (obs-layout-plan.md §2.4) — its own registry id
     // (`resultsThin`) rather than a `results` variant, so a config may place both at once (e.g.
     // the full board during `results` plus a thin list next to the board during `selling`/
@@ -66,7 +80,26 @@ export type Element =
           z?: number
           reactions?: Reactions
       }
-    | { kind: 'frame'; variant: FrameVariant; image?: string; placements: Partial<Record<PlacementKey, Box>>; z?: number; reactions?: Reactions }
+    // FE-generated frame (obs-layout-plan.md §2.5 — replaces the old full-canvas `<img>`).
+    // Two settings, stacked from the canvas edge inwards:
+    //   - `borders` — how far the plain BLACK fill reaches in from each screen edge, per side.
+    //     Per-stage, resolved exactly like `placements` — `borders[phase] ?? borders.all`, see
+    //     `resolveBorders` in config.ts — so "same on every stage" is one edit (`all`) and a stage
+    //     can still override.
+    //   - `frameWidth` — the thickness of the gradient frame drawn just inside that black fill.
+    //     One number for all four sides, and NOT per-stage: the frame is the channel's constant
+    //     furniture, it is the black fill around it that stages move (see FrameSettings.tsx).
+    // The registry id/variant stays `static` even though the frame is now code-drawn rather than
+    // an image (see registry.ts's comment on that choice).
+    | {
+          kind: 'frame'
+          variant: FrameVariant
+          borders?: Partial<Record<PlacementKey, Sides>>
+          frameWidth?: number
+          placements: Partial<Record<PlacementKey, Box>>
+          z?: number
+          reactions?: Reactions
+      }
     // Boxless (obs-layout-plan.md §1.9, entrance/orbit rewrite in §2.2): `target` names another
     // element's key to glue to via useResolvedBox() — undefined means "the first board in the
     // config" (resolved by the component itself, not stored here, so re-ordering boards never
@@ -144,6 +177,18 @@ export const PHASE_LABELS: Record<Phase, string> = {
 }
 
 export const CANVAS: { w: 1080; h: 1920 } = { w: 1080, h: 1920 }
+
+// Fallback used by `resolveBorders` (config.ts) when a `frame` element has no `borders` at all,
+// and by `makeElement` (registry.ts) as the default for a freshly-added frame. Lives here (not in
+// config.ts or registry.ts) so both can import one literal without a circular dependency between
+// those two files.
+export const DEFAULT_FRAME_BORDERS: Sides = { top: 24, right: 24, bottom: 24, left: 24 }
+
+// Fallback used by `resolveFrameWidth` (config.ts) when a `frame` element has no `frameWidth`, and
+// by `makeElement` (registry.ts) for a freshly-added frame. 8px was the width of the fixed edge
+// ornament this setting replaces, so a config stored before `frameWidth` existed keeps the same
+// overall footprint it had: its `borders` become the black fill and the frame sits inside them.
+export const DEFAULT_FRAME_WIDTH = 8
 
 export const BUS_EVENT_NAME = 'mob:trigger'
 export const DEV_CHANNEL_NAME = 'mob:bus'

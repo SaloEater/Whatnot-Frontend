@@ -66,10 +66,14 @@ export function useControls(channelId: number, obs: MyOBSWebsocket | null, isCon
 
     // Refs so apply()/pushConfig() always see the latest value without re-creating the callback
     // (and without a stale closure over `config`/`state` from the render that defined them).
+    const [undelivered, setUndelivered] = useState<string | null>(null)
+
     const configRef = useRef(config)
     const stateRef = useRef(state)
+    const seqRef = useRef(seq)
     configRef.current = config
     stateRef.current = state
+    seqRef.current = seq
 
     const loadAll = useCallback(async () => {
         setLoading(true)
@@ -128,15 +132,24 @@ export function useControls(channelId: number, obs: MyOBSWebsocket | null, isCon
         broadcastDev(payload)
         setLastEmitAt(new Date())
 
+        // `undelivered` is sticky: it is raised by any emit that does not reach OBS and cleared by
+        // the next one that does. That means it survives across however many changes are made
+        // while the socket is down, and clears itself on the reconnect resend without anyone
+        // having to dismiss it.
         if (!obs || !isConnected) {
-            return {ok: true, warning: 'OBS not connected — state saved, layout not notified'}
+            const warning = 'OBS not connected — changes saved, layout not notified'
+            setUndelivered(warning)
+            return {ok: true, warning}
         }
 
         try {
             await obs.emitBrowserEvent(BUS_EVENT_NAME, payload)
+            setUndelivered(null)
             return {ok: true}
         } catch (e) {
-            return {ok: true, warning: `OBS not connected — state saved, layout not notified (${describeError(e)})`}
+            const warning = `OBS not reachable — changes saved, layout not notified (${describeError(e)})`
+            setUndelivered(warning)
+            return {ok: true, warning}
         }
     }, [obs, isConnected])
 
@@ -193,6 +206,21 @@ export function useControls(channelId: number, obs: MyOBSWebsocket | null, isCon
         return apply(stateRef.current)
     }, [channelId, apply])
 
+    /**
+     * Re-send the current state+config without touching the backend. Used when obs-websocket comes
+     * up: anything changed while it was down was saved but never emitted, so the layout is behind
+     * until its own 60s reconcile poll catches it.
+     *
+     * Deliberately reuses the CURRENT seq rather than bumping it through apply(). If the layout
+     * already has this seq — it reloaded and read the state itself — its guard drops the payload,
+     * which is exactly right: it is already up to date. If it is behind, its last seq is lower and
+     * the payload lands. Bumping the seq would work too but would write to the backend on every
+     * reconnect for nothing.
+     */
+    const resendCurrent = useCallback(async (): Promise<ApplyResult> => {
+        return emit({seq: seqRef.current, state: stateRef.current, config: configRef.current})
+    }, [emit])
+
     const setConfigLocal = useCallback((nextConfig: LayoutConfig) => {
         setConfig(nextConfig)
         configRef.current = nextConfig
@@ -202,11 +230,19 @@ export function useControls(channelId: number, obs: MyOBSWebsocket | null, isCon
 
     // Reconnect: obs-websocket-js's OBSWebSocket is an EventEmitter, so this listener coexists
     // fine with MyOBSWebsocket's own internal ConnectionClosed handler.
+    const wasConnectedRef = useRef(isConnected)
     useEffect(() => {
         if (isConnected) {
             setConnectionStatus('connected')
         }
-    }, [isConnected])
+        // Rising edge only: catch the layout up on everything applied while the socket was down.
+        // Not on every render, and not while still disconnected (emit would no-op anyway).
+        const wasConnected = wasConnectedRef.current
+        wasConnectedRef.current = isConnected
+        if (isConnected && !wasConnected && !loading) {
+            void resendCurrent()
+        }
+    }, [isConnected, loading, resendCurrent])
 
     useEffect(() => {
         if (!obs) return
@@ -246,9 +282,11 @@ export function useControls(channelId: number, obs: MyOBSWebsocket | null, isCon
         loading,
         connectionStatus,
         lastEmitAt,
+        undelivered,
         setConfigLocal,
         apply,
         pushConfig,
+        resendCurrent,
         reload,
     }
 }

@@ -23,11 +23,13 @@ type Props = {
     controls: Controls
     channelId: number
     seriesId?: number | null
+    /** Reports every save so the page can raise its notice — see doPush(). */
+    onPushResult?: (result: {error?: string; warning?: string}) => void
 }
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
-export default function ElementsPanel({controls, channelId, seriesId}: Props) {
+export default function ElementsPanel({controls, channelId, seriesId, onPushResult}: Props) {
     const {config, setConfigLocal, pushConfig, state} = controls
     const currentPhase = state.phase
 
@@ -47,6 +49,10 @@ export default function ElementsPanel({controls, channelId, seriesId}: Props) {
             setSaveState('saved')
             setSaveErrors(undefined)
         }
+        // A push can succeed against the backend yet never reach OBS (socket down) — that comes
+        // back as `warning`, which used to be dropped here. Hand every result to the page so it
+        // raises the same notice an Actions-strip send would.
+        onPushResult?.(result)
     }
 
     function commit(next: LayoutConfig, opts?: { debounce?: boolean }) {

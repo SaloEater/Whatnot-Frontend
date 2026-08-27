@@ -3,8 +3,8 @@
 // so everything that touches a config/state coming off the network must go through `migrateConfig`
 // / `migrateState` and then `validateConfig` / `validateState` before it is trusted.
 
-import type { Box, Cue, Element, LayoutConfig, OverlayState, Phase, PlacementKey } from './schema'
-import { CANVAS, PHASES } from './schema'
+import type { Box, Cue, Element, LayoutConfig, OverlayState, Phase, PlacementKey, Sides } from './schema'
+import { CANVAS, DEFAULT_FRAME_BORDERS, DEFAULT_FRAME_WIDTH, PHASES } from './schema'
 import type { RegistryId } from './registry'
 import { REGISTRY, registryIdOf } from './registry'
 import type { SceneEventName } from './sceneEvents'
@@ -51,13 +51,32 @@ function isBox(v: unknown): v is Box {
     )
 }
 
+// `frame.borders` values (obs-layout-plan.md §2.5): four independent px widths, all >= 0 (a side
+// may be 0 — "draws nothing" is a valid, common setting, unlike a Box's w/h which must be > 0).
+// They are how far the frame's plain black fill reaches in from each screen edge.
+function isSides(v: unknown): v is Sides {
+    if (!isPlainObject(v)) return false
+    return (
+        isFiniteNumber(v.top) &&
+        v.top >= 0 &&
+        isFiniteNumber(v.right) &&
+        v.right >= 0 &&
+        isFiniteNumber(v.bottom) &&
+        v.bottom >= 0 &&
+        isFiniteNumber(v.left) &&
+        v.left >= 0
+    )
+}
+
 // ---- migrations -------------------------------------------------------------------------------
 // `transition` was removed as a Phase in v2 (obs-layout-plan.md §1.7) — it is now purely a
 // controls-side action, never something the layout is told about. The standalone `effect`
 // element kind was removed in v3 (§1.9), superseded by scene events + boxless elements — any
-// stored `effect` element is simply dropped. All of this is pure, tolerant of already-migrated
-// (or malformed) input, and idempotent — safe to call unconditionally before validation, every
-// time a config/state is read from the backend or the bus.
+// stored `effect` element is simply dropped. The `frame` element's old `image` field was dropped
+// in favour of `borders` (§2.5) — an existing `frame:static` element just keeps its `placements`
+// and `z` and starts rendering the generated frame (registry default borders) from then on. All of
+// this is pure, tolerant of already-migrated (or malformed) input, and idempotent — safe to call
+// unconditionally before validation, every time a config/state is read from the backend or the bus.
 
 export function migrateConfig(raw: unknown): unknown {
     if (!isPlainObject(raw)) return raw
@@ -75,14 +94,23 @@ export function migrateConfig(raw: unknown): unknown {
             changed = true
             continue
         }
-        const placementsRaw = elRaw.placements
+
+        let el: Record<string, unknown> = elRaw
+        if (el.kind === 'frame' && 'image' in el) {
+            const rest = { ...el }
+            delete rest.image
+            el = rest
+            changed = true
+        }
+
+        const placementsRaw = el.placements
         if (isPlainObject(placementsRaw) && 'transition' in placementsRaw) {
             const rest = { ...placementsRaw }
             delete rest.transition
-            migratedElements[key] = { ...elRaw, placements: rest }
+            migratedElements[key] = { ...el, placements: rest }
             changed = true
         } else {
-            migratedElements[key] = elRaw
+            migratedElements[key] = el
         }
     }
 
@@ -152,6 +180,38 @@ function validateReactions(key: string, rawEl: Record<string, unknown>): string[
         }
         if (typeof value !== 'boolean') {
             errors.push(`element "${key}": reactions["${name}"] must be a boolean`)
+        }
+    }
+    return errors
+}
+
+// `frame.frameWidth` validation: a single px thickness for the gradient frame, >= 0 (0 = no frame,
+// just the black fill), and not per-stage — unlike `borders` above.
+function validateFrameWidth(key: string, raw: unknown): string[] {
+    if (raw === undefined) return []
+    if (!isFiniteNumber(raw) || raw < 0) {
+        return [`element "${key}": frameWidth must be a number >= 0`]
+    }
+    return []
+}
+
+// `frame.borders` validation (obs-layout-plan.md §2.5): keyed by the same `PlacementKey` vocabulary
+// as `placements` (a real phase, or `all`), each value a `Sides` of four finite numbers >= 0.
+// Mirrors `validatePlacements` in shape but there is no `allowedPhases` gate here — a border isn't
+// what puts an element in a stage, `placements` already does that, so any `PlacementKey` is valid.
+function validateBorders(key: string, bordersRaw: unknown): string[] {
+    const errors: string[] = []
+    if (bordersRaw === undefined) return errors
+    if (!isPlainObject(bordersRaw)) {
+        return [`element "${key}": borders must be an object`]
+    }
+    for (const [phase, sides] of Object.entries(bordersRaw)) {
+        if (!isPlacementKey(phase)) {
+            errors.push(`element "${key}": invalid phase "${phase}" in borders`)
+            continue
+        }
+        if (!isSides(sides)) {
+            errors.push(`element "${key}": borders["${phase}"] must be {top,right,bottom,left} numbers >= 0`)
         }
     }
     return errors
@@ -235,7 +295,23 @@ export function validateConfig(
                     regId = `widget:${widget}` as RegistryId
                     elErrors.push(...validatePlacements(key, rawEl.placements, regId))
                 }
-            } else if (kind === 'results' || kind === 'cards' || kind === 'ripbar' || kind === 'reserved') {
+            } else if (kind === 'results') {
+                regId = 'results'
+                elErrors.push(...validatePlacements(key, rawEl.placements, regId))
+                if (
+                    rawEl.columns !== undefined &&
+                    (!isFiniteNumber(rawEl.columns) || !Number.isInteger(rawEl.columns) || rawEl.columns < 1)
+                ) {
+                    elErrors.push(`element "${key}": columns must be an integer >= 1`)
+                }
+                if (
+                    rawEl.sort !== undefined &&
+                    (typeof rawEl.sort !== 'string' ||
+                        !(VALID_RESULTS_SORTS as readonly string[]).includes(rawEl.sort))
+                ) {
+                    elErrors.push(`element "${key}": sort must be one of ${VALID_RESULTS_SORTS.join(', ')}`)
+                }
+            } else if (kind === 'cards' || kind === 'ripbar' || kind === 'reserved') {
                 regId = kind as RegistryId
                 elErrors.push(...validatePlacements(key, rawEl.placements, regId))
             } else if (kind === 'resultsThin') {
@@ -250,9 +326,8 @@ export function validateConfig(
                     regId = `frame:${variant}` as RegistryId
                     elErrors.push(...validatePlacements(key, rawEl.placements, regId))
                 }
-                if (rawEl.image !== undefined && typeof rawEl.image !== 'string') {
-                    elErrors.push(`element "${key}": image must be a string`)
-                }
+                elErrors.push(...validateBorders(key, rawEl.borders))
+                elErrors.push(...validateFrameWidth(key, rawEl.frameWidth))
             } else if (kind === 'animation') {
                 const animation = rawEl.animation
                 if (typeof animation !== 'string' || !(VALID_ANIMATION_IDS as readonly string[]).includes(animation)) {
@@ -435,6 +510,23 @@ export function isVisible(state: OverlayState, key: string): boolean {
 // elements + `useResolvedBox` in resolvedBoxes.tsx for its replacement).
 export function resolveBox(element: Element, phase: Phase): Box | undefined {
     return element.placements[phase] ?? element.placements.all
+}
+
+// Same resolution rule as `resolveBox`, for the `frame` element's per-stage border widths
+// (obs-layout-plan.md §2.5): a phase-specific entry wins, otherwise fall back to `all`, otherwise
+// fall back to `DEFAULT_FRAME_BORDERS` (a freshly-added or malformed frame still renders sane
+// widths rather than nothing). Non-frame elements have no borders to resolve, so they get the
+// default too rather than the caller needing to guard the kind first.
+export function resolveBorders(element: Element, phase: Phase): Sides {
+    if (element.kind !== 'frame') return DEFAULT_FRAME_BORDERS
+    return element.borders?.[phase] ?? element.borders?.all ?? DEFAULT_FRAME_BORDERS
+}
+
+// The gradient frame's thickness. Not per-stage (see the `frame` block in schema.ts), so there is
+// no phase to resolve against — just the element's own value or the default.
+export function resolveFrameWidth(element: Element): number {
+    if (element.kind !== 'frame') return DEFAULT_FRAME_WIDTH
+    return element.frameWidth ?? DEFAULT_FRAME_WIDTH
 }
 
 export function elementsForPhase(

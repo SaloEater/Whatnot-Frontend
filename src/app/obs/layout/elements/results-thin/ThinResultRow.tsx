@@ -4,21 +4,27 @@
 // `box.h / rows`, and laid out as a single compact row rather than a boxed grid cell.
 
 import type {Event} from '@/app/entity/entities'
+import type {Tier} from '../results/tiers'
 import {getTeamImageSrc} from '../results/ResultRow'
 import './ThinResultRow.css'
 
 export function ThinResultRow({
     event,
+    tier,
     highBidTeam,
     giveawayTeam,
     textSize,
     iconSize,
+    gridColumnStart,
 }: {
     event: Event
+    tier: Tier
     highBidTeam: string
     giveawayTeam: string
     textSize: number
     iconSize: number
+    /** Set only on the first cell of a short final row, to centre that row (see ThinResults). */
+    gridColumnStart?: number
 }) {
     const isHighBidTeam = highBidTeam === event.team
     const isGiveawayTeam = giveawayTeam === event.team
@@ -31,7 +37,10 @@ export function ThinResultRow({
     }
 
     return (
-        <div className="rest-row-item">
+        <div
+            className={`rest-row-item rest-tier-${tier}`}
+            style={gridColumnStart ? {gridColumnStart} : undefined}
+        >
             <img
                 className="rest-image"
                 src={getTeamImageSrc(event.team)}

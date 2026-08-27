@@ -22,6 +22,7 @@ import type {ElementProps} from '../../registry'
 import {useLayoutData} from '../../useLayoutData'
 import {useSceneEvent} from '../../sceneEventBus'
 import {orderResults} from '../results/orderResults'
+import {NO_SERIES_TIER, tiersByEventId} from '../results/tiers'
 import {ThinResultRow} from './ThinResultRow'
 import type {ResultsSort} from '../../schema'
 import './ThinResults.css'
@@ -54,6 +55,22 @@ export function ThinResults({elementKey, element}: ElementProps) {
         [rawEvents, columns, sort]
     )
 
+    // Same ranking as the full results board (../results/tiers.ts) so the two never disagree about
+    // what tier a slot is — including the "nothing to rank by" case, which flattens everything.
+    const hasSeries = !!breakObject?.series_id
+    const tiers = useMemo(() => tiersByEventId(rawEvents, hasSeries), [rawEvents, hasSeries])
+
+    // Centre a short final row, exactly as the full board does (see ResultsElement.tsx for the
+    // reasoning): the grid is laid out on twice as many tracks as columns with every cell spanning
+    // two, so the shift is expressible in HALF columns — without that, one cell across four
+    // columns can only manage a whole-column shift and lands off-centre. Rows here are content-
+    // sized rather than divided out of the box height, but the column maths is identical.
+    const visualRows = columns > 0 ? Math.ceil(ordered.length / columns) : 0
+    const lastRowStart = Math.max(0, (visualRows - 1) * columns)
+    const lastRowCount = ordered.length - lastRowStart
+    const lastRowOffset =
+        lastRowCount > 0 && lastRowCount < columns ? columns - lastRowCount : 0
+
     // 'sold' scene event (obs-layout-plan.md §1.9), matching ResultsElement/FlatBoard: force an
     // immediate events refetch instead of waiting up to 5s for the spine's normal poll.
     useSceneEvent(elementKey, 'sold', () => {
@@ -76,13 +93,18 @@ export function ThinResults({elementKey, element}: ElementProps) {
                     style={
                         {
                             '--rest-columns': columns,
+                            '--rest-tracks': columns * 2,
                         } as React.CSSProperties
                     }
                 >
-                    {ordered.map((event) => (
+                    {ordered.map((event, i) => (
                         <ThinResultRow
                             key={event.id}
                             event={event}
+                            gridColumnStart={
+                                lastRowOffset > 0 && i === lastRowStart ? lastRowOffset + 1 : undefined
+                            }
+                            tier={tiers.get(event.id) ?? NO_SERIES_TIER}
                             highBidTeam={breakObject?.high_bid_team ?? ''}
                             giveawayTeam={breakObject?.giveaway_team ?? ''}
                             textSize={textSize}

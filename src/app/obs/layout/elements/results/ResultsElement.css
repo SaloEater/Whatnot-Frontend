@@ -26,7 +26,13 @@
     width: 100%;
     height: 100%;
     padding: 4px;
-    background-color: rgba(0, 0, 0, 0.25);
+    /* Fully transparent. The old route washed this layer in rgba(0,0,0,.25) so its green-screen
+       body would read as dimmed; inside the layout the element sits over the real overlay, and a
+       quarter-strength black veil over whatever is behind just looked like an accident. The
+       visible panel is .res-grid, which is opaque. */
+    background-color: transparent;
+    border-radius: 24px;
+    overflow: hidden;
     box-sizing: border-box;
 }
 
@@ -34,19 +40,63 @@
     width: 100%;
     height: 100%;
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    justify-content: flex-start;
     overflow: hidden;
+    /* The panel lives HERE, not on .res-grid, so one background carries both the "BREAK RESULTS"
+       heading and the board beneath it. With it on the grid the heading floated on whatever was
+       behind the element. */
+    background-color: var(--res-cella);
+    border: 2px solid var(--res-bronze);
+    border-radius: 24px;
+    box-sizing: border-box;
+}
+
+/* "BREAK RESULTS" heading (overlay-1f-spec.md §3). Height comes from the .tsx as --res-title-h so
+   the band and the grid divide the box between them; the type is sized from that band. */
+/* Chryselephantine palette, from the deleted obs/composite/tokens.ts (recoverable at
+   `git show 9055fc4^:src/app/obs/composite/tokens.ts`) — copied rather than imported because that
+   module is gone. Contrast ratios in its comments: ivory 14.1:1, ivory70 7.4:1 (documented as a
+   HARD FLOOR — nothing dimmer may be text), bronze 3.2:1 (lines only, never text). FRAME is the
+   price-rank tier ramp; see tiers.ts. */
+.res-root {
+    --res-cella: #16130e;
+    --res-cella-lift: #1f1a13;
+    --res-ivory: #e8dfcb;
+    --res-ivory70: rgba(232, 223, 203, 0.7);
+    --res-bronze: #756241;
+    --res-tier-gold: #c6a35a;
+    --res-tier-silver: #b3ab9b;
+    --res-tier-bronze: #756241;
+    --res-tier-grey: #5f5a50;
+}
+
+.res-title {
+    height: var(--res-title-h, 40px);
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: calc(var(--res-title-h, 40px) * 0.62);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--res-ivory);
+    font-weight: 600;
+    white-space: nowrap;
 }
 
 .res-grid {
     display: grid;
-    grid-template-columns: 50% 50%;
+    /* Twice as many tracks as columns, each cell spanning two (see ResultsElement.tsx): that is
+       what makes a half-column offset possible when centring a short final row. Cell width and the
+       visible gap between cells are unaffected — 2 tracks plus their internal gap equals one
+       column. Column count is a setting, read from the same value orderResults() interleaves
+       against. */
+    grid-template-columns: repeat(var(--res-tracks, 4), 1fr);
     grid-template-rows: repeat(var(--res-rows), var(--res-row-h));
     gap: var(--res-gap);
     padding: var(--res-pad);
-    border-radius: 24px;
-    border: 2px solid black;
-    background-color: #001b2e;
+    /* Background/border/radius belong to .res-frame — the grid is just the cells. */
     width: 100%;
     box-sizing: border-box;
 }

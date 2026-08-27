@@ -10,7 +10,7 @@ import { FlatBoard } from './elements/board-flat/FlatBoard'
 import { ResultsElement } from './elements/results/ResultsElement'
 import { ThinResults } from './elements/results-thin/ThinResults'
 import type { AnimationId, BoardVariant, Box, Element, ElementKind, FrameVariant, Phase, WidgetId } from './schema'
-import { PHASES } from './schema'
+import { DEFAULT_FRAME_BORDERS, DEFAULT_FRAME_WIDTH, PHASES } from './schema'
 import type { SceneEventName } from './sceneEvents'
 
 export type RegistryId =
@@ -297,7 +297,12 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
     'frame:static': {
         id: 'frame:static',
         kind: 'frame',
-        label: 'Frame (static image)',
+        // The registry id/variant kept the name `static` (obs-layout-plan.md §2.5 interpretation:
+        // renaming would also mean updating `RegistryId`, `registryIdOf`, `makeElement`, and adding
+        // a variant migration for existing stored configs — more moving parts than the border/
+        // ornament rework this step is actually about). The label is what changed, since the old
+        // one ("static image") is now actively wrong.
+        label: 'Frame (generated)',
         singleton: true,
         singletonGroup: 'frame',
         defaultBox: FULL_BOX,
@@ -307,8 +312,8 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         preload: [],
         component: FrameElement,
         available: true,
-        // Boxless (obs-layout-plan.md §1.9): it stretches an <img> over its full-canvas frame
-        // itself rather than being clipped to a placed box.
+        // Boxless (obs-layout-plan.md §1.9): it draws its border bands + edge ornament over its
+        // full-canvas frame itself rather than being clipped to a placed box.
         hasBox: false,
         reactsTo: [],
     },
@@ -371,12 +376,16 @@ export function makeElement(registryId: RegistryId): Element {
     }
 
     // Frame is persistent by construction: it always gets a single `all` placement (never
-    // per-phase entries) plus a default z that sits above the rest of the layout.
+    // per-phase entries) plus a default z that sits above the rest of the layout, and a default
+    // `borders` (obs-layout-plan.md §2.5) — also via `all`, so a freshly-added frame is "same on
+    // every stage" until the operator overrides one.
     if (entry.kind === 'frame') {
         return {
             kind: 'frame',
             variant: registryId.split(':')[1] as FrameVariant,
             placements: { all: { ...entry.defaultBox } },
+            borders: { all: { ...DEFAULT_FRAME_BORDERS } },
+            frameWidth: DEFAULT_FRAME_WIDTH,
             z: 10,
         }
     }

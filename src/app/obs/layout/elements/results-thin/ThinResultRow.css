@@ -4,14 +4,27 @@
    content (icon size + padding), which is what makes rows squeeze instead of stretch. */
 
 .rest-row-item {
+    /* Spans two of the grid's half-tracks. `grid-column-end` rather than the `grid-column`
+       shorthand so an inline `grid-column-start` (the last-row centring) still applies. */
+    grid-column-end: span 2;
     display: flex;
     align-items: center;
     gap: 8px;
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
-    padding: 4px 0;
+    padding: 4px 6px;
+    /* Tier frame, as on the full board: the border colour IS the price ranking. Content stays
+       uniform ivory (decision D4 in overlay-1f-plan.md). */
+    border: 2px solid var(--rest-tier-grey);
+    border-radius: 6px;
+    background-color: var(--rest-cella-lift);
 }
+
+.rest-tier-gold { border-color: var(--rest-tier-gold); }
+.rest-tier-silver { border-color: var(--rest-tier-silver); }
+.rest-tier-bronze { border-color: var(--rest-tier-bronze); }
+.rest-tier-grey { border-color: var(--rest-tier-grey); }
 
 .rest-image {
     object-fit: contain;
@@ -23,11 +36,7 @@
     align-items: center;
     flex: 1;
     min-width: 0;
-    color: black;
     line-height: 1.2;
-    border: 1px #9b9b9b dashed;
-    border-radius: 8px;
-    padding: 2px 6px;
     box-sizing: border-box;
 }
 
@@ -35,21 +44,19 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: #eef3f9;
+    color: var(--rest-ivory);
 }
 
-.rest-bg-empty {
-    background-color: #fff6f1;
+/* Slot state, in palette. The tier frame carries the ranking, so these only need to separate an
+   unsold slot from a taken one and flag the two special teams — a faint lift rather than the old
+   set of unrelated hues. */
+.rest-bg-empty .rest-customer-name {
+    /* ivory70 is the documented text floor — dimmer than a real handle, still legible. */
+    color: var(--rest-ivory70);
 }
 
-.rest-bg-item {
-    background-color: #1d3f58;
-}
-
-.rest-bg-high-bid {
-    background-color: #72668a;
-}
-
+.rest-bg-high-bid,
 .rest-bg-giveaway {
-    background-color: #114538;
+    background-color: var(--rest-ivory06);
+    border-radius: 4px;
 }

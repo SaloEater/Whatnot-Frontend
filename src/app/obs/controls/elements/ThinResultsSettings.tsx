@@ -14,6 +14,7 @@ import {
     DEFAULT_TEXT_SIZE,
 } from '@/app/obs/layout/elements/results-thin/ThinResults'
 import type {PatchElement} from './ElementBlock'
+import SortButtons from './SortButtons'
 
 type Props = {
     elementKey: string
@@ -74,17 +75,7 @@ export default function ThinResultsSettings({elementKey, element, onPatchElement
                     }}
                 />
             </div>
-            <div className="mb-2">
-                <label className="form-label mb-0 small">Sort</label>
-                <select
-                    className="form-select form-select-sm"
-                    value={sort}
-                    onChange={(e) => onPatchElement(elementKey, {sort: e.target.value})}
-                >
-                    <option value="alphabetical">Alphabetical</option>
-                    <option value="customer">By customer</option>
-                </select>
-            </div>
+            <SortButtons value={sort} onChange={(next) => onPatchElement(elementKey, {sort: next})}/>
         </div>
     )
 }

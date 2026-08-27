@@ -14,6 +14,20 @@
     height: 100%;
     position: relative;
     box-sizing: border-box;
+
+    /* Same chryselephantine palette as the full results board (see ResultsElement.css for where
+       the values come from and the contrast notes). Declared again rather than shared because the
+       two elements are independent and either may be placed without the other. */
+    --rest-cella: #16130e;
+    --rest-cella-lift: #1f1a13;
+    --rest-ivory: #e8dfcb;
+    --rest-ivory70: rgba(232, 223, 203, 0.7);
+    --rest-ivory06: rgba(232, 223, 203, 0.06);
+    --rest-bronze: #756241;
+    --rest-tier-gold: #c6a35a;
+    --rest-tier-silver: #b3ab9b;
+    --rest-tier-bronze: #756241;
+    --rest-tier-grey: #5f5a50;
 }
 
 .rest-empty {
@@ -22,7 +36,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #fff;
+    color: var(--rest-ivory);
     font-family: sans-serif;
 }
 
@@ -35,7 +49,10 @@
 
 .rest-grid {
     display: grid;
-    grid-template-columns: repeat(var(--rest-columns), 1fr);
+    /* Twice as many tracks as columns, each cell spanning two — that is what makes the half-column
+       offset possible when centring a short final row (see ThinResults.tsx). Cell width and the
+       visible gap are unchanged: 2 tracks plus their internal gap equals one column. */
+    grid-template-columns: repeat(var(--rest-tracks, 4), 1fr);
     grid-auto-rows: min-content;
     align-content: start;
     column-gap: 10px;
@@ -44,8 +61,8 @@
     height: 100%;
     padding: 10px;
     border-radius: 16px;
-    border: 2px solid black;
-    background-color: #001b2e;
+    border: 2px solid var(--rest-bronze);
+    background-color: var(--rest-cella);
     box-sizing: border-box;
     overflow: hidden;
 }

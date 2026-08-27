@@ -1,0 +1,97 @@
+/* frame:static (obs-layout-plan.md §2.5). Classes prefixed `frm-` only — no html/body rules, no
+ * .container/.row/.col, no vh/vw/vmin (the frame is always the full 1080x1920 canvas, so plain
+ * percentages of its own root are exactly right, same convention as StashOrPassWrap.css). Deletes
+ * the old `.frame-static-img` styling entirely — the frame is code-drawn now, no <img>.
+ */
+
+.frm-root {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    --frm-black: #000000;
+    --frm-bronze: #756241;
+    /* One full loop = the gradient travelling 2160px right (see .frm-drift). */
+    --frm-drift-duration: 60s;
+}
+
+.frm-root > * {
+    position: absolute;
+    pointer-events: none;
+}
+
+/* Black rings, used twice (FrameElement.tsx): the per-side fill outside the gradient frame, and
+   the fixed 2px rule closing it off inside. Drawn as borders rather than four bands so adjacent
+   sides mitre themselves. Position and widths are set inline — both depend on settings. */
+.frm-black {
+    box-sizing: border-box;
+    border-style: solid;
+    border-width: 0;
+    border-color: var(--frm-black);
+}
+
+/* The gradient frame: a window onto ONE canvas-wide gradient rather than four per-side ones.
+ *
+ * `.frm-mat` is inset by the black fill and padded by `frameWidth` (both set inline in
+ * FrameElement.tsx, since they are settings). The mask below keeps only that padding ring — so
+ * each side shows the slice of the gradient it actually sits on, and everything inside stays fully
+ * transparent for the board underneath. The gradient itself lives on `.frm-drift`.
+ */
+.frm-mat {
+    box-sizing: border-box;
+
+    /* Two mask layers — the whole border box, minus the content box (= the hole the padding
+       leaves) — composited so only the ring survives. The -webkit- pair is kept alongside the
+       standard one for older CEF builds in OBS, which only understand the legacy syntax. */
+    -webkit-mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
+    -webkit-mask-clip: content-box, border-box;
+    -webkit-mask-composite: xor;
+    mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
+    mask-clip: content-box, border-box;
+    mask-composite: exclude;
+}
+
+/* The gradient, sliding left to right forever without a visible join.
+ *
+ * A plain `linear-gradient(to bottom left, ...)` cannot loop: slide it and the ramp eventually
+ * runs out. So the same ramp is stated as a REPEATING gradient instead, and the numbers below are
+ * what make one loop land exactly on the next:
+ *
+ *   - 240.6422deg is `to bottom left` for a 1080x1920 canvas, written as an explicit angle so it
+ *     stays put no matter how wide this element is (the corner keyword would re-aim itself).
+ *   - 1882.6032px is the pattern's period along that axis: 2*w*h/hypot(w, h). Black sits at both ends
+ *     of a cycle and bronze in the middle, so cycles join with no seam.
+ *   - Projected onto the x axis that period works out at exactly 2160px = twice the canvas width,
+ *     which is therefore the translation of one whole loop. Sliding by it lands the pattern
+ *     precisely on top of where it started, so the keyframe wrap is invisible.
+ *   - The layer is 3x the canvas wide so it still covers the canvas at both ends of that slide,
+ *     and it is sized/offset in canvas units (inline, in FrameElement.tsx) rather than as a
+ *     percentage of the ring it lives in — so the gradient is anchored to the canvas, not to the
+ *     frame, whatever the black fill is set to. At translateX(0) the phase puts black on the
+ *     canvas's top-right and bottom-left corners with bronze through the middle.
+ *
+ * Animated with a transform rather than background-position: this runs for the length of a whole
+ * stream, and a transform stays on the compositor instead of repainting the canvas every frame.
+ */
+.frm-drift {
+    position: absolute;
+    /* width/height/top/left are set inline — canvas units, see above. */
+    background-image: repeating-linear-gradient(
+        240.642246deg,
+        var(--frm-black) 0,
+        var(--frm-bronze) 941.3016px,
+        var(--frm-black) 1882.6032px
+    );
+    will-change: transform;
+    animation: frm-drift var(--frm-drift-duration) linear infinite;
+}
+
+@keyframes frm-drift {
+    from {
+        transform: translateX(-2160px);
+    }
+    to {
+        transform: translateX(0);
+    }
+}
