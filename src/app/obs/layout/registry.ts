@@ -1,0 +1,423 @@
+// Registry table for the OBS layout system: every placeable element kind/variant/widget
+// maps to one entry here (label, sizing defaults, allowed phases, and — for now — a
+// placeholder component). See obs-layout-plan.md §1.2 and Phase 2 inventory.
+
+import type { ComponentType } from 'react'
+import { Placeholder } from './Placeholder'
+import { FrameElement } from './elements/frame/FrameElement'
+import { StashOrPassWrap } from './elements/animation/StashOrPassWrap'
+import { FlatBoard } from './elements/board-flat/FlatBoard'
+import { ResultsElement } from './elements/results/ResultsElement'
+import { ThinResults } from './elements/results-thin/ThinResults'
+import type { AnimationId, BoardVariant, Box, Element, ElementKind, FrameVariant, Phase, WidgetId } from './schema'
+import { PHASES } from './schema'
+import type { SceneEventName } from './sceneEvents'
+
+export type RegistryId =
+    | 'board:flat'
+    | 'board:classic'
+    | 'board:cobra'
+    | 'widget:pick2'
+    | 'widget:stashorpass'
+    | 'widget:name'
+    | 'widget:boxesPerBreak'
+    | 'widget:count'
+    | 'results'
+    | 'resultsThin'
+    | 'cards'
+    | 'ripbar'
+    | 'reserved'
+    | 'frame:static'
+    | 'animation:stashOrPassWrap'
+
+// Shared prop contract every registry component (placeholder now, real components in Phase 2)
+// implements.
+export type ElementProps = {
+    elementKey: string
+    element: Element
+    box: Box
+    phase: Phase
+}
+
+export type RegistryEntry = {
+    id: RegistryId
+    kind: ElementKind
+    label: string
+    // Boards share ONE singleton slot across all variants — only one board element allowed in a
+    // config, regardless of which variant it is. Same idea for results/cards/ripbar/reserved
+    // (one each). Widgets are not singletons. `singletonGroup` is the key used to enforce this:
+    // entries that must not coexist share the same group.
+    singleton: boolean
+    singletonGroup: string
+    defaultBox: Box
+    allowedPhases: Phase[]
+    defaultPhases: Phase[]
+    preload: string[]
+    component: ComponentType<ElementProps>
+    // false = schema-ready but not offered by the builder.
+    available: boolean
+    // Boxless elements (obs-layout-plan.md §1.9): the layout mounts them in a full-canvas,
+    // non-clipping frame and they position their own content (typically via useResolvedBox() —
+    // see resolvedBoxes.tsx); controls hides their x/y/w/h inputs (Layer stays). Default true —
+    // only frame:static opts out so far.
+    hasBox: boolean
+    // Scene events (obs-layout-plan.md §1.9) this element type reacts to natively — an empty
+    // array means it never reacts to anything. Config-level `Element.reactions` can switch a
+    // declared reaction off per element instance (see config.ts `effectiveReactions()`); it can
+    // never turn ON one the type doesn't implement.
+    reactsTo: SceneEventName[]
+}
+
+function widgetDefaultBox(index: number): Box {
+    // 240x240 circles along the bottom of the 1080x1920 canvas.
+    return { x: 20 + index * 250, y: 1920 - 240 - 40, w: 240, h: 240 }
+}
+
+const BOARD_BOX: Box = { x: 0, y: 300, w: 1080, h: 1300 }
+const FULL_BOX: Box = { x: 0, y: 0, w: 1080, h: 1920 }
+const RIPBAR_BOX: Box = { x: 0, y: 0, w: 1080, h: 120 }
+const RESERVED_BOX: Box = { x: 1080 - 480, y: 0, w: 480, h: 270 }
+// A narrow right-hand column, same vertical span as BOARD_BOX — sized for "alongside a board"
+// (obs-layout-plan.md §2.4's stated use case), not full-canvas like `results` (§2.3). Purely a
+// starting point; the operator resizes it in the builder like any other box.
+const RESULTS_THIN_BOX: Box = { x: 1080 - 340, y: 300, w: 340, h: 1300 }
+
+export const REGISTRY: Record<RegistryId, RegistryEntry> = {
+    'board:flat': {
+        id: 'board:flat',
+        kind: 'board',
+        label: 'Board — Flat',
+        singleton: true,
+        singletonGroup: 'board',
+        defaultBox: BOARD_BOX,
+        allowedPhases: PHASES,
+        defaultPhases: ['selling'],
+        // Just the static board background — the per-cell/per-tile skin art is combinatorial
+        // (style x tier x piece x variant, resolved from manifest.json at runtime) and not worth
+        // eagerly preloading here (obs-layout-plan.md §2.1).
+        preload: ['/images/board.png'],
+        component: FlatBoard,
+        available: true,
+        hasBox: true,
+        // A manually-triggered 'sold' scene event forces an immediate events refetch so the
+        // board flips right away instead of waiting up to 5s for the spine's normal poll.
+        reactsTo: ['sold'],
+    },
+    'board:classic': {
+        id: 'board:classic',
+        kind: 'board',
+        label: 'Board — Classic',
+        singleton: true,
+        singletonGroup: 'board',
+        defaultBox: BOARD_BOX,
+        allowedPhases: PHASES,
+        defaultPhases: ['selling'],
+        preload: [],
+        component: Placeholder,
+        available: true,
+        hasBox: true,
+        reactsTo: [],
+    },
+    'board:cobra': {
+        id: 'board:cobra',
+        kind: 'board',
+        label: 'Board — Cobra',
+        singleton: true,
+        singletonGroup: 'board',
+        defaultBox: BOARD_BOX,
+        allowedPhases: PHASES,
+        defaultPhases: ['selling'],
+        preload: [],
+        component: Placeholder,
+        available: true,
+        hasBox: true,
+        reactsTo: [],
+    },
+    'widget:pick2': {
+        id: 'widget:pick2',
+        kind: 'widget',
+        label: 'Widget — Pick 2',
+        singleton: false,
+        singletonGroup: 'widget:pick2',
+        defaultBox: widgetDefaultBox(0),
+        allowedPhases: PHASES,
+        defaultPhases: ['selling'],
+        preload: [],
+        component: Placeholder,
+        available: true,
+        hasBox: true,
+        reactsTo: [],
+    },
+    'widget:stashorpass': {
+        id: 'widget:stashorpass',
+        kind: 'widget',
+        label: 'Widget — Stash or Pass',
+        singleton: false,
+        singletonGroup: 'widget:stashorpass',
+        defaultBox: widgetDefaultBox(1),
+        allowedPhases: PHASES,
+        defaultPhases: ['selling'],
+        preload: [],
+        component: Placeholder,
+        available: true,
+        hasBox: true,
+        reactsTo: [],
+    },
+    'widget:name': {
+        id: 'widget:name',
+        kind: 'widget',
+        label: 'Widget — Name',
+        singleton: false,
+        singletonGroup: 'widget:name',
+        defaultBox: widgetDefaultBox(2),
+        allowedPhases: PHASES,
+        defaultPhases: ['selling'],
+        preload: [],
+        component: Placeholder,
+        available: true,
+        hasBox: true,
+        reactsTo: [],
+    },
+    'widget:boxesPerBreak': {
+        id: 'widget:boxesPerBreak',
+        kind: 'widget',
+        label: 'Widget — Boxes Per Break',
+        singleton: false,
+        singletonGroup: 'widget:boxesPerBreak',
+        defaultBox: widgetDefaultBox(3),
+        allowedPhases: PHASES,
+        defaultPhases: ['selling'],
+        preload: [],
+        component: Placeholder,
+        available: true,
+        hasBox: true,
+        reactsTo: [],
+    },
+    'widget:count': {
+        id: 'widget:count',
+        kind: 'widget',
+        label: 'Widget — Count',
+        singleton: false,
+        singletonGroup: 'widget:count',
+        defaultBox: widgetDefaultBox(4),
+        allowedPhases: PHASES,
+        defaultPhases: ['selling'],
+        preload: [],
+        component: Placeholder,
+        available: true,
+        hasBox: true,
+        reactsTo: [],
+    },
+    results: {
+        id: 'results',
+        kind: 'results',
+        label: 'Results',
+        singleton: true,
+        singletonGroup: 'results',
+        defaultBox: FULL_BOX,
+        allowedPhases: PHASES,
+        defaultPhases: ['results'],
+        preload: [],
+        component: ResultsElement,
+        available: true,
+        hasBox: true,
+        // Matches board-flat (obs-layout-plan.md §2.1): a manually-triggered 'sold' scene event
+        // forces an immediate events refetch so the results grid updates without waiting up to
+        // 5s for the spine's normal poll (obs-layout-plan.md §2.3).
+        reactsTo: ['sold'],
+    },
+    resultsThin: {
+        id: 'resultsThin',
+        kind: 'resultsThin',
+        label: 'Results (thin)',
+        // Its own singleton group — separate from `results` (§2.3) — so a config may have both a
+        // full results board AND a thin list at the same time (obs-layout-plan.md §2.4: "both
+        // elements may be placed at once"), while still only allowing one of each.
+        singleton: true,
+        singletonGroup: 'resultsThin',
+        defaultBox: RESULTS_THIN_BOX,
+        allowedPhases: PHASES,
+        // Interpretation: the plan's use case is "alongside a board, or during ripping" — full
+        // `results` already owns the `results` phase by default, so this defaults to `ripping`
+        // rather than competing with it. The operator can add it to any phase either way.
+        defaultPhases: ['ripping'],
+        preload: [],
+        component: ThinResults,
+        available: true,
+        hasBox: true,
+        // Matches `results` (§2.3): a manually-triggered 'sold' scene event forces an immediate
+        // events refetch instead of waiting up to 5s for the spine's normal poll.
+        reactsTo: ['sold'],
+    },
+    cards: {
+        id: 'cards',
+        kind: 'cards',
+        label: 'Cards',
+        singleton: true,
+        singletonGroup: 'cards',
+        defaultBox: FULL_BOX,
+        allowedPhases: PHASES,
+        defaultPhases: ['selling'],
+        preload: [],
+        component: Placeholder,
+        available: true,
+        hasBox: true,
+        reactsTo: [],
+    },
+    ripbar: {
+        id: 'ripbar',
+        kind: 'ripbar',
+        label: 'Rip Bar',
+        singleton: true,
+        singletonGroup: 'ripbar',
+        defaultBox: RIPBAR_BOX,
+        allowedPhases: PHASES,
+        defaultPhases: ['ripping'],
+        preload: [],
+        component: Placeholder,
+        available: true,
+        hasBox: true,
+        reactsTo: [],
+    },
+    reserved: {
+        id: 'reserved',
+        kind: 'reserved',
+        label: 'Reserved',
+        singleton: true,
+        singletonGroup: 'reserved',
+        defaultBox: RESERVED_BOX,
+        allowedPhases: PHASES,
+        defaultPhases: ['selling'],
+        preload: [],
+        component: Placeholder,
+        available: true,
+        hasBox: true,
+        reactsTo: [],
+    },
+    'frame:static': {
+        id: 'frame:static',
+        kind: 'frame',
+        label: 'Frame (static image)',
+        singleton: true,
+        singletonGroup: 'frame',
+        defaultBox: FULL_BOX,
+        allowedPhases: PHASES,
+        // Irrelevant for frame — makeElement() below always places it via `all` instead.
+        defaultPhases: [],
+        preload: [],
+        component: FrameElement,
+        available: true,
+        // Boxless (obs-layout-plan.md §1.9): it stretches an <img> over its full-canvas frame
+        // itself rather than being clipped to a placed box.
+        hasBox: false,
+        reactsTo: [],
+    },
+    'animation:stashOrPassWrap': {
+        id: 'animation:stashOrPassWrap',
+        kind: 'animation',
+        label: 'Stash or Pass — wrap',
+        // Each instance gets its own group (obs-layout-plan.md §1.9: "own group per instance") —
+        // unlike widgets, which share one shared string per widget id, this one is keyed by
+        // nothing shared, so `singleton: false` alone is what actually allows multiple copies
+        // (singletonGroup is only ever consulted when `singleton` is true).
+        singleton: false,
+        singletonGroup: 'animation:stashOrPassWrap',
+        defaultBox: FULL_BOX,
+        allowedPhases: PHASES,
+        // Irrelevant here too — makeElement() always places it via `all`, same as frame.
+        defaultPhases: [],
+        // Self-hosted font (public/fonts/Grechka SHA_0.otf) — see StashOrPassWrap.css.
+        preload: ['/fonts/Grechka SHA_0.otf'],
+        component: StashOrPassWrap,
+        available: true,
+        // Boxless (obs-layout-plan.md §1.9): it draws a ring around ANOTHER element's box
+        // (useResolvedBox(target)) rather than occupying one of its own.
+        hasBox: false,
+        reactsTo: ['stash_or_pass'],
+    },
+}
+
+export function registryIdOf(element: Element): RegistryId {
+    switch (element.kind) {
+        case 'board':
+            return `board:${element.variant}` as RegistryId
+        case 'widget':
+            return `widget:${element.widget}` as RegistryId
+        case 'results':
+            return 'results'
+        case 'resultsThin':
+            return 'resultsThin'
+        case 'cards':
+            return 'cards'
+        case 'ripbar':
+            return 'ripbar'
+        case 'reserved':
+            return 'reserved'
+        case 'frame':
+            return `frame:${element.variant}` as RegistryId
+        case 'animation':
+            return `animation:${element.animation}` as RegistryId
+        default: {
+            const _exhaustive: never = element
+            throw new Error(`registryIdOf: unhandled element ${JSON.stringify(_exhaustive)}`)
+        }
+    }
+}
+
+export function makeElement(registryId: RegistryId): Element {
+    const entry = REGISTRY[registryId]
+    if (!entry) {
+        throw new Error(`makeElement: unknown registry id "${registryId}"`)
+    }
+
+    // Frame is persistent by construction: it always gets a single `all` placement (never
+    // per-phase entries) plus a default z that sits above the rest of the layout.
+    if (entry.kind === 'frame') {
+        return {
+            kind: 'frame',
+            variant: registryId.split(':')[1] as FrameVariant,
+            placements: { all: { ...entry.defaultBox } },
+            z: 10,
+        }
+    }
+
+    // The wrap animation is "usually persistent" (obs-layout-plan.md §1.9) and, being boxless,
+    // its `all` placement is really just "present in every stage" — the box itself is never
+    // rendered from. `target`/`pad`/`bandThickness`/`speed`/`holdMs` are left unset so the
+    // component's own defaults apply (see StashOrPassWrap.tsx's DEFAULT_* constants).
+    if (entry.kind === 'animation') {
+        return {
+            kind: 'animation',
+            animation: registryId.split(':')[1] as AnimationId,
+            placements: { all: { ...entry.defaultBox } },
+            z: 20,
+        }
+    }
+
+    const placements: Partial<Record<Phase, Box>> = {}
+    for (const phase of entry.defaultPhases) {
+        placements[phase] = { ...entry.defaultBox }
+    }
+    switch (entry.kind) {
+        case 'board':
+            return { kind: 'board', variant: registryId.split(':')[1] as BoardVariant, placements }
+        case 'widget':
+            return { kind: 'widget', widget: registryId.split(':')[1] as WidgetId, placements }
+        case 'results':
+            return { kind: 'results', placements }
+        case 'resultsThin':
+            // columns/textSize/iconSize/sort left unset — the component's own defaults apply
+            // (see ThinResults.tsx's DEFAULT_* constants), same convention as the wrap animation.
+            return { kind: 'resultsThin', placements }
+        case 'cards':
+            return { kind: 'cards', placements }
+        case 'ripbar':
+            return { kind: 'ripbar', placements }
+        case 'reserved':
+            return { kind: 'reserved', placements }
+        default: {
+            const _exhaustive: never = entry.kind
+            throw new Error(`makeElement: unhandled kind ${JSON.stringify(_exhaustive)}`)
+        }
+    }
+}

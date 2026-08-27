@@ -24,10 +24,10 @@ export class MyOBSWebsocket {
     }
 
 
-    connect() {
+    connect(): Promise<void> {
         let password = undefined
         try {
-            this.webSocket.connect(this.url, password, {
+            return this.webSocket.connect(this.url, password, {
                 eventSubscriptions: EventSubscription.All,
             }).then(_ => {
                 this.log('Connection established')
@@ -51,7 +51,56 @@ export class MyOBSWebsocket {
             }).catch(e => this.log(`Connect error: ${JSON.stringify(e)}`))
         } catch (error) {
             this.log(`Failed to connect: ${JSON.stringify(error)}`);
+            return Promise.resolve()
         }
+    }
+
+    disconnect(): Promise<void> {
+        return this.webSocket.disconnect().then(_ => {
+            this.log('Disconnected')
+            this.setDisconnect()
+        })
+    }
+
+    emitBrowserEvent(eventName: string, data: unknown): Promise<void> {
+        this.guardIsConnected()
+        this.log(`Emit browser event ${eventName}: ${JSON.stringify(data)}`)
+        return this.webSocket.call('CallVendorRequest', {
+            vendorName: 'obs-browser',
+            requestType: 'emit_event',
+            requestData: {
+                event_name: eventName,
+                event_data: data,
+            } as OBSRequestTypes['CallVendorRequest']['requestData'],
+        }).then(_ => {})
+    }
+
+    /**
+     * Broadcasts to every OTHER obs-websocket client (the Stream Deck plugin, another controls
+     * tab) via `BroadcastCustomEvent`. This is NOT the same channel as `emitBrowserEvent`:
+     * `emit_event` reaches OBS browser sources only and never a plain Chrome tab, while this
+     * reaches every identified+subscribed websocket client — including this one, which is why
+     * payloads carry a `src`. See `elgato-plugin-plan.md` ("Why this transport is sound").
+     */
+    broadcastCustomEvent(data: object): Promise<void> {
+        this.guardIsConnected()
+        return this.webSocket.call('BroadcastCustomEvent', {
+            eventData: data as OBSRequestTypes['BroadcastCustomEvent']['eventData'],
+        }).then(_ => {})
+    }
+
+    /**
+     * Subscribes to `CustomEvent`, the receiving half of `broadcastCustomEvent`. Returns an
+     * unsubscribe function. Does not require the connection to be up yet — `CustomEvent` is in the
+     * General category, which `EventSubscription.All` (used in connect()) already covers.
+     */
+    onCustomEvent(cb: (data: unknown) => void): () => void {
+        // The payload arrives DIRECTLY: obs-websocket passes BroadcastCustomEvent's `eventData`
+        // through as the event's whole data, so there is no `{eventData}` wrapper. Verified
+        // against OBS 31.1.2 / obs-websocket 5. Unwrapping here silently drops every message.
+        const handler = (d: unknown) => cb(d)
+        this.webSocket.on('CustomEvent', handler)
+        return () => { this.webSocket.off('CustomEvent', handler) }
     }
 
     private log(value: string) {
@@ -83,6 +132,26 @@ export class MyOBSWebsocket {
         }
     }
 
+    /**
+     * Calls `cb` when OBS reports that the media input `inputName` finished playing.
+     * Returns an unsubscribe function. Does not require the connection to be up yet.
+     */
+    onMediaPlaybackEnded(inputName: string, cb: () => void): () => void {
+        const handler = (r: { inputName: string }) => {
+            if (r.inputName === inputName) cb()
+        }
+        this.webSocket.on('MediaInputPlaybackEnded', handler)
+        return () => { this.webSocket.off('MediaInputPlaybackEnded', handler) }
+    }
+
+    /** Names of every media (ffmpeg_source) input in OBS, regardless of scene. */
+    getMediaInputNames(): Promise<string[]> {
+        this.guardIsConnected()
+
+        return this.webSocket.call('GetInputList', {inputKind: 'ffmpeg_source'})
+            .then(r => r.inputs.map(i => (i.inputName ?? '').toString()).filter(n => n !== ''))
+    }
+
     getSceneItemList(scene: ObsScene): Promise<RawObsItem[]> {
         this.guardIsConnected()
 
@@ -110,6 +179,16 @@ export class MyOBSWebsocket {
                 })
                 return scenes
             })
+    }
+
+    // Restarts a media source by name, with no scene context needed — used by the controls page
+    // to play a transition video before applying a stage change (obs-layout-plan.md §1.7).
+    playMedia(sourceName: string): Promise<void> {
+        this.guardIsConnected()
+        return this.webSocket.call('TriggerMediaInputAction', {
+            inputName: sourceName,
+            mediaAction: 'OBS_WEBSOCKET_MEDIA_INPUT_ACTION_RESTART'
+        }).then(_ => {})
     }
 
     playSource(scene: ObsScene, sourceName: string, sourceUuid: string): Promise<boolean> {

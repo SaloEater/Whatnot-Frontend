@@ -1,0 +1,48 @@
+.bt-page {
+    position: fixed;
+    inset: 0;
+    background-color: #0a0a0a;
+    color: #33ff66;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 28px;
+    line-height: 1.35;
+    padding: 24px;
+    box-sizing: border-box;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.bt-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    border-bottom: 2px solid #33ff66;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+    flex-shrink: 0;
+}
+
+.bt-log {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.bt-entry {
+    border-bottom: 1px solid #1f4d2e;
+    padding-bottom: 8px;
+    word-break: break-word;
+}
+
+.bt-entry-meta {
+    color: #7dff9e;
+    font-size: 0.7em;
+}
+
+.bt-entry-text {
+    color: #e8ffe8;
+    white-space: pre-wrap;
+}

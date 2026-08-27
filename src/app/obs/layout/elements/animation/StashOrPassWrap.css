@@ -1,0 +1,443 @@
+/* animation:stashOrPassWrap (obs-layout-plan.md §2.2, overlay-stash-or-pass-spec.md). Classes
+ * prefixed `sopw-` only — no html/body rules here (this element lives inside the shared
+ * /obs/layout/[id] page, which owns that).
+ *
+ * Palette below is copied from obs/animation/stashorpass_simple/tokens.ts's COLOR (NOT imported —
+ * that file is a standalone banner page with its own global CSS this element must not pull in).
+ * `--sopw-ivory` has no equivalent there; it's added here for the chromatic-split requirement
+ * (spec §6 "Register": do the split in ivory/gold/bronze, not RGB).
+ */
+
+@font-face {
+    font-family: 'Grechka SHA';
+    src: url('/fonts/Grechka%20SHA_0.otf') format('opentype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: block;
+}
+
+.sopw-root {
+    /* Tuning multiplier for the whole entrance/exit choreography — every literal duration and
+       delay in this file is calc()'d against it, and the .tsx scales its own beat timers and
+       CSS-var durations by the matching TIME_SCALE. 1 = the spec's real timings. Kept in sync
+       with TIME_SCALE in StashOrPassWrap.tsx. */
+    --sopw-ts: 5;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: visible;
+    --sopw-ivory: #f3ecd8;
+    --sopw-gold-bright: #f0c24b; /* tokens.ts COLOR.goldBright */
+    --sopw-gold-mid: #c99a38; /* tokens.ts COLOR.goldMid */
+    --sopw-bronze: #8a6a1f; /* tokens.ts COLOR.goldDark */
+    --sopw-ground: #14100a; /* tokens.ts COLOR.cardGround */
+}
+
+/* Off-screen probe used to measure the marquee text so the bands can size themselves to it.
+   Must match .sopw-band-strip's typography exactly or the measurement is meaningless.
+   `visibility: hidden` rather than `display: none` — a display:none element has no layout box and
+   would measure 0. */
+.sopw-measure {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    visibility: hidden;
+    pointer-events: none;
+    white-space: nowrap;
+    line-height: 1;
+    font-family: 'Grechka SHA', 'Arial Narrow', sans-serif;
+    font-weight: 400;
+}
+
+.sopw-band-strip {
+    /* Set inline by Band() as a fraction of band thickness so the type scales with the band. */
+    font-size: var(--sopw-band-font, 48px);
+    line-height: 1;
+    font-family: 'Grechka SHA', 'Arial Narrow', sans-serif;
+    font-weight: 400; /* never synthesise bold — see tokens.ts's note on this typeface */
+    white-space: nowrap;
+}
+
+/* ---- ground wash + panel (anticipation / impact / hold) --------------------------------- */
+
+.sopw-wash {
+    position: absolute;
+    inset: 0;
+    background: #000;
+    opacity: 0;
+    transition: opacity calc(200ms * var(--sopw-ts)) ease-out; /* undim, when the --dim class is later removed live */
+}
+.sopw-wash--dim {
+    /* An `animation` (not a `transition`) because this class is present from the very first
+       render (the wash mounts already dimmed when the entrance's anticipation beat starts) — a
+       `transition` never fires on a value an element is born with, only on a live change. See
+       StashOrPassWrap.tsx's module doc comment / the same reasoning on .sopw-ring--contracted
+       below. */
+    animation: sopw-wash-dim calc(140ms * var(--sopw-ts)) ease-in forwards;
+}
+@keyframes sopw-wash-dim {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 0.35;
+    }
+}
+
+.sopw-panel {
+    position: absolute;
+    overflow: visible;
+}
+
+.sopw-ring {
+    position: absolute;
+    inset: 0;
+    border: 4px solid var(--sopw-gold-mid);
+    transform: scale(1);
+    opacity: 0;
+    transition: opacity calc(120ms * var(--sopw-ts)) ease-out; /* the "gone" fade below, a live change */
+}
+.sopw-ring--contracted {
+    /* Same mount-timing reasoning as .sopw-wash--dim above: this class is on the ring from its
+       very first render, so the contraction has to be an `animation` (plays in full regardless
+       of when it's applied) rather than a `transition` (only fires on a live change). */
+    animation: sopw-ring-in calc(140ms * var(--sopw-ts)) cubic-bezier(0.3, 0, 0.2, 1) forwards;
+}
+@keyframes sopw-ring-in {
+    from {
+        transform: scale(1.08);
+        opacity: 0.5;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+.sopw-ring--gone {
+    opacity: 0;
+}
+
+.sopw-fill {
+    position: absolute;
+    inset: 0;
+    background: var(--sopw-gold-bright);
+    opacity: 0;
+    transition: opacity calc(80ms * var(--sopw-ts)) ease-out;
+}
+.sopw-fill--lit {
+    opacity: 1;
+}
+.sopw-fill--drain {
+    opacity: 0;
+    /* Duration comes from the .tsx so the drain always fits the window it has (ABSORB_MS on the
+       entrance, EXIT_COLLAPSE_MS on the exit) — a fixed value outlives its window and gets clipped
+       when the panel unmounts. */
+    transition: opacity var(--sopw-drain-ms, 300ms) ease-in;
+}
+
+.sopw-blowout {
+    position: absolute;
+    inset: 0;
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+}
+.sopw-blowout--flash {
+    animation: sopw-blowout calc(80ms * var(--sopw-ts)) ease-out 1;
+}
+@keyframes sopw-blowout {
+    0% {
+        opacity: 0;
+    }
+    35% {
+        opacity: 0.9;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+.sopw-word {
+    font-family: 'Grechka SHA', 'Arial Narrow', sans-serif;
+    font-weight: 400; /* never synthesise bold — see tokens.ts's note on this typeface */
+    font-size: var(--sopw-headline, 96px);
+    line-height: 1;
+    white-space: nowrap;
+    /* left/top are overridden inline with the target box's centre in canvas coordinates — these
+       50% fallbacks resolve against .sopw-root (the whole canvas), which is only correct when the
+       board happens to sit dead centre. */
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) scale(0.92);
+    color: var(--sopw-ground);
+    opacity: 0;
+    letter-spacing: 0.02em;
+    transition: transform calc(120ms * var(--sopw-ts)) cubic-bezier(0.3, 0, 0.2, 1), opacity calc(80ms * var(--sopw-ts)) ease-out;
+}
+.sopw-word--landed {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+    animation: sopw-word-pop calc(80ms * var(--sopw-ts)) cubic-bezier(0.3, 0, 0.2, 1) 1;
+}
+@keyframes sopw-word-pop {
+    0% {
+        transform: translate(-50%, -50%) scale(0.92);
+    }
+    60% {
+        transform: translate(-50%, -50%) scale(1.03);
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+.sopw-word--recoil {
+    /* The original kicks toward its corner as the copies fan into the others (spec §3) — see
+       StashOrPassWrap.tsx for the exact offset. Holds FULL opacity through the split: the word is
+       still the thing being read while the copies peel off it. `.sopw-word--gone` is declared
+       after this rule, so adding it at the travel beat still wins and fades the word out then. */
+    opacity: 1;
+    transition: transform calc(120ms * var(--sopw-ts)) ease-out, opacity calc(160ms * var(--sopw-ts)) ease-in calc(40ms * var(--sopw-ts));
+}
+/* The split: the word shears/stretches for a few frames and blinks out, handing its position to
+   the four copies that appear on the same spot. An `animation` rather than a `transition` because
+   it owns `transform` for the whole beat and must play in full however it is timed. Duration and
+   the sideways kick come in as vars from StashOrPassWrap.tsx so they track SPLIT_SPAWN_MS and the
+   play's chosen diagonal. */
+.sopw-word--distort {
+    opacity: 1;
+    animation: sopw-word-distort var(--sopw-distort-ms, 240ms) cubic-bezier(0.5, 0, 0.85, 0.2) forwards;
+}
+/* Six colour stops, one per shuffled tone from StashOrPassWrap.tsx's GLITCH_POOL. The stops sit on
+   the same timeline as the shear so colour and shape break up together; `color` is not interpolated
+   smoothly here on purpose — each stop is held until the next, which is what makes it read as a
+   flicker rather than a fade (each stop repeats its colour just before the next one takes over). */
+@keyframes sopw-word-distort {
+    0% {
+        transform: translate(-50%, -50%) scale(1, 1);
+        color: var(--sopw-glitch-1, var(--sopw-ground));
+        opacity: 1;
+    }
+    16.6% {
+        color: var(--sopw-glitch-1, var(--sopw-ground));
+    }
+    16.7% {
+        transform: translate(calc(-50% + var(--sopw-distort-kick, 0px)), -50%) scale(1.1, 0.86) skewX(-6deg);
+        color: var(--sopw-glitch-2, var(--sopw-ground));
+    }
+    33.2% {
+        color: var(--sopw-glitch-2, var(--sopw-ground));
+    }
+    33.3% {
+        transform: translate(calc(-50% - var(--sopw-distort-kick, 0px)), -50%) scale(0.9, 1.16) skewX(6deg);
+        color: var(--sopw-glitch-3, var(--sopw-ground));
+    }
+    49.9% {
+        color: var(--sopw-glitch-3, var(--sopw-ground));
+    }
+    50% {
+        transform: translate(calc(-50% + var(--sopw-distort-kick, 0px)), -50%) scale(1.14, 0.82) skewX(-8deg);
+        color: var(--sopw-glitch-4, var(--sopw-ground));
+        opacity: 1;
+    }
+    66.5% {
+        color: var(--sopw-glitch-4, var(--sopw-ground));
+    }
+    66.6% {
+        transform: translate(calc(-50% - var(--sopw-distort-kick, 0px)), -50%) scale(0.86, 1.2) skewX(7deg);
+        color: var(--sopw-glitch-5, var(--sopw-ground));
+        opacity: 0.9;
+    }
+    83.2% {
+        color: var(--sopw-glitch-5, var(--sopw-ground));
+    }
+    83.3% {
+        color: var(--sopw-glitch-6, var(--sopw-ground));
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(1.3, 0.6) skewX(0deg);
+        color: var(--sopw-glitch-6, var(--sopw-ground));
+        opacity: 0;
+    }
+}
+
+.sopw-word--gone {
+    opacity: 0;
+    transition: opacity calc(160ms * var(--sopw-ts)) ease-out;
+}
+
+/* ---- the four split/travel copies ------------------------------------------------------- */
+
+.sopw-copy {
+    /* The copies carry the phrase itself (tinted per band) — an empty element here would make the
+       split, the chromatic separation and the travel all invisible. */
+    /* Thin black outline so each tinted copy stays legible over the gold fill it crosses.
+       Sized from the headline rather than fixed at 1px: `paint-order: stroke fill` puts the stroke
+       behind the glyph, so only half its width shows outside the letterform, and the whole canvas
+       is then scaled down to fit the source — a 1px stroke ends up well under a device pixel and
+       reads as no border at all. */
+    -webkit-text-stroke: calc(var(--sopw-headline, 96px) * 0.055) #000;
+    paint-order: stroke fill;
+    font-family: 'Grechka SHA', 'Arial Narrow', sans-serif;
+    font-weight: 400;
+    font-size: var(--sopw-headline, 96px);
+    line-height: 1;
+    white-space: nowrap;
+    /* left/top are overridden inline with the target box's centre in canvas coordinates — these
+       50% fallbacks resolve against .sopw-root (the whole canvas), which is only correct when the
+       board happens to sit dead centre. */
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    /* Centre the copy on that point at REST too. Without this the element's top-left sits on the
+       anchor, so before any beat sets an inline transform the text hangs to the right/below it and
+       visibly slides into place when the first transform (which does carry -50%) is applied. */
+    transform: translate(-50%, -50%);
+    /* transform/transition-duration are set inline per beat (StashOrPassWrap.tsx) — target
+       position, rotation and duration all depend on the target box + which band this copy is
+       flying to, none of which CSS can know statically. */
+    transform-origin: center;
+    opacity: 0;
+    transition: opacity calc(100ms * var(--sopw-ts)) ease-out;
+}
+.sopw-copy--stacked {
+    opacity: 1;
+    transition: transform calc(120ms * var(--sopw-ts)) ease-out, opacity calc(100ms * var(--sopw-ts)) ease-out;
+}
+.sopw-copy--traveling {
+    opacity: 1;
+    /* duration comes from --sopw-copy-dur (per-copy, staggered — see the module doc comment in
+       the .tsx for why a single shared transition can still land four different arrival times);
+       the back-out curve is the "overshoot 8px, then settle" beat from spec §2. */
+    transition: transform var(--sopw-copy-dur, 240ms) cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.sopw-copy--absorbed {
+    /* Squash toward the band's own thickness rather than fading — spec §3: "the text becomes the
+       stream; a fade would break that." */
+    transform: var(--sopw-copy-transform) scaleY(0.12);
+    opacity: 0;
+    /* Duration comes from ABSORB_MS in the .tsx (--sopw-settle-ms) so the squash and the beat
+       that schedules it are always the same length. The opacity fade is delayed by half of it. */
+    transition: transform var(--sopw-settle-ms, 600ms) ease-in,
+        opacity var(--sopw-settle-ms, 600ms) ease-in calc(var(--sopw-settle-ms, 600ms) / 2);
+}
+
+.sopw-copy--exit-release {
+    /* Exit's "gather" beat: the copy pops back out of the band it was absorbed into and drifts
+       back toward centre before fading — an `animation` (see the wash/ring note above) because
+       this class is present on the copy from its first render (exit mounts the four copies fresh,
+       at their absorbed band corners). --sopw-copy-from/--sopw-copy-to are set inline per copy;
+       --sopw-copy-release-ms is EXIT_GATHER_MS+EXIT_MERGE_MS from the .tsx so this always spans
+       exactly "gather through merge", however those constants get retuned. */
+    animation: sopw-copy-release var(--sopw-copy-release-ms, 260ms) ease-in forwards;
+}
+@keyframes sopw-copy-release {
+    from {
+        transform: var(--sopw-copy-from);
+        opacity: 1;
+    }
+    to {
+        transform: var(--sopw-copy-to);
+        opacity: 0;
+    }
+}
+
+/* ---- pulses (spec §4) --------------------------------------------------------------------- */
+
+/* ---- the four orbit bands ------------------------------------------------------------------ */
+
+.sopw-band {
+    position: absolute;
+    overflow: hidden;
+}
+
+.sopw-band-inner {
+    position: absolute;
+    inset: 0;
+    background: var(--sopw-gold-mid);
+    opacity: 0;
+    transition: opacity calc(200ms * var(--sopw-ts)) ease-out;
+}
+.sopw-band-inner--live {
+    opacity: 1;
+}
+
+/* Light-grey diagonal texture drifting through the lane behind the text, in the opposite
+   direction (see Band() for how the flip is chosen). Oversized on both sides and moved by exactly
+   one horizontal repeat of the 45° pattern, so the loop point is invisible. `transform` only — the
+   orbit is the long-lived part of this animation and must stay compositor-cheap (spec §6). */
+.sopw-band-stripes {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -40px;
+    right: -40px;
+    background-image: repeating-linear-gradient(
+        45deg,
+        rgba(228, 228, 228, 0.28) 0 6px,
+        transparent 6px 18px
+    );
+    pointer-events: none;
+    animation: sopw-stripes-run var(--sopw-stripe-ms, 1200ms) linear infinite;
+    animation-play-state: paused;
+    will-change: transform;
+}
+.sopw-band-stripes--live {
+    animation-play-state: running;
+}
+.sopw-band-stripes--reverse {
+    animation-direction: reverse;
+}
+@keyframes sopw-stripes-run {
+    from {
+        transform: translateX(0);
+    }
+    to {
+        /* One horizontal repeat of a 45° pattern whose period is 18px: 18 * sqrt(2). */
+        transform: translateX(-25.46px);
+    }
+}
+
+.sopw-band-rotator {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    display: flex;
+    align-items: center;
+}
+
+.sopw-band-track {
+    display: flex;
+    align-items: center;
+    animation-name: sopw-scroll;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+    animation-play-state: paused;
+    will-change: transform;
+}
+.sopw-band-track--live {
+    animation-play-state: running;
+}
+.sopw-band-track--reverse {
+    animation-direction: reverse;
+}
+@keyframes sopw-scroll {
+    from {
+        transform: translateX(0%);
+    }
+    to {
+        transform: translateX(-50%);
+    }
+}
+
+.sopw-band-strip {
+    display: flex;
+    flex: none;
+    color: var(--sopw-ground);
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.sopw-band-strip > span {
+    padding: 0 0.6em;
+}

@@ -215,3 +215,22 @@ export interface PackageUserData {
     giveawayQuantity: number
     giveawayTypes: Map<number, number>
 }
+
+// OBS layout data spine (src/app/obs/layout/useLayoutData.tsx) — generic value shapes for the
+// circle widgets and the cards board settings, shared with their existing per-widget pages.
+export interface CircleWidgetValue {
+    price?: string | number
+    amount?: string | number
+    name?: string | number
+    [key: string]: string | number | undefined
+}
+
+export interface CountSettings {
+    show_percentage: boolean
+}
+
+export interface CardsBoardSettings {
+    orientation: string
+    show_horizontal_row: boolean
+    show_only_available_teams: boolean
+}

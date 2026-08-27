@@ -1,0 +1,246 @@
+.ctl-page {
+    padding: 16px;
+}
+
+.ctl-columns {
+    gap: 24px;
+    align-items: flex-start;
+}
+
+.ctl-main-col {
+    min-width: 0;
+}
+
+.ctl-side-panel {
+    min-width: 260px;
+}
+
+.ctl-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--bs-border-color, #444);
+}
+
+.ctl-header-titles h4 {
+    margin: 0;
+}
+
+.ctl-header-titles .ctl-subtitle {
+    font-size: 0.85rem;
+    opacity: 0.75;
+}
+
+.ctl-stage-block {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ctl-stage-select {
+    width: auto;
+    min-width: 180px;
+    font-size: 1.25rem;
+    font-weight: 700;
+    text-align: center;
+    border-width: 3px;
+}
+
+/* Will stage changes reach OBS? (see stageDelivery in page.tsx) */
+.ctl-stage-ok  { border-color: #198754; }
+.ctl-stage-bad { border-color: #dc3545; }
+
+.ctl-conn-block {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.ctl-conn-status {
+    font-size: 0.8rem;
+}
+
+.ctl-conn-status.reconnecting {
+    color: #e0a800;
+}
+
+.ctl-conn-status.disconnected {
+    color: #dc3545;
+}
+
+.ctl-conn-status.connected {
+    color: #28a745;
+}
+
+.ctl-state-pre {
+    max-height: 320px;
+    overflow: auto;
+    font-size: 0.72rem;
+    background: rgba(0, 0, 0, 0.25);
+    padding: 8px;
+    border-radius: 4px;
+}
+
+.ctl-notice {
+    margin: 8px 0;
+}
+
+.ctl-panel {
+    border: 1px dashed var(--bs-border-color, #555);
+    border-radius: 6px;
+    padding: 24px;
+    min-height: 240px;
+}
+
+.ctl-obs-bindings {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ctl-transition-pending {
+    padding: 6px 8px;
+    background: rgba(224, 168, 0, 0.15);
+    border: 1px solid #e0a800;
+    border-radius: 4px;
+}
+
+.ctl-actions-strip {
+    margin: 12px 0;
+}
+
+.ctl-action-sent {
+    background-color: #198754;
+    border-color: #198754;
+}
+
+.ctl-elements-section {
+    margin-top: 24px;
+}
+
+.ctl-save-indicator {
+    min-width: 48px;
+    opacity: 0.85;
+}
+
+.ctl-save-indicator.ctl-save-saving {
+    color: #e0a800;
+}
+
+.ctl-save-indicator.ctl-save-saved {
+    color: #28a745;
+}
+
+.ctl-save-indicator.ctl-save-error {
+    color: #dc3545;
+}
+
+.ctl-el-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ctl-el-block {
+    border: 1px solid var(--bs-border-color, #444);
+    border-radius: 6px;
+    padding: 8px 12px;
+}
+
+.ctl-el-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ctl-el-chevron {
+    padding: 0 4px;
+    text-decoration: none;
+    line-height: 1;
+}
+
+.ctl-el-label {
+    font-weight: 600;
+}
+
+.ctl-el-persistent {
+    margin: 0;
+    white-space: nowrap;
+}
+
+.ctl-el-badge {
+    font-size: 0.65rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.ctl-el-key {
+    flex: 1 1 auto;
+}
+
+.ctl-el-remove {
+    line-height: 1;
+    padding: 0 8px;
+}
+
+.ctl-el-body {
+    margin-top: 10px;
+    padding-left: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.ctl-el-section-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    opacity: 0.65;
+    margin-bottom: 4px;
+}
+
+.ctl-source-dropdown {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Box editor: Position (x/y, each with a Center button) and Size (w/h) side by side, one value
+   per line so the labels stay attached to their inputs. */
+.ctl-box-grid {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+}
+.ctl-box-col {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+.ctl-box-col-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    opacity: 0.65;
+}
+.ctl-box-field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.ctl-box-field input {
+    width: 78px;
+}
+.ctl-box-label {
+    width: 14px;
+    flex: none;
+    font-size: 0.8rem;
+    opacity: 0.8;
+    margin-bottom: 0;
+}

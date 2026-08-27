@@ -1,0 +1,543 @@
+/*
+ * Scoped to /obs/animation — the "Stash or Pass" banner.
+ *
+ * Deliberately does NOT @import composite.css. That file carries the Barlow
+ * Condensed @font-face declarations and Barlow appears nowhere on this page, so
+ * the four lines of transparent-body reset below are cheaper to restate than the
+ * unused font payload is to ship.
+ *
+ * Next.js removes a route's CSS chunk when it unmounts, so the transparent-body
+ * override does not leak onto other pages — same pattern as
+ * src/app/obs/[id]/page.css.
+ *
+ * EVERY CLASS HERE IS PREFIXED `sp-`, AND THAT IS NOT COSMETIC. The root layout
+ * loads bootstrap/dist/css/bootstrap.css globally with data-bs-theme="dark", so
+ * any generic class name in this file is competing with a full component
+ * framework. This bit once already: the card root was called `.card`, which is a
+ * Bootstrap COMPONENT (20 rules). Bootstrap painted background #212529, a border
+ * and a border-radius onto it — and because that element carries only the
+ * translate while the flip lives on its child, the background sat there at full
+ * size, unrotated, while the frame and numeral turned inside it.
+ *
+ * It cost a while to find, because nothing in this file was wrong. If you add a
+ * class, prefix it, and keep names like `.face`, `.digit`, `.wash` and
+ * `.headline` out of the global namespace. (The composite overlay pages use a
+ * `composite-` prefix for the same reason.)
+ */
+
+/*
+ * ONE TYPEFACE. Single weight — there is no bold, and font-weight above 400
+ * anywhere on this page would make the browser synthesise one and smear the
+ * stencil cuts.
+ *
+ * The space in the filename must be URL-encoded or the request 404s and the
+ * whole layout falls back to different metrics.
+ *
+ * font-display: block, because an OBS browser source paints immediately and may
+ * have no network. A beat of invisible text beats a visible reflow: every
+ * position in tokens.ts is derived from this font's cap height, so a fallback
+ * with different metrics puts the headline in the wrong place.
+ */
+@font-face {
+  font-family: 'Grechka SHA';
+  src: url('/fonts/Grechka%20SHA_0.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+
+/*
+ * The page runs as an OBS browser source composited over a live camera feed, so
+ * the app-wide Bootstrap dark theme's body background has to be neutralized or
+ * every "transparent" pixel would come out opaque grey.
+ */
+html,
+body {
+  background: transparent !important;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.sp-banner-stage-outer {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* Final palette (spec §5), not placeholders. */
+  --gold-dark: #8a6a1f;
+  /* Headline neutral, OR, unlit rail dashes. ~L*66 against gold-dark's ~L*48,
+     which on a ~95% black panel reads as dull ochre rather than gold. */
+  --gold-mid: #c99a38;
+  --gold-bright: #f0c24b;
+  --grey-dead: #6b6b6b;
+  --card-ground: #14100a;
+  --wash: rgba(0, 0, 0, 0.5);
+  /* Card-back lattice. Same hue at zero alpha for the gap, so the hard stops
+     cannot interpolate through a muddy neutral. */
+  --grid-line: rgba(138, 106, 31, 0.85);
+  --grid-gap: rgba(138, 106, 31, 0);
+  /*
+   * Row 1 keylines. The colour encodes STATE, not decoration:
+   *   dim   — OR at rest, the most subordinate thing in the row
+   *   soft  — STASH / PASS at rest
+   *   white — anything currently activated, plus the rail dashes
+   * White is reserved for the active state, so it reads as "this one, now".
+   */
+  --outline-dim: #8f8f8f;
+  --outline-soft: #cfcfcf;
+  --outline: #ffffff;
+}
+
+/*
+ * Flex-centred, then scaled about its own centre. Doing it this way rather than
+ * the usual `left:50%; transform: translate(-50%,-50%) scale(s)` avoids the
+ * percentage-translate-vs-scale trap: translate(-50%) resolves against the
+ * element's UNSCALED width, so that idiom mis-centres for every s != 1.
+ *
+ * overflow: hidden is load-bearing — it is what half-clips the fan at the bottom
+ * edge (spec §3). It does not flatten the 3D below it, because the preserve-3d
+ * chain starts at .sp-card, not here.
+ */
+.sp-banner-canvas {
+  position: relative;
+  flex: none;
+  overflow: hidden;
+  transform-origin: 50% 50%;
+  transform: scale(var(--stage-scale, 1));
+}
+
+/*
+ * Opening (spec §7). Opacity and scale run DIFFERENT durations on the same
+ * element on purpose: the headline must be at full opacity by 150ms (invariant
+ * 7), and a single 220ms container fade would miss it by 70ms.
+ */
+.sp-banner-open {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 50%;
+  transform: scale(0.96);
+  opacity: 0;
+}
+
+.sp-is-open .sp-banner-open {
+  animation:
+    banner-fade 150ms cubic-bezier(0.22, 0.61, 0.36, 1) forwards,
+    banner-scale 220ms cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+@keyframes banner-fade {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes banner-scale {
+  to {
+    transform: scale(1);
+  }
+}
+
+/* A uniform half-transparent black over the whole canvas. Not a plate: no
+   framing, no inset, no rounded corners, no zone slots. */
+.sp-wash {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--wash);
+}
+
+/*
+ * Layer order: wash (0) -> panel (1) -> PULL AGAIN (2) -> cards (3) -> headline (4).
+ *
+ * The panel and the label are both UNDER the cards: the panel because it runs
+ * to the bottom edge and would otherwise hide the entire animation, the label
+ * because card 2 passes through the hover point and should cross in front of it.
+ * The headline stays OVER the cards so the exit tumble rises behind the type.
+ */
+.sp-panel {
+  position: absolute;
+  z-index: 1;
+  background: rgba(0, 0, 0, 0.9);
+}
+
+.sp-pull-again-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.sp-card-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+}
+
+/*
+ * The negative margins put the card's own centre on the origin, so every
+ * transform in timeline.ts is written in raw canvas coordinates for the card
+ * CENTRE — translate(324px, 291px) is the STASH zone, straight off spec §3.
+ *
+ * PERSPECTIVE LIVES HERE, PER CARD — NOT ON .sp-card-layer, and this is not a
+ * stylistic preference. `perspective-origin` defaults to the centre of the
+ * element that declares it. On .sp-card-layer that is one shared vanishing point at
+ * the layer's centre (540, 180), so a card sitting in the STASH zone at
+ * (324, 291) — 216px left and 111px below it — is viewed obliquely: its turns
+ * SHEAR instead of compressing. It never reaches edge-on, so the card ground
+ * stays a visible quad right through the flip and the exit tumble, and §9's
+ * "invisible at exactly 90deg" never happens.
+ *
+ * Declared on .sp-card, the origin is the card's own centre no matter where on the
+ * canvas it has travelled to, so every turn compresses symmetrically to nothing.
+ * Keep the value in sync with PERSPECTIVE in tokens.ts.
+ *
+ * .sp-card must NOT have transform-style: preserve-3d — it establishes a fresh 3D
+ * context for the flip rather than propagating the layer's. The preserve-3d that
+ * the faces need is on .sp-card-3d, below.
+ */
+.sp-card {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 60px;
+  height: 60px;
+  margin: -30px 0 0 -30px;
+  perspective: 600px;
+  will-change: transform, opacity;
+}
+
+/*
+ * Split from .sp-card so the draw's 400ms flip can run inside the 450ms lift as an
+ * independent animation. preserve-3d here too, or the perspective from
+ * .sp-card-layer stops propagating and the flips go flat.
+ */
+.sp-card-3d {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.sp-card-glow {
+  position: absolute;
+  inset: -16px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(240, 194, 75, 0.55), rgba(240, 194, 75, 0));
+  opacity: 0;
+}
+
+.sp-face {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border: 2px solid var(--gold-dark);
+  border-radius: 3px;
+  background-color: var(--card-ground);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/*
+ * Coarse on purpose: ~13px pitch is 4-5 squares across a 60px card. A finer grid
+ * turns to noise at this size, and the card compresses vertically through the
+ * entire exit tumble, so it would alias and shimmer at the most visible moment.
+ */
+.sp-face-back {
+  transform: rotateY(180deg);
+  background-image:
+    repeating-linear-gradient(45deg, var(--grid-line) 0 2px, var(--grid-gap) 2px 13px),
+    repeating-linear-gradient(-45deg, var(--grid-line) 0 2px, var(--grid-gap) 2px 13px);
+}
+
+/*
+ * The stashed and dead states are complete pre-styled faces cross-faded by
+ * OPACITY, never colour transitions — spec §9 allows transform and opacity only,
+ * which rules out animating border-color or filter: saturate().
+ * Stacking order is DOM order: back, neutral, stashed, dead.
+ */
+.sp-face-stashed,
+.sp-face-dead {
+  opacity: 0;
+}
+
+.sp-face-stashed {
+  border-color: var(--gold-bright);
+  /* Static, never animated — an animated blur radius would repaint every frame. */
+  box-shadow: inset 0 0 12px rgba(240, 194, 75, 0.35);
+}
+
+.sp-face-dead {
+  border-color: var(--grey-dead);
+}
+
+/* inset: -2px reaches back out over .sp-face's 2px border, so the SVG's 0,0 lands
+   on the card's true corner and the baseline maths in tokens.ts holds. */
+.sp-face-digits {
+  position: absolute;
+  inset: -2px;
+  overflow: visible;
+}
+
+.sp-digit {
+  font-family: 'Grechka SHA', 'Arial Narrow', sans-serif;
+  font-weight: 400;
+  text-anchor: middle;
+  fill: var(--gold-dark);
+}
+
+.sp-face-stashed .sp-digit {
+  fill: var(--gold-bright);
+}
+
+.sp-face-dead .sp-digit {
+  fill: var(--grey-dead);
+  opacity: 0.5;
+}
+
+/* Pull order is set imperatively via data-numeral, keeping React out of the
+   animation loop entirely. */
+.sp-card[data-numeral='1'] .sp-digit-2 {
+  display: none;
+}
+
+.sp-card[data-numeral='2'] .sp-digit-1 {
+  display: none;
+}
+
+/* Above the cards: the exit tumble's back face passes BEHIND the type. */
+.sp-headline {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+
+/* Shared by both SVG layers — they are separate <svg> roots now, so neither can
+   inherit the other's type styling. */
+.sp-headline text,
+.sp-pull-again text {
+  font-family: 'Grechka SHA', 'Arial Narrow', sans-serif;
+  font-weight: 400;
+  text-anchor: middle;
+  /* No tracking. The face is already wide-set, and letter-spacing would also
+     break text-anchor: middle's centring by a trailing advance. */
+  letter-spacing: 0;
+}
+
+/*
+ * FOUR STACKED LAYERS PER WORD, painted in this order: bloom, neutral, ember,
+ * ignite. Only `ignite` and `bloom` are ever animated by the timeline.
+ *
+ * The neutral layer stays at opacity 1 forever, which is what makes "the words
+ * are always coloured" structural rather than a rule to remember — the same
+ * trick the card faces use for their stashed and dead states.
+ */
+/*
+ * THE RESTING KEYLINE. It sits on `neutral` — the only layer pinned at opacity 1
+ * forever — so it is always present and never pulses. Not on `bloom`, which is
+ * blurred and would turn the stroke into a white haze; not on `ember`, whose
+ * opacity breathes.
+ *
+ * `paint-order: stroke` draws the stroke BEHIND the fill, so the glyph shape
+ * stays intact and only the outer half of the stroke shows — counters do not
+ * choke on a stencil face. Visible keyline is therefore stroke-width / 2 = 4px,
+ * about 1.3px on a phone.
+ */
+.sp-neutral {
+  fill: var(--gold-mid);
+  opacity: 1;
+  stroke: var(--outline-soft);
+  stroke-width: 8px;
+  paint-order: stroke;
+  stroke-linejoin: round;
+}
+
+/*
+ * The bloom: a blurred duplicate behind everything, fading in with the ignite.
+ * It replaces the drop-shadow that used to sit on the ignite layer — a separate
+ * element means the blur is rasterized once and only its opacity animates, which
+ * keeps the ignite a compositor-only operation.
+ *
+ * It exists because raising neutral to --gold-mid spent most of the ignite's
+ * brightness headroom (L*48->79 became 66->79). Bloom, the scale pop and the
+ * conductor rails now carry the beat; brightness is the smallest part of it.
+ */
+.sp-bloom {
+  fill: var(--gold-bright);
+  filter: blur(8px);
+  opacity: 0;
+  will-change: opacity;
+}
+
+/*
+ * The ember breath. CSS, NOT a timeline step, and that is load-bearing: the
+ * driver cancels every WAAPI animation it owns at each loop boundary, so an
+ * ember built as a step would reset every cycle and lock to the 8.15s period.
+ * Periodic motion is filtered out by the visual system within about thirty
+ * seconds — the exact failure this is here to avoid.
+ *
+ * 5.3s and 6.7s are incommensurate with each other and with the cycle, so the
+ * two words drift in and out of phase and never resolve into a pattern.
+ * resetStage must never write inline opacity here.
+ */
+.sp-ember {
+  fill: var(--gold-bright);
+  opacity: 0;
+  animation: sp-ember-breath 5300ms ease-in-out infinite;
+  will-change: opacity;
+}
+
+.sp-word-pass .sp-ember {
+  animation-duration: 6700ms;
+}
+
+@keyframes sp-ember-breath {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.1;
+  }
+}
+
+/*
+ * The timeline's only headline channel — and the carrier of the WHITE keyline.
+ *
+ * Matching the resting stroke's width and paint-order means this outline sits
+ * exactly on top of `neutral`'s soft-grey one, so as the ignite fades in the
+ * keyline crossfades grey -> white in step with the word lighting up. No extra
+ * animation and no colour interpolation: it is the same opacity ramp doing both
+ * jobs, which is why the two can never fall out of sync.
+ *
+ * At `armed` (0.35) the keyline is a 35% white over grey — a visible warming
+ * before the landing, which is exactly what "armed" should look like.
+ */
+.sp-ignite {
+  fill: var(--gold-bright);
+  opacity: 0;
+  will-change: opacity;
+  stroke: var(--outline);
+  stroke-width: 8px;
+  paint-order: stroke;
+  stroke-linejoin: round;
+}
+
+/*
+ * The scale pop rides the <g>, so it carries all four layers together. The
+ * transform-origin is set inline per word in explicit user-space px (324px 126px
+ * / 756px 126px) — transform-box: fill-box is unreliable on SVG <text>.
+ */
+.sp-word {
+  will-change: transform;
+}
+
+/*
+ * OR: --gold-mid at 0.55 idle, animated to 1.00 charged. Never --gold-bright,
+ * never bloom, never pop.
+ *
+ * ITS MAXIMUM IS THE OTHER WORDS' MINIMUM — at its brightest it is exactly as
+ * bright as a resting STASH or PASS. That ceiling is what lets it move at all
+ * without entering the ignite state, so §4's "the one word that never ignites"
+ * survives intact.
+ */
+/*
+ * TWO STACKED LAYERS, mirroring the words' neutral/ignite split — and it has to
+ * be two. A keyline cannot change colour on an opacity animation alone, and
+ * animating `stroke` itself is a paint property, off-limits under §11's
+ * transform-and-opacity-only rule. Crossfading a second copy is the only way to
+ * get grey -> white out of the channel the timeline already drives.
+ *
+ * 5px against the headline's 8px: 70px type versus 143px, so the optical weight
+ * matches.
+ */
+.sp-word-or text {
+  fill: var(--gold-mid);
+  /* Half the previous 5px. Visible keyline is stroke-width / 2 under
+     paint-order: stroke, so 1.25px canvas — deliberately the lightest line on
+     the row, matching OR's rank in it. */
+  stroke-width: 2.5px;
+  paint-order: stroke;
+  stroke-linejoin: round;
+}
+
+/*
+ * Resting. Never animated, so OR always has a body and a keyline — the same
+ * structural trick as `neutral`. Grey, the dimmest keyline colour in the row,
+ * because OR is the most subordinate thing in it.
+ *
+ * fill-opacity, NOT opacity — and this is what makes OR's keyline behave like
+ * STASH's and PASS's. Element opacity would drag the grey outline down to 55%
+ * along with the gold, while the words' keylines ride a layer pinned at opacity
+ * 1 and stay full strength. Dimming only the fill puts all three on the same
+ * footing: a constant, full-strength resting keyline with a subdued body under
+ * it. Same reason the unlit rail dashes use fill-opacity.
+ *
+ * The rendered fill is unchanged — gold-mid at 55%.
+ */
+.sp-or-base {
+  opacity: 1;
+  fill-opacity: 0.55;
+  stroke: var(--outline-dim);
+}
+
+/*
+ * Charge. Fades in as the card rises beneath, taking the keyline grey -> white
+ * with it — the same one-ramp-does-both-jobs mechanism the words use, where the
+ * white stroke rides `ignite` and crossfades over `neutral`'s.
+ *
+ * At full charge this layer is opaque, so the composite reads as OR at 1.00 —
+ * its ceiling, which is exactly a resting STASH or PASS's floor. That is what
+ * lets OR move at all without entering the ignite state.
+ */
+.sp-or-charge {
+  opacity: 0;
+  will-change: opacity;
+  stroke: var(--outline);
+}
+
+/*
+ * Conductor rails. Each dash is two stacked rects — an unlit one always visible
+ * and a lit one whose opacity is animated. Same pattern and same reason as the
+ * words: nothing in the headline ever goes fully dark.
+ */
+/*
+ * fill-opacity, NOT opacity. Element opacity would fade the keyline to 25% along
+ * with the fill; fill-opacity dims only the gold and leaves the white at full
+ * strength. Same rendered fill as before.
+ *
+ * The keyline goes on the unlit dash — the one that is always visible — so it
+ * does not pulse as the lit dash on top animates. `paint-order: stroke` keeps the
+ * 8x6 rect from being eaten by a centred stroke, leaving a 1px outer edge.
+ */
+.sp-dash-unlit {
+  fill: var(--gold-mid);
+  fill-opacity: 0.25;
+  stroke: var(--outline);
+  stroke-width: 2px;
+  paint-order: stroke;
+  stroke-linejoin: round;
+}
+
+.sp-dash-lit {
+  fill: var(--gold-bright);
+  opacity: 0;
+  will-change: opacity;
+}
+
+.sp-pull-again {
+  opacity: 0;
+  will-change: opacity;
+}
+
+.sp-pull-again text {
+  fill: var(--gold-bright);
+}

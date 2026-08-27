@@ -7,6 +7,10 @@ interface Credentials {
     password: string
 }
 
+export function seriesPricesEndpoint(seriesId: number): string {
+    return `/api/series/${seriesId}/prices`
+}
+
 export function getEndpoints()  {
     return {
         channel_get: "/api/channel",
@@ -76,6 +80,11 @@ export function getEndpoints()  {
         widget_presets_list:   "/api/widget/presets",
         widget_presets_upsert: "/api/widget/presets/upsert",
         widget_presets_delete: "/api/widget/presets/delete",
+
+        layout_config_get:    "/api/layout/config",
+        layout_config_update: "/api/layout/config/update",
+        layout_state_get:     "/api/layout/state",
+        layout_state_update:  "/api/layout/state/update",
     }
 }
 

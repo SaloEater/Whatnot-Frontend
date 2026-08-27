@@ -1,0 +1,55 @@
+/* obs-layout-plan.md §2.4 — sibling of elements/results/ResultRow.css. All classes prefixed
+   `rest-` (`res-` is taken by §2.3's `results` element); no vh/vw/vmin, no body/html rules, no
+   .container/.row/.col overrides. Row height is intentionally NOT set here — it comes from
+   content (icon size + padding), which is what makes rows squeeze instead of stretch. */
+
+.rest-row-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 4px 0;
+}
+
+.rest-image {
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.rest-customer-text {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+    color: black;
+    line-height: 1.2;
+    border: 1px #9b9b9b dashed;
+    border-radius: 8px;
+    padding: 2px 6px;
+    box-sizing: border-box;
+}
+
+.rest-customer-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #eef3f9;
+}
+
+.rest-bg-empty {
+    background-color: #fff6f1;
+}
+
+.rest-bg-item {
+    background-color: #1d3f58;
+}
+
+.rest-bg-high-bid {
+    background-color: #72668a;
+}
+
+.rest-bg-giveaway {
+    background-color: #114538;
+}

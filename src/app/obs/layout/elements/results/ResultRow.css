@@ -1,0 +1,56 @@
+/* obs-layout-plan.md §2.3 — ported from obs/teams/[id]/eventComponent.css. All classes prefixed
+   `res-`; no vh/vw/vmin, no body/html rules, no .container/.row/.col overrides (Bootstrap is
+   loaded globally in layout.tsx). */
+
+.res-row-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+.res-image {
+    height: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+/* Font size derives from the row height set by ResultsElement.tsx as `--res-row-h` on the grid
+   (box.h / rows, see ResultsElement.css) instead of the old route's fixed `1.5em`/`1.1vh` — the
+   text scales with however tall a row happens to be for the element's actual box. */
+.res-customer-text {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+    height: 75%;
+    color: black;
+    font-size: calc(var(--res-row-h, 40px) * 0.4);
+    border: 1px #9b9b9b dashed;
+    border-radius: 10px;
+    padding: 3px;
+}
+
+.res-customer-name {
+    overflow: hidden;
+    color: #eef3f9;
+}
+
+.res-bg-empty {
+    background-color: #fff6f1;
+}
+
+.res-bg-item {
+    background-color: #1d3f58;
+}
+
+.res-bg-high-bid {
+    background-color: #72668a;
+}
+
+.res-bg-giveaway {
+    background-color: #114538;
+}

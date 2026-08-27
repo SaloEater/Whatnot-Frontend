@@ -1,0 +1,21 @@
+.flat-board-wrap {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.flat-grid {
+    display: grid;
+    /* Integer-px tracks and padding (computed in FlatBoard.tsx) so every cell edge
+       lands exactly on a pixel boundary — fractional 1fr tracks otherwise open
+       hairline seams between cells when boxes snap to device pixels. */
+    grid-template-columns: repeat(var(--cols, 11), var(--cell-px, 1fr));
+    width: 100%;
+    height: 100%;
+    align-content: start;
+    background-image: url('/images/board.png');
+    background-size: 100% 100%;
+    padding: var(--pad-top, 1.95rem) var(--pad-right, 1.95rem) var(--pad-bottom, 1.95rem) var(--pad-left, 1.95rem);
+    box-sizing: border-box;
+}
