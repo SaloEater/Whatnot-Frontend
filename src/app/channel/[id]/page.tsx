@@ -120,7 +120,8 @@ export default function Page({params}: {params: {id: string}}) {
                         <button type='button' className='btn btn-secondary' onClick={() => window.open(`/channel/${channelId}/widget/series/pick2`, '_blank')}>Series.Pick 2 ↗</button>
                         <button type='button' className='btn btn-secondary' onClick={() => window.open(`/channel/${channelId}/widget/series/name`, '_blank')}>Series.Name ↗</button>
                         <button type='button' className='btn btn-secondary' onClick={() => window.open(`/channel/${channelId}/widget/series/boxes_per_break`, '_blank')}>Series.Boxes/Break ↗</button>
-                        <button type='button' className='btn btn-secondary' onClick={() => window.open(`/channel/${channelId}/widget/count`, '_blank')}>Series.Count ↗</button>
+                        <button type='button' className='btn btn-secondary' onClick={() => window.open(`/channel/${channelId}/widget/chaser_left`, '_blank')}>Series.Chasers ↗</button>
+                        <button type='button' className='btn btn-secondary' onClick={() => window.open(`/channel/${channelId}/widget/boxes_left`, '_blank')}>Series.Boxes Left ↗</button>
                     </div>
                 </div>
                 <div className="d-flex justify-content-center">
