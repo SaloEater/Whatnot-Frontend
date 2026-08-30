@@ -69,7 +69,7 @@ function validateBreaks(rows: ParsedRow[], breaks: WNBreak[]): BreakValidation[]
         const uniqueBuyers = new Set(breakRows.filter(r => r.username !== '').map(r => r.username))
         results.push({
             breakName,
-            valid: missingTeams.length === 0 && teamsWithoutBuyer.length === 0,
+            valid: teamsWithoutBuyer.length === 0,
             missingTeams,
             teamsWithoutBuyer,
             customSpotCount,
@@ -79,6 +79,108 @@ function validateBreaks(rows: ParsedRow[], breaks: WNBreak[]): BreakValidation[]
         })
     }
     return results
+}
+
+type PlannedAction = 'create' | 'update' | 'unchanged'
+
+interface PlannedEvent {
+    action: PlannedAction
+    team: string
+    index: number
+    customer: string
+    price: number
+    prevCustomer: string
+    prevPrice: number
+    existing: Event | null
+}
+
+interface BreakPlan {
+    breakName: string
+    targetBreakId: number
+    targetBreakName: string
+    events: PlannedEvent[]
+}
+
+function planNewBreak(v: BreakValidation): PlannedEvent[] {
+    const teamRows = v.rows.filter(r => IsTeam(r.team))
+    const customSpotRows = v.rows.filter(r => !IsTeam(r.team))
+
+    const events: PlannedEvent[] = Teams.map((teamName, j) => {
+        const teamRow = teamRows.find(r => r.team === teamName)
+        return {
+            action: 'create' as PlannedAction,
+            team: teamName,
+            index: j,
+            customer: teamRow?.username ?? '',
+            price: teamRow?.price ?? 0,
+            prevCustomer: '',
+            prevPrice: 0,
+            existing: null,
+        }
+    })
+
+    customSpotRows.forEach((row, j) => {
+        events.push({
+            action: 'create',
+            team: row.team,
+            index: Teams.length + j,
+            customer: row.username,
+            price: row.price,
+            prevCustomer: '',
+            prevPrice: 0,
+            existing: null,
+        })
+    })
+
+    return events
+}
+
+function planExistingBreak(v: BreakValidation, existingEvents: Event[]): PlannedEvent[] {
+    const queue = new Map<string, Event[]>()
+    for (const ev of existingEvents) {
+        if (!queue.has(ev.team)) queue.set(ev.team, [])
+        queue.get(ev.team)!.push(ev)
+    }
+    for (const list of Array.from(queue.values())) {
+        list.sort((a, b) => a.index - b.index)
+    }
+
+    let nextIndex = existingEvents.length > 0
+        ? Math.max(...existingEvents.map(e => e.index)) + 1
+        : Teams.length
+
+    const events: PlannedEvent[] = []
+    for (const row of v.rows) {
+        const list = queue.get(row.team)
+        const existing = list && list.length > 0 ? list.shift() : undefined
+
+        if (existing) {
+            const changed = existing.customer !== row.username || existing.price !== row.price
+            events.push({
+                action: changed ? 'update' : 'unchanged',
+                team: row.team,
+                index: existing.index,
+                customer: row.username,
+                price: row.price,
+                prevCustomer: existing.customer,
+                prevPrice: existing.price,
+                existing,
+            })
+        } else {
+            events.push({
+                action: 'create',
+                team: row.team,
+                index: nextIndex,
+                customer: row.username,
+                price: row.price,
+                prevCustomer: '',
+                prevPrice: 0,
+                existing: null,
+            })
+            nextIndex++
+        }
+    }
+    return events
 }
 
 function getDuplicateTargetIds(validations: BreakValidation[]): Set<number> {
@@ -102,6 +204,7 @@ export default function Page({params}: {params: {id: string}}) {
     const [selectedType, setSelectedType] = useState('')
     const [breaks, setBreaks] = useState<WNBreak[]>([])
     const [validations, setValidations] = useState<BreakValidation[] | null>(null)
+    const [plan, setPlan] = useState<BreakPlan[] | null>(null)
     const [progress, setProgress] = useState<string | null>(null)
     const [done, setDone] = useState(false)
     const [highBidTeam, setHighBidTeam] = useState('')
@@ -120,6 +223,7 @@ export default function Page({params}: {params: {id: string}}) {
         reader.onload = (ev) => {
             const content = ev.target?.result as string
             const rows = parseCsv(content)
+            setPlan(null)
             setValidations(validateBreaks(rows, breaks))
         }
         reader.readAsText(file)
@@ -127,32 +231,62 @@ export default function Page({params}: {params: {id: string}}) {
     }
 
     function setTargetBreak(breakName: string, breakId: number) {
+        setPlan(null)
         setValidations(old => old!.map(v => v.breakName === breakName ? {...v, targetBreakId: breakId} : v))
     }
 
-    function getEffectiveMissingTeams(v: BreakValidation): string[] {
-        if (!highBidTeam) return v.missingTeams
-        return v.missingTeams.filter(t => t !== highBidTeam)
-    }
-
     function isEffectivelyValid(v: BreakValidation): boolean {
-        return getEffectiveMissingTeams(v).length === 0 && v.teamsWithoutBuyer.length === 0
+        return v.teamsWithoutBuyer.length === 0
     }
 
-    async function handleContinue() {
+    async function handlePrepare() {
         if (!validations) return
-        const date = (new Date()).toISOString()
+        setProgress('Preparing import…')
 
+        const plans: BreakPlan[] = []
         for (let i = 0; i < validations.length; i++) {
             const v = validations[i]
 
             if (v.targetBreakId === 0) {
-                setProgress(`Creating break ${i + 1} of ${validations.length}: ${v.breakName}…`)
+                plans.push({
+                    breakName: v.breakName,
+                    targetBreakId: 0,
+                    targetBreakName: '',
+                    events: planNewBreak(v),
+                })
+                continue
+            }
+
+            setProgress(`Reading existing break ${i + 1} of ${validations.length}: ${v.breakName}…`)
+            const resp: {events: Event[]} = await post(getEndpoints().break_events, {break_id: v.targetBreakId})
+            const existingEvents = (resp.events ?? []).filter(e => !e.is_giveaway)
+            plans.push({
+                breakName: v.breakName,
+                targetBreakId: v.targetBreakId,
+                targetBreakName: breaks.find(b => b.id === v.targetBreakId)?.name ?? `#${v.targetBreakId}`,
+                events: planExistingBreak(v, existingEvents),
+            })
+        }
+
+        setProgress(null)
+        setPlan(plans)
+    }
+
+    async function handleContinue() {
+        if (!plan) return
+        const date = (new Date()).toISOString()
+
+        for (let i = 0; i < plan.length; i++) {
+            const p = plan[i]
+
+            let breakId = p.targetBreakId
+            if (breakId === 0) {
+                setProgress(`Creating break ${i + 1} of ${plan.length}: ${p.breakName}…`)
 
                 const breakBody: WNBreak = {
                     id: 0,
                     day_id: streamId,
-                    name: v.breakName,
+                    name: p.breakName,
                     start_date: date,
                     end_date: date,
                     is_deleted: false,
@@ -162,90 +296,32 @@ export default function Page({params}: {params: {id: string}}) {
                 }
 
                 const response: AddBreakResponse = await post(getEndpoints().break_add, breakBody)
-                const breakId = response.id
-
-                const teamRows = v.rows.filter(r => IsTeam(r.team))
-                const customSpotRows = v.rows.filter(r => !IsTeam(r.team))
-
-                for (let j = 0; j < Teams.length; j++) {
-                    const teamName = Teams[j]
-                    const teamRow = teamRows.find(r => r.team === teamName)
-                    const eventBody: Event = {
-                        id: 0,
-                        index: j,
-                        giveaway_type: GiveawayTypeNone,
-                        break_id: breakId,
-                        customer: teamRow?.username ?? '',
-                        price: teamRow?.price ?? 0,
-                        team: teamName,
-                        is_giveaway: false,
-                        note: '',
-                        quantity: 0,
-                    }
-                    await post(getEndpoints().event_add, eventBody)
-                }
-
-                for (let j = 0; j < customSpotRows.length; j++) {
-                    const row = customSpotRows[j]
-                    const eventBody: Event = {
-                        id: 0,
-                        index: Teams.length + j,
-                        giveaway_type: GiveawayTypeNone,
-                        break_id: breakId,
-                        customer: row.username,
-                        price: row.price,
-                        team: row.team,
-                        is_giveaway: false,
-                        note: '',
-                        quantity: 0,
-                    }
-                    await post(getEndpoints().event_add, eventBody)
-                }
+                breakId = response.id
             } else {
-                setProgress(`Importing into existing break ${i + 1} of ${validations.length}: ${v.breakName}…`)
+                setProgress(`Importing into existing break ${i + 1} of ${plan.length}: ${p.breakName}…`)
+            }
 
-                const breakId = v.targetBreakId
-                const resp: {events: Event[]} = await post(getEndpoints().break_events, {break_id: breakId})
-                const existingEvents = (resp.events ?? []).filter(e => !e.is_giveaway)
+            for (const e of p.events) {
+                if (e.action === 'unchanged') continue
 
-                const queue = new Map<string, Event[]>()
-                for (const ev of existingEvents) {
-                    if (!queue.has(ev.team)) queue.set(ev.team, [])
-                    queue.get(ev.team)!.push(ev)
-                }
-                for (const list of Array.from(queue.values())) {
-                    list.sort((a, b) => a.index - b.index)
+                if (e.action === 'update' && e.existing) {
+                    await post(getEndpoints().event_update, {...e.existing, customer: e.customer, price: e.price})
+                    continue
                 }
 
-                let nextIndex = existingEvents.length > 0
-                    ? Math.max(...existingEvents.map(e => e.index)) + 1
-                    : Teams.length
-
-                for (const row of v.rows) {
-                    const list = queue.get(row.team)
-                    const existing = list && list.length > 0 ? list.shift() : undefined
-
-                    if (existing) {
-                        if (existing.customer !== row.username || existing.price !== row.price) {
-                            await post(getEndpoints().event_update, {...existing, customer: row.username, price: row.price})
-                        }
-                    } else {
-                        const eventBody: Event = {
-                            id: 0,
-                            index: nextIndex,
-                            giveaway_type: GiveawayTypeNone,
-                            break_id: breakId,
-                            customer: row.username,
-                            price: row.price,
-                            team: row.team,
-                            is_giveaway: false,
-                            note: '',
-                            quantity: 0,
-                        }
-                        nextIndex++
-                        await post(getEndpoints().event_add, eventBody)
-                    }
+                const eventBody: Event = {
+                    id: 0,
+                    index: e.index,
+                    giveaway_type: GiveawayTypeNone,
+                    break_id: breakId,
+                    customer: e.customer,
+                    price: e.price,
+                    team: e.team,
+                    is_giveaway: false,
+                    note: '',
+                    quantity: 0,
                 }
+                await post(getEndpoints().event_add, eventBody)
             }
         }
 
@@ -282,6 +358,7 @@ export default function Page({params}: {params: {id: string}}) {
                         value={selectedType}
                         onChange={e => {
                             setSelectedType(e.target.value)
+                            setPlan(null)
                             setValidations(null)
                         }}
                     >
@@ -354,10 +431,9 @@ export default function Page({params}: {params: {id: string}}) {
                         )}
 
                         {!allValid && (() => {
-                            const errors = validations.flatMap(v => [
-                                ...getEffectiveMissingTeams(v).map(t => ({orderId: '', error: `${v.breakName}: missing team "${t}"`})),
-                                ...v.teamsWithoutBuyer.map(t => ({orderId: t.orderId, error: `${v.breakName}: no buyer for "${t.team}"`})),
-                            ])
+                            const errors = validations.flatMap(v =>
+                                v.teamsWithoutBuyer.map(t => ({orderId: t.orderId, error: `${v.breakName}: no buyer for "${t.team}"`})),
+                            )
                             if (errors.length === 0) return null
                             return (
                                 <table className="table table-bordered table-sm mt-2">
@@ -376,18 +452,100 @@ export default function Page({params}: {params: {id: string}}) {
                             )
                         })()}
 
+                        {plan && (
+                            <div className="mt-4">
+                                <h5>Import report</h5>
+                                <p className="text-muted small">
+                                    Review the changes below. Nothing has been written yet — press Continue to apply them.
+                                </p>
+
+                                {plan.map(p => {
+                                    const creates = p.events.filter(e => e.action === 'create')
+                                    const updates = p.events.filter(e => e.action === 'update')
+                                    const unchanged = p.events.filter(e => e.action === 'unchanged')
+                                    const emptyCreates = creates.filter(e => e.customer === '')
+                                    const shown = [...updates, ...creates.filter(e => e.customer !== '')]
+                                        .sort((a, b) => a.index - b.index)
+
+                                    return (
+                                        <div key={p.breakName} className="mb-4">
+                                            <div className="fw-bold">
+                                                {p.targetBreakId === 0
+                                                    ? <>Create new break &quot;{p.breakName}&quot;</>
+                                                    : <>Import &quot;{p.breakName}&quot; into existing break &quot;{p.targetBreakName}&quot;</>
+                                                }
+                                            </div>
+                                            <div className="small text-muted mb-2">
+                                                {creates.length} added, {updates.length} updated, {unchanged.length} unchanged
+                                            </div>
+
+                                            {shown.length > 0 && (
+                                                <table className="table table-bordered table-sm">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Team / spot</th>
+                                                            <th>Action</th>
+                                                            <th>Customer</th>
+                                                            <th>Price</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {shown.map((e, i) => (
+                                                            <tr key={`${e.team}-${e.index}-${i}`}>
+                                                                <td>{e.team}</td>
+                                                                <td>{e.action === 'create' ? 'Add' : 'Update'}</td>
+                                                                <td>
+                                                                    {e.action === 'update' && e.prevCustomer !== e.customer
+                                                                        ? <>{e.prevCustomer || '—'} → <b>{e.customer || '—'}</b></>
+                                                                        : (e.customer || '—')
+                                                                    }
+                                                                </td>
+                                                                <td>
+                                                                    {e.action === 'update' && e.prevPrice !== e.price
+                                                                        ? <>${e.prevPrice} → <b>${e.price}</b></>
+                                                                        : <>${e.price}</>
+                                                                    }
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            )}
+
+                                            {emptyCreates.length > 0 && (
+                                                <div className="small text-muted">
+                                                    + {emptyCreates.length} empty slot{emptyCreates.length === 1 ? '' : 's'} with no customer
+                                                    ({emptyCreates.map(e => e.team).join(', ')})
+                                                </div>
+                                            )}
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        )}
+
                         {progress && (
                             <div className="alert alert-info">{progress}</div>
                         )}
 
                         <div className="d-flex gap-2">
-                            <button
-                                className="btn btn-primary"
-                                disabled={!allValid || !!progress}
-                                onClick={handleContinue}
-                            >
-                                Continue
-                            </button>
+                            {!plan ? (
+                                <button
+                                    className="btn btn-primary"
+                                    disabled={!allValid || !!progress}
+                                    onClick={handlePrepare}
+                                >
+                                    Prepare import
+                                </button>
+                            ) : (
+                                <button
+                                    className="btn btn-primary"
+                                    disabled={!!progress}
+                                    onClick={handleContinue}
+                                >
+                                    Continue
+                                </button>
+                            )}
                             <button className="btn btn-secondary" onClick={() => router.push(`/stream/${streamId}`)}>
                                 Cancel
                             </button>
