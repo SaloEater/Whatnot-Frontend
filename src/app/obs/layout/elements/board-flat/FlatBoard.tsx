@@ -177,12 +177,6 @@ export function FlatBoard({elementKey}: ElementProps) {
         })
     }, [events, lastFetched.events])
 
-    // 'sold' scene event (obs-layout-plan.md §1.9): force an immediate events refetch instead of
-    // waiting up to 5s for the spine's normal poll, so a manually-triggered sale reflects on the
-    // board right away.
-    useSceneEvent(elementKey, 'sold', () => {
-        refetch('events')
-    })
 
     const rows = Math.max(1, Math.ceil(events.length / COLS))
     const {boardRef, layoutVars} = useIntegerBoardLayout(COLS, rows)

@@ -71,11 +71,6 @@ export function ThinResults({elementKey, element}: ElementProps) {
     const lastRowOffset =
         lastRowCount > 0 && lastRowCount < columns ? columns - lastRowCount : 0
 
-    // 'sold' scene event (obs-layout-plan.md §1.9), matching ResultsElement/FlatBoard: force an
-    // immediate events refetch instead of waiting up to 5s for the spine's normal poll.
-    useSceneEvent(elementKey, 'sold', () => {
-        refetch('events')
-    })
 
     if (!stream) {
         return (

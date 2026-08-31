@@ -5,11 +5,12 @@
 // src/app/channel/[id]/widgets/page.tsx did before this builder replaced it.
 
 import type {RegistryId} from '@/app/obs/layout/registry'
-import type {Element, LayoutConfig, Phase} from '@/app/obs/layout/schema'
+import type {Cue, Element, LayoutConfig, Phase} from '@/app/obs/layout/schema'
 import type {PatchElement} from './ElementBlock'
 import Pick2Settings from './Pick2Settings'
 import StashOrPassSettings from './StashOrPassSettings'
 import BoxesPerBreakSettings from './BoxesPerBreakSettings'
+import NameSettings from './NameSettings'
 import CountSettings from './CountSettings'
 import CardsSettings from './CardsSettings'
 import CobraBoardSettings from './CobraBoardSettings'
@@ -27,29 +28,42 @@ type Props = {
     currentPhase: Phase
     config: LayoutConfig
     onPatchElement: PatchElement
+    // Lets a settings panel push a cue through the same state-update path the Actions strip uses
+    // (obs-layout-plan.md §2.8). Every panel that writes to the backend gets this so it can push
+    // an immediate spine refetch as part of saving (see useSettingWrite.ts) rather than leaving
+    // OBS to catch up on the spine's own poll.
+    onFireCue?: (cue: Cue) => void
 }
 
-export default function ElementSettings({registryId, channelId, seriesId, elementKey, element, currentPhase, config, onPatchElement}: Props) {
+export default function ElementSettings({registryId, channelId, seriesId, elementKey, element, currentPhase, config, onPatchElement, onFireCue}: Props) {
     switch (registryId) {
         case 'widget:pick2':
-            return <Pick2Settings channelId={channelId}/>
+            return <Pick2Settings channelId={channelId} onFireCue={onFireCue}/>
         case 'widget:stashorpass':
-            return <StashOrPassSettings channelId={channelId}/>
+            return <StashOrPassSettings channelId={channelId} onFireCue={onFireCue}/>
         case 'widget:boxesPerBreak':
-            return <BoxesPerBreakSettings seriesId={seriesId}/>
-        case 'widget:count':
-            return <CountSettings channelId={channelId} elementKey={elementKey}/>
+            return <BoxesPerBreakSettings seriesId={seriesId} onFireCue={onFireCue}/>
+        case 'widget:name':
+            return <NameSettings seriesId={seriesId} onFireCue={onFireCue}/>
+        // The "show percentage" setting is channel-wide and only affects the chasersLeft
+        // display (obs-layout-plan.md §2.7) — boxesLeft has no settings of its own, so it falls
+        // through to the "No settings." default below.
+        case 'widget:chasersLeft':
+            return <CountSettings channelId={channelId} elementKey={elementKey} seriesId={seriesId} onFireCue={onFireCue}/>
         case 'cards':
-            return <CardsSettings channelId={channelId} elementKey={elementKey}/>
+            return <CardsSettings channelId={channelId} elementKey={elementKey} onFireCue={onFireCue}/>
         case 'board:cobra':
-            return <CobraBoardSettings channelId={channelId}/>
+            return <CobraBoardSettings channelId={channelId} seriesId={seriesId} onFireCue={onFireCue}/>
         case 'frame:static':
             return <FrameSettings elementKey={elementKey} element={element} currentPhase={currentPhase} onPatchElement={onPatchElement}/>
         case 'results':
             return <ResultsSettings elementKey={elementKey} element={element} onPatchElement={onPatchElement}/>
         case 'resultsThin':
             return <ThinResultsSettings elementKey={elementKey} element={element} onPatchElement={onPatchElement}/>
+        // Both wrap animations share one config shape (target/pad/laneFontSize/speed/holdMs), so
+        // they share one settings panel — see registry.ts's note on the timeline rebuild.
         case 'animation:stashOrPassWrap':
+        case 'animation:stashOrPassWrapTl':
             return (
                 <StashOrPassWrapSettings
                     elementKey={elementKey}

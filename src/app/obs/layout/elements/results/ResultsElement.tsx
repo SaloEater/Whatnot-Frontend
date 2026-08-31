@@ -89,11 +89,6 @@ export function ResultsElement({elementKey, element, box}: ElementProps) {
     // `lastRowStart` past the end of the list (making the centring below silently do nothing).
     const visualRows = columns > 0 ? Math.ceil(ordered.length / columns) : 0
 
-    // 'sold' scene event (obs-layout-plan.md §1.9): force an immediate events refetch instead of
-    // waiting up to 5s for the spine's normal poll.
-    useSceneEvent(elementKey, 'sold', () => {
-        refetch('events')
-    })
 
     // Row height from the box, not `100vh` — see file header. Guarded against rows === 0 (no
     // events yet) to avoid a divide-by-zero.

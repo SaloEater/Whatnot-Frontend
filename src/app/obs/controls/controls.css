@@ -139,16 +139,37 @@
     color: #dc3545;
 }
 
+/* Column count is a per-channel view preference set by the Columns slider in the toolbar (see
+   ElementsPanel). `align-items: start` so a tall expanded block does not stretch its neighbours to
+   match — each block keeps its own height. */
 .ctl-el-list {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(var(--ctl-el-columns, 1), minmax(0, 1fr));
+    align-items: start;
     gap: 10px;
+}
+
+.ctl-el-columns-range {
+    width: 90px;
+    flex: none;
 }
 
 .ctl-el-block {
     border: 1px solid var(--bs-border-color, #444);
     border-radius: 6px;
     padding: 8px 12px;
+}
+
+/* Blocks flagged `wideBlock` in the registry (the cards panel) span the whole list, whatever the
+   Columns slider is set to — their settings carry a card grid that a narrow column would squash. */
+.ctl-el-block--wide {
+    grid-column: 1 / -1;
+}
+
+/* Hidden by the Visible toggle: still configured and still listed, just not rendered on the
+   layout. Dimmed so that is obvious without opening the block. */
+.ctl-el-block--hidden {
+    opacity: 0.55;
 }
 
 .ctl-el-header {
@@ -181,6 +202,11 @@
 
 .ctl-el-key {
     flex: 1 1 auto;
+}
+
+.ctl-el-move {
+    line-height: 1;
+    padding: 0 6px;
 }
 
 .ctl-el-remove {
@@ -243,4 +269,35 @@
     font-size: 0.8rem;
     opacity: 0.8;
     margin-bottom: 0;
+}
+
+/* Collapsible sub-section header inside an element block (the Box editor). A button so it is
+   keyboard-reachable and can carry aria-expanded, styled back down to look like the plain section
+   title it replaced. The chevron is part of the title's own text, not a sibling span: two spans
+   means two line boxes whose glyphs sit differently inside them, and no align-items value lines a
+   triangle up with uppercase letters reliably. */
+.ctl-el-section-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    text-align: left;
+    /* The section title's own 4px bottom margin moves up here. Left on the title it is part of that
+       span's flex box, so `align-items: center` centres the box INCLUDING the margin and the text
+       ends up sitting high against the chevron. */
+    margin-bottom: 4px;
+}
+.ctl-el-section-toggle .ctl-el-section-title {
+    margin-bottom: 0;
+}
+
+/* Count-widget readouts (Available / Side cards / Chasers / Chance to hit) and their values, at
+   the same size as the "Elements" section heading — Bootstrap's h5, 1.25rem. The derivation lines
+   underneath stay `small`; they are working-out, not the number being read. */
+.ctl-count-readout {
+    font-size: 1.25rem;
+    line-height: 1.3;
 }

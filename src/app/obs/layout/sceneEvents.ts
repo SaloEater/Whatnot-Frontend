@@ -4,7 +4,7 @@
 // `RegistryEntry.reactsTo` in registry.ts, `effectiveReactions()` in config.ts, and the
 // `useSceneEvent()` hook in sceneEventBus.tsx. This list is expected to grow over time.
 
-export type SceneEventName = 'stash_or_pass' | 'sold' | 'pick2'
+export type SceneEventName = 'stash_or_pass'
 
 export type SceneEventDef = {
     name: SceneEventName
@@ -17,10 +17,12 @@ export type SceneEventDef = {
     latching?: boolean
 }
 
+// `sold` and `pick2` were removed from the vocabulary on request. Anything stored against them —
+// an element's `reactions`, a latched `state.active` — is stripped by migrateConfig/migrateState in
+// config.ts, because the validators reject unknown event names and a rejected config falls all the
+// way back to an empty default.
 export const SCENE_EVENTS: SceneEventDef[] = [
     { name: 'stash_or_pass', label: 'Stash or Pass', latching: true },
-    { name: 'sold', label: 'Sold' },
-    { name: 'pick2', label: 'Pick 2' },
 ]
 
 export function isLatchingEvent(name: SceneEventName): boolean {

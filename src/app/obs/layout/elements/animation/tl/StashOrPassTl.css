@@ -1,0 +1,336 @@
+/* animation:stashOrPassWrapTl — appearance only (stash-or-pass-timeline-plan.md §6).
+ *
+ * THE RULE THIS FILE FOLLOWS: CSS owns look, TS owns time. There is no transition, no delay and
+ * no duration here except the two orbit marquee animations at the bottom, which are the
+ * long-lived steady state and must stay compositor-cheap (spec §6 "four continuous marquees is a
+ * lot of moving pixels"). Every entrance/exit timing lives in choreography.ts.
+ *
+ * Classes are prefixed `soptl-` (not `sopw-`) so this element and the original StashOrPassWrap
+ * can be placed on the same canvas and compared side by side without colliding.
+ *
+ * Palette copied from StashOrPassWrap.css, which copied it from
+ * obs/animation/stashorpass_simple/tokens.ts's COLOR (NOT imported — that file is a standalone
+ * banner page with its own global CSS this element must not pull in).
+ */
+
+@font-face {
+    font-family: 'Grechka SHA';
+    src: url('/fonts/Grechka%20SHA_0.otf') format('opentype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: block;
+}
+
+.soptl-root {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: visible;
+    --soptl-ivory: #f3ecd8;
+    --soptl-gold-bright: #f0c24b;
+    --soptl-gold-mid: #c99a38;
+    --soptl-bronze: #8a6a1f;
+    --soptl-ground: #14100a;
+}
+
+/* Off-screen probe the bands measure themselves against. Must match .soptl-band-strip's
+   typography exactly or the measurement is meaningless. `visibility: hidden` rather than
+   `display: none` — a display:none element has no layout box and would measure 0. */
+.soptl-measure {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    visibility: hidden;
+    pointer-events: none;
+    white-space: nowrap;
+    line-height: 1;
+    font-family: 'Grechka SHA', 'Arial Narrow', sans-serif;
+    font-weight: 400;
+}
+
+/* ---- ground wash + panel ------------------------------------------------------------------ */
+
+.soptl-wash {
+    position: absolute;
+    inset: 0;
+    background: #000;
+    opacity: 0;
+}
+
+.soptl-panel {
+    position: absolute;
+    overflow: visible;
+}
+
+.soptl-ring {
+    position: absolute;
+    inset: 0;
+    border: 4px solid var(--soptl-gold-mid);
+    transform: scale(1);
+    opacity: 0;
+}
+
+.soptl-fill {
+    position: absolute;
+    inset: 0;
+    background: var(--soptl-gold-bright);
+    opacity: 0;
+}
+
+.soptl-blowout {
+    position: absolute;
+    inset: 0;
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* ---- word + copies ------------------------------------------------------------------------
+ * Each animated node sits inside a static anchor that already carries translate(-50%, -50%) and
+ * is placed at the target box's centre IN CANVAS COORDINATES. The original element folded the
+ * centring into every keyframe (`translate(calc(-50% + Npx), …)`); splitting it out means the
+ * keyframes are plain px and interpolate reliably.
+ */
+
+.soptl-anchor {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+.soptl-word,
+.soptl-copy {
+    font-family: 'Grechka SHA', 'Arial Narrow', sans-serif;
+    font-weight: 400; /* never synthesise bold — see tokens.ts's note on this typeface */
+    font-size: var(--soptl-headline, 96px);
+    line-height: 1;
+    white-space: nowrap;
+    transform-origin: center;
+    opacity: 0;
+}
+
+.soptl-word {
+    color: var(--soptl-ground);
+    letter-spacing: 0.02em;
+}
+
+/* Thin black outline so each tinted copy stays legible over the gold fill it crosses. Sized from
+   the headline rather than fixed at 1px: `paint-order: stroke fill` puts the stroke behind the
+   glyph, so only half its width shows outside the letterform, and the whole canvas is then scaled
+   down to fit the source — a 1px stroke ends up well under a device pixel. */
+.soptl-copy {
+    -webkit-text-stroke: calc(var(--soptl-headline, 96px) * 0.055) #000;
+    paint-order: stroke fill;
+}
+
+/* ---- the four orbit bands ------------------------------------------------------------------ */
+
+.soptl-band {
+    position: absolute;
+    overflow: hidden;
+}
+
+/* Base opacity 0; lit by a `band lights` track during the entrance (which keeps filling forward
+   afterwards) and by --live once the orbit owns it. Both agree on 1, so the handoff at the end of
+   the entrance is invisible; an animation always wins over the class while one is attached. */
+.soptl-band-inner {
+    position: absolute;
+    inset: 0;
+    background: var(--soptl-gold-mid);
+    opacity: 0;
+}
+.soptl-band-inner--live {
+    opacity: 1;
+}
+
+/* Light-grey diagonal texture drifting through the lane behind the text, running the other way
+   from it. Oversized on both sides and moved by exactly one horizontal repeat of the 45° pattern,
+   so the loop point is invisible. Transform only. */
+.soptl-band-stripes {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -40px;
+    right: -40px;
+    background-image: repeating-linear-gradient(
+        45deg,
+        rgba(228, 228, 228, 0.28) 0 6px,
+        transparent 6px 18px
+    );
+    pointer-events: none;
+    animation: soptl-stripes-run var(--soptl-stripe-ms, 1200ms) linear infinite;
+    animation-play-state: paused;
+    will-change: transform;
+}
+.soptl-band-stripes--live {
+    animation-play-state: running;
+}
+.soptl-band-stripes--reverse {
+    animation-direction: reverse;
+}
+@keyframes soptl-stripes-run {
+    from {
+        transform: translateX(0);
+    }
+    to {
+        /* One horizontal repeat of a 45° pattern whose period is 18px: 18 * sqrt(2). */
+        transform: translateX(-25.46px);
+    }
+}
+
+.soptl-band-rotator {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    display: flex;
+    align-items: center;
+}
+
+.soptl-band-track {
+    display: flex;
+    align-items: center;
+    animation-name: soptl-scroll;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+    animation-play-state: paused;
+    will-change: transform;
+}
+.soptl-band-track--live {
+    animation-play-state: running;
+}
+.soptl-band-track--reverse {
+    animation-direction: reverse;
+}
+@keyframes soptl-scroll {
+    from {
+        transform: translateX(0%);
+    }
+    to {
+        transform: translateX(-50%);
+    }
+}
+
+.soptl-band-strip {
+    display: flex;
+    flex: none;
+    color: var(--soptl-ground);
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.25);
+    font-size: var(--soptl-band-font, 48px);
+    line-height: 1;
+    font-family: 'Grechka SHA', 'Arial Narrow', sans-serif;
+    font-weight: 400;
+    white-space: nowrap;
+}
+.soptl-band-strip > span {
+    padding: 0 0.6em;
+}
+
+/* ---- ?dev=1 tuner (portalled to <body>, outside the scaled stage) -------------------------- */
+
+.soptl-tuner {
+    position: fixed;
+    right: 8px;
+    bottom: 8px;
+    z-index: 9999;
+    width: 320px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    background: rgba(12, 12, 14, 0.92);
+    color: #e8e8e8;
+    font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+    pointer-events: auto;
+}
+.soptl-tuner h6 {
+    margin: 0 0 6px;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #f0c24b;
+}
+.soptl-tuner-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+.soptl-tuner-row label {
+    width: 46px;
+    flex: none;
+    color: #9a9a9a;
+}
+.soptl-tuner-row input[type='range'] {
+    flex: 1;
+    accent-color: #f0c24b;
+}
+.soptl-tuner-row .soptl-tuner-val {
+    width: 62px;
+    flex: none;
+    text-align: right;
+}
+.soptl-tuner-buttons {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+.soptl-tuner-buttons button {
+    flex: 1;
+    padding: 3px 0;
+    border: 1px solid #4a4a4a;
+    border-radius: 4px;
+    background: #1e1e22;
+    color: #e8e8e8;
+    font: inherit;
+    cursor: pointer;
+}
+.soptl-tuner-buttons button:hover {
+    border-color: #f0c24b;
+}
+/* Stage ruler: proportional strips, so a retimed stage is visible as a width change. */
+.soptl-tuner-ruler {
+    position: relative;
+    display: flex;
+    height: 20px;
+    border: 1px solid #3a3a3a;
+    border-radius: 3px;
+    overflow: hidden;
+}
+.soptl-tuner-stage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-right: 1px solid #3a3a3a;
+    font-size: 9px;
+    color: #b9b9b9;
+    background: #202024;
+    white-space: nowrap;
+}
+.soptl-tuner-stage:last-child {
+    border-right: 0;
+}
+.soptl-tuner-playhead {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #f0c24b;
+    pointer-events: none;
+}
+.soptl-tuner-tracks {
+    margin-top: 8px;
+    max-height: 130px;
+    overflow-y: auto;
+    font-size: 10px;
+    color: #9a9a9a;
+}
+.soptl-tuner-tracks div {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+}
+.soptl-tuner-tracks b {
+    color: #d8d8d8;
+    font-weight: 400;
+}

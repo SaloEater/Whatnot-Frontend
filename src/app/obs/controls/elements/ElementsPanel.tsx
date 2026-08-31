@@ -4,11 +4,11 @@
 // LayoutBuilder tab — see obs-layout-plan.md §1.6/§1.7). Owns add/remove/undo/redo/reset for
 // config.elements and auto-saves every change through controls.pushConfig().
 
-import {useRef, useState} from 'react'
-import type {Box, Element, LayoutConfig, PlacementKey} from '@/app/obs/layout/schema'
+import {useEffect, useRef, useState} from 'react'
+import type {Box, Cue, Element, LayoutConfig, PlacementKey} from '@/app/obs/layout/schema'
 import {REGISTRY, makeElement, registryIdOf} from '@/app/obs/layout/registry'
 import type {RegistryId} from '@/app/obs/layout/registry'
-import {defaultConfig, resolveBox} from '@/app/obs/layout/config'
+import {defaultConfig, isVisible, resolveBox} from '@/app/obs/layout/config'
 import type {useControls} from '@/app/obs/controls/useControls'
 import ElementBlock from './ElementBlock'
 
@@ -30,8 +30,65 @@ type Props = {
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
 export default function ElementsPanel({controls, channelId, seriesId, onPushResult}: Props) {
-    const {config, setConfigLocal, pushConfig, state} = controls
+    const {config, setConfigLocal, pushConfig, apply, state} = controls
     const currentPhase = state.phase
+
+    // Lets an element's own settings panel push a cue through the same state-update path the
+    // Actions strip uses (obs-layout-plan.md §2.8's cards mark-sold cue is the first caller).
+    // State itself is unchanged — only the cue rides along — so this never touches the stage or
+    // any override.
+    async function fireCue(cue: Cue) {
+        onPushResult?.(await apply(state, cue))
+    }
+
+    // How many columns the element list itself is laid out in — a view preference, not config, so
+    // it lives in localStorage per channel rather than going anywhere near LayoutConfig. Restored
+    // after mount (localStorage does not exist during SSR, and reading it in the initialiser would
+    // desync server and client markup).
+    const listOrderKey = `obs-controls-${channelId}-el-order`
+    const listColumnsKey = `obs-controls-${channelId}-el-columns`
+    const [listColumns, setListColumns] = useState(1)
+    useEffect(() => {
+        try {
+            const stored = parseInt(localStorage.getItem(listColumnsKey) ?? '', 10)
+            if (stored >= 1 && stored <= 3) setListColumns(stored)
+        } catch {
+            // Storage unavailable — one column for this session.
+        }
+    }, [listColumnsKey])
+
+    // Display order of the element blocks, as a list of element keys. Kept in localStorage rather
+    // than in LayoutConfig for two reasons: it is a view preference (the layout page paints by `z`,
+    // not by this), and `config` is stored in a JSONB column, which does not preserve object key
+    // order — reordering the keys there would simply be normalised away on the next read.
+    const [listOrder, setListOrder] = useState<string[]>([])
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem(listOrderKey)
+            const parsed: unknown = raw ? JSON.parse(raw) : null
+            if (Array.isArray(parsed)) setListOrder(parsed.filter((k): k is string => typeof k === 'string'))
+        } catch {
+            // Unparseable or storage unavailable — fall back to config order.
+        }
+    }, [listOrderKey])
+
+    function saveListOrder(next: string[]) {
+        setListOrder(next)
+        try {
+            localStorage.setItem(listOrderKey, JSON.stringify(next))
+        } catch {
+            // View preference only — never worth breaking the panel over.
+        }
+    }
+
+    function changeListColumns(next: number) {
+        setListColumns(next)
+        try {
+            localStorage.setItem(listColumnsKey, String(next))
+        } catch {
+            // Same as above: a view preference is never worth breaking the panel over.
+        }
+    }
 
     const [addChoice, setAddChoice] = useState<string>('')
     const [undoStack, setUndoStack] = useState<LayoutConfig[]>([])
@@ -125,10 +182,67 @@ export default function ElementsPanel({controls, channelId, seriesId, onPushResu
 
     /** Elements resolved (directly or via `all`) in the current stage. */
     const isPersistent = ([, el]: [string, Element]) => !!el.placements.all
+    // Anything the stored order has not seen yet sorts last within its group; `sort` is stable, so
+    // those keep their config order relative to each other.
+    const orderIndex = (key: string) => {
+        const i = listOrder.indexOf(key)
+        return i === -1 ? Number.MAX_SAFE_INTEGER : i
+    }
     const elementsInPhase = Object.entries(config.elements)
         .filter(([, el]) => !!resolveBox(el, currentPhase))
-        // Stage-specific elements first, persistent ones below (stable within each group).
-        .sort((a, b) => Number(isPersistent(a)) - Number(isPersistent(b)))
+        // Stage-specific elements first, persistent ones below; within a group, the operator's
+        // stored order.
+        .sort(
+            (a, b) =>
+                Number(isPersistent(a)) - Number(isPersistent(b)) || orderIndex(a[0]) - orderIndex(b[0])
+        )
+
+    /**
+     * Move an element one place up or down the visible list. This rewrites the stored order only —
+     * it never touches `config`, so there is no save, no bus emit and nothing for OBS to react to.
+     *
+     * The list is grouped (stage-specific first, persistent after), so a swap across that boundary
+     * would be reordered straight back by the sort and read as a dead button; `canMove` disables
+     * the button at each group's edge instead.
+     */
+    function moveElement(key: string, direction: -1 | 1) {
+        const index = elementsInPhase.findIndex(([k]) => k === key)
+        const target = elementsInPhase[index + direction]
+        if (index < 0 || !target) return
+        if (isPersistent(elementsInPhase[index]) !== isPersistent(target)) return
+
+        // Normalise first: the stored list may be missing elements added since it was written, and
+        // may still name ones that have been removed.
+        const all = Object.keys(config.elements)
+        const known = listOrder.filter(k => all.includes(k))
+        const seq = [...known, ...all.filter(k => !known.includes(k))]
+
+        const a = seq.indexOf(key)
+        const b = seq.indexOf(target[0])
+        if (a < 0 || b < 0) return
+        const next = [...seq]
+        next[a] = target[0]
+        next[b] = key
+        saveListOrder(next)
+    }
+
+    /**
+     * Live show/hide. This is STATE, not config: the element keeps its placement and stays in the
+     * list, it simply stops being rendered. Removing it from the stage is a different action (the
+     * "Remove from this stage" link in the block), and conflating the two is why unchecking used to
+     * make the block vanish.
+     */
+    function setVisible(key: string, visible: boolean) {
+        const overrides = {...state.overrides, [key]: {...state.overrides?.[key], visible}}
+        void apply({...state, overrides}).then(result => onPushResult?.(result))
+    }
+
+    function canMove(key: string, direction: -1 | 1): boolean {
+        const index = elementsInPhase.findIndex(([k]) => k === key)
+        const target = elementsInPhase[index + direction]
+        if (index < 0 || !target) return false
+        return isPersistent(elementsInPhase[index]) === isPersistent(target)
+    }
 
     function addElement() {
         if (!addChoice) return
@@ -197,8 +311,22 @@ export default function ElementsPanel({controls, channelId, seriesId, onPushResu
 
     function removeElement(key: string) {
         mutate(c => {
-            const rest = {...c.elements}
-            delete rest[key]
+            const rest: Record<string, Element> = {}
+            for (const [k, el] of Object.entries(c.elements)) {
+                if (k === key) continue
+                // Clear any `target` that pointed at the element being removed. The validator
+                // requires a target to name an existing element, so leaving the stale reference
+                // makes the whole config invalid and the removal is refused — which reads as "I
+                // can't delete this board" rather than "something still points at it". Dropping
+                // the field degrades gracefully: an animation with no target falls back to the
+                // first board in the config (see StashOrPassWrap).
+                if ('target' in el && el.target === key) {
+                    const {target: _removed, ...withoutTarget} = el
+                    rest[k] = withoutTarget as Element
+                    continue
+                }
+                rest[k] = el
+            }
             return {...c, elements: rest}
         })
     }
@@ -299,6 +427,19 @@ export default function ElementsPanel({controls, channelId, seriesId, onPushResu
                     <button className="btn btn-outline-danger btn-sm" onClick={resetToDefault}>
                         Reset to default
                     </button>
+                    <label className="form-label mb-0 small text-nowrap" htmlFor="ctl-el-columns">
+                        Columns {listColumns}
+                    </label>
+                    <input
+                        id="ctl-el-columns"
+                        type="range"
+                        className="form-range ctl-el-columns-range"
+                        min={1}
+                        max={3}
+                        step={1}
+                        value={listColumns}
+                        onChange={(e) => changeListColumns(parseInt(e.target.value, 10) || 1)}
+                    />
                 </div>
             </div>
 
@@ -311,7 +452,7 @@ export default function ElementsPanel({controls, channelId, seriesId, onPushResu
                 </div>
             )}
 
-            <div className="ctl-el-list">
+            <div className="ctl-el-list" style={{'--ctl-el-columns': listColumns} as React.CSSProperties}>
                 {elementsInPhase.map(([key, el]) => (
                     <ElementBlock
                         key={key}
@@ -325,6 +466,12 @@ export default function ElementsPanel({controls, channelId, seriesId, onPushResu
                         onSetPersistent={setPersistent}
                         onPatchElement={patchElement}
                         onRemove={removeElement}
+                        visible={isVisible(state, key)}
+                        onSetVisible={setVisible}
+                        onMove={moveElement}
+                        canMoveUp={canMove(key, -1)}
+                        canMoveDown={canMove(key, 1)}
+                        onFireCue={fireCue}
                     />
                 ))}
                 {elementsInPhase.length === 0 && (

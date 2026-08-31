@@ -1,0 +1,94 @@
+/* Ported from channel/[id]/widget/series/circleWidget.css (obs-layout-plan.md §2.6). Renamed
+   `widget-*` -> `circ-*` so these classes can't collide with the shared layout page or other
+   co-mounted instances — the `widget-` prefix was too generic. Colours still travel through the
+   `--neon`/`--neon-mid`/`--circle-bg` custom properties scoped to `.circ-root`, same as the old
+   file, which is already safe for several instances mounted at once.
+   `100vw`/`100vh` -> `100%`/`100%`: `.circ-root` now fills the element's box (set in px by
+   ElementFrame) instead of the whole browser-source viewport. Title/value/corner sizes that were
+   `vmin` are now CSS custom properties computed in CircleWidget.tsx from the box's own
+   `min(w, h)` (see the component for the reasoning) — no viewport units remain anywhere below. */
+
+.circ-root {
+    --neon-glow: 0 0 2px var(--neon), 0 0 5px var(--neon), 0 0 14px var(--neon);
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+/* the prices-cell design, filling the box */
+.circ-cell {
+    position: relative;
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    margin: 3px;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--neon);
+    border-radius: 5px;
+    box-shadow:
+        0 0 6px var(--neon),
+        0 0 14px var(--neon),
+        inset 0 0 6px var(--neon);
+    background: #000000;
+    overflow: hidden;
+}
+
+/* solid neon bar — half of the cell's height */
+.circ-title {
+    height: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.05em;
+    background: var(--neon);
+}
+
+.circ-title span {
+    font-family: var(--font-exo2), sans-serif;
+    color: #000000;
+    font-size: var(--circ-title-fs);
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+/* remaining half — neon value with glow */
+.circ-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--neon) 22%, transparent) 0%, transparent 55%),
+        radial-gradient(ellipse at center, #000000 30%, var(--circle-bg) 100%);
+}
+
+.circ-content span {
+    font-family: var(--font-exo2), sans-serif;
+    color: var(--neon);
+    font-size: var(--circ-value-fs);
+    font-weight: 300;
+    line-height: 1;
+    text-shadow: var(--neon-glow);
+}
+
+/* circle at the top-right corner — same style as the bottom half */
+.circ-corner {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+    pointer-events: none;
+    width: var(--circ-corner-size);
+    height: var(--circ-corner-size);
+    border-radius: 50%;
+    background: radial-gradient(ellipse at center, color-mix(in srgb, var(--circle-bg) 80%, #ffffff) 5%, #000000 100%);
+}
+

@@ -31,19 +31,30 @@ export type ElementKind =
     | 'frame'
     | 'animation'
 
-export type BoardVariant = 'flat' | 'classic' | 'cobra'
+export const BOARD_VARIANTS = ['flat', 'classic', 'cobra'] as const
+export type BoardVariant = (typeof BOARD_VARIANTS)[number]
 
-export type WidgetId = 'pick2' | 'stashorpass' | 'name' | 'boxesPerBreak' | 'count'
+// `count` split into `boxesLeft`/`chasersLeft` (obs-layout-plan.md §2.7) — mirrors upstream commit
+// e31e2aa splitting the old single `/channel/[id]/widget/count` page into two, so each cell can be
+// placed and positioned independently. See registry.ts `makeElement`/config.ts `migrateConfig` for
+// the stored-config migration this required.
+export const WIDGET_IDS = ['pick2', 'stashorpass', 'name', 'boxesPerBreak', 'boxesLeft', 'chasersLeft'] as const
+export type WidgetId = (typeof WIDGET_IDS)[number]
 
-export type FrameVariant = 'static'
+export const FRAME_VARIANTS = ['static'] as const
+export type FrameVariant = (typeof FRAME_VARIANTS)[number]
 
-// Only one animation exists so far (obs-layout-plan.md §1.9's wrap-around stash-or-pass), but the
-// id is its own type — like WidgetId/FrameVariant — so a second one slots in the same way later.
-export type AnimationId = 'stashOrPassWrap'
+// obs-layout-plan.md §1.9's wrap-around stash-or-pass, plus `stashOrPassWrapTl` — the same
+// animation rebuilt on a local label timeline (stash-or-pass-timeline-plan.md). The two are
+// deliberately both available so they can be placed together and compared; whichever wins, the
+// other is deleted and this union goes back to one member.
+export const ANIMATION_IDS = ['stashOrPassWrap', 'stashOrPassWrapTl'] as const
+export type AnimationId = (typeof ANIMATION_IDS)[number]
 
 // Sort mode shared by `results` (§2.3, always 'alphabetical') and `resultsThin` (§2.4, operator
 // choice) — see elements/results/orderResults.ts.
-export type ResultsSort = 'alphabetical' | 'customer'
+export const RESULTS_SORTS = ['alphabetical', 'customer'] as const
+export type ResultsSort = (typeof RESULTS_SORTS)[number]
 
 // Per-element opt-out of a native reaction its registry entry declares in `reactsTo` (registry.ts)
 // — default (key absent, or `undefined`) is "on"; only `false` turns it off. See config.ts
@@ -118,6 +129,14 @@ export type Element =
           laneFontSize?: number
           speed?: number
           holdMs?: number
+          /**
+           * Playback rate for `stashOrPassWrapTl`'s timeline. 1 = the choreography's real spec
+           * timings; lower is slower. Defaults to DEFAULT_RATE (0.2), which reproduces the pace of
+           * the `stashOrPassWrap` element this one is being compared against — that one bakes in a
+           * committed `TIME_SCALE = 5`, so a rate-1 rebuild runs five times faster than the thing
+           * it replaces. Unused by `stashOrPassWrap`.
+           */
+          rate?: number
           placements: Partial<Record<PlacementKey, Box>>
           z?: number
           reactions?: Reactions

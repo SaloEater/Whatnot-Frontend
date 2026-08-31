@@ -17,6 +17,10 @@ import {
     DEFAULT_PAD,
     DEFAULT_SPEED,
 } from '@/app/obs/layout/elements/animation/StashOrPassWrap'
+import {
+    DEFAULT_RATE,
+    DEFAULT_HOLD_MS as DEFAULT_HOLD_MS_TL,
+} from '@/app/obs/layout/elements/animation/tl/StashOrPassTl'
 import type { PatchElement } from './ElementBlock'
 
 type Props = {
@@ -59,7 +63,16 @@ export default function StashOrPassWrapSettings({ elementKey, element, config, o
     }
     const laneFontSize = anim.laneFontSize ?? DEFAULT_LANE_FONT
     const speed = anim.speed ?? DEFAULT_SPEED
-    const holdMs = anim.holdMs ?? DEFAULT_HOLD_MS
+    // Only the timeline rebuild has a playback rate; the original bakes its pace in as TIME_SCALE.
+    const isTimeline = registryIdOf(element) === 'animation:stashOrPassWrapTl'
+    // The two elements read `holdMs` on DIFFERENT scales: the original multiplies it by its
+    // internal TIME_SCALE (so it is a spec-scale 220), while the timeline's choreography is already
+    // written at production pace (so it is 1100). Same field, same stored value, two meanings —
+    // which is survivable only because one of these elements is due to be deleted once a winner is
+    // picked. Until then the default at least matches whichever element the panel is showing.
+    const holdMs = anim.holdMs ?? (isTimeline ? DEFAULT_HOLD_MS_TL : DEFAULT_HOLD_MS)
+    // Timeline rebuild only — the original element bakes its pace in as TIME_SCALE.
+    const rate = anim.rate ?? DEFAULT_RATE
 
     return (
         <div>
@@ -125,6 +138,27 @@ export default function StashOrPassWrapSettings({ elementKey, element, config, o
                         onChange={(e) => onPatchElement(elementKey, { holdMs: parseInt(e.target.value) || 0 })}
                     />
                 </div>
+                {isTimeline && (
+                    <div className="mb-2">
+                        <label className="form-label mb-0 small" title="1 = the choreography's real spec timings; lower is slower">
+                            Rate
+                        </label>
+                        <input
+                            type="number"
+                            step={0.05}
+                            min={0.05}
+                            className="form-control form-control-sm"
+                            style={{ width: '100px' }}
+                            value={rate}
+                            onChange={(e) => {
+                                const parsed = parseFloat(e.target.value)
+                                if (Number.isFinite(parsed) && parsed > 0) {
+                                    onPatchElement(elementKey, { rate: parsed })
+                                }
+                            }}
+                        />
+                    </div>
+                )}
             </div>
         </div>
     )

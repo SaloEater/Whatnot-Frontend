@@ -6,9 +6,13 @@ import type { ComponentType } from 'react'
 import { Placeholder } from './Placeholder'
 import { FrameElement } from './elements/frame/FrameElement'
 import { StashOrPassWrap } from './elements/animation/StashOrPassWrap'
+import { StashOrPassTl } from './elements/animation/tl/StashOrPassTl'
 import { FlatBoard } from './elements/board-flat/FlatBoard'
+import { CobraBoard } from './elements/board-cobra/CobraBoard'
 import { ResultsElement } from './elements/results/ResultsElement'
 import { ThinResults } from './elements/results-thin/ThinResults'
+import { CircleWidget } from './elements/circle/CircleWidget'
+import { CardsElement } from './elements/cards/CardsElement'
 import type { AnimationId, BoardVariant, Box, Element, ElementKind, FrameVariant, Phase, WidgetId } from './schema'
 import { DEFAULT_FRAME_BORDERS, DEFAULT_FRAME_WIDTH, PHASES } from './schema'
 import type { SceneEventName } from './sceneEvents'
@@ -21,7 +25,8 @@ export type RegistryId =
     | 'widget:stashorpass'
     | 'widget:name'
     | 'widget:boxesPerBreak'
-    | 'widget:count'
+    | 'widget:boxesLeft'
+    | 'widget:chasersLeft'
     | 'results'
     | 'resultsThin'
     | 'cards'
@@ -29,6 +34,7 @@ export type RegistryId =
     | 'reserved'
     | 'frame:static'
     | 'animation:stashOrPassWrap'
+    | 'animation:stashOrPassWrapTl'
 
 // Shared prop contract every registry component (placeholder now, real components in Phase 2)
 // implements.
@@ -61,6 +67,12 @@ export type RegistryEntry = {
     // see resolvedBoxes.tsx); controls hides their x/y/w/h inputs (Layer stays). Default true —
     // only frame:static opts out so far.
     hasBox: boolean
+    /**
+     * Element blocks whose settings are too wide for a narrow column — the cards panel carries a
+     * whole card grid. These span every column of the controls list however many the operator has
+     * chosen with the Columns slider.
+     */
+    wideBlock?: boolean
     // Scene events (obs-layout-plan.md §1.9) this element type reacts to natively — an empty
     // array means it never reacts to anything. Config-level `Element.reactions` can switch a
     // declared reaction off per element instance (see config.ts `effectiveReactions()`); it can
@@ -69,7 +81,9 @@ export type RegistryEntry = {
 }
 
 function widgetDefaultBox(index: number): Box {
-    // 240x240 circles along the bottom of the 1080x1920 canvas.
+    // 240x240 cells along the bottom of the 1080x1920 canvas. The count cells (boxesLeft /
+    // chasersLeft) use this too rather than a rectangle of their own — they are the same kind of
+    // readout as the circle widgets and are expected to line up with them.
     return { x: 20 + index * 250, y: 1920 - 240 - 40, w: 240, h: 240 }
 }
 
@@ -101,7 +115,7 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         hasBox: true,
         // A manually-triggered 'sold' scene event forces an immediate events refetch so the
         // board flips right away instead of waiting up to 5s for the spine's normal poll.
-        reactsTo: ['sold'],
+        reactsTo: [],
     },
     'board:classic': {
         id: 'board:classic',
@@ -128,9 +142,13 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         allowedPhases: PHASES,
         defaultPhases: ['selling'],
         preload: [],
-        component: Placeholder,
+        component: CobraBoard,
         available: true,
         hasBox: true,
+        // The settings panel now carries the whole "Prices" section (side-cards price, price
+        // ranges table, and the presets list/apply/save-as/delete controls) — same reasoning as
+        // `cards` above: a narrow column would squash the price-ranges table and preset list.
+        wideBlock: true,
         reactsTo: [],
     },
     'widget:pick2': {
@@ -143,7 +161,7 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         allowedPhases: PHASES,
         defaultPhases: ['selling'],
         preload: [],
-        component: Placeholder,
+        component: CircleWidget,
         available: true,
         hasBox: true,
         reactsTo: [],
@@ -158,7 +176,7 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         allowedPhases: PHASES,
         defaultPhases: ['selling'],
         preload: [],
-        component: Placeholder,
+        component: CircleWidget,
         available: true,
         hasBox: true,
         reactsTo: [],
@@ -173,7 +191,7 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         allowedPhases: PHASES,
         defaultPhases: ['selling'],
         preload: [],
-        component: Placeholder,
+        component: CircleWidget,
         available: true,
         hasBox: true,
         reactsTo: [],
@@ -188,22 +206,37 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         allowedPhases: PHASES,
         defaultPhases: ['selling'],
         preload: [],
-        component: Placeholder,
+        component: CircleWidget,
         available: true,
         hasBox: true,
         reactsTo: [],
     },
-    'widget:count': {
-        id: 'widget:count',
+    'widget:boxesLeft': {
+        id: 'widget:boxesLeft',
         kind: 'widget',
-        label: 'Widget — Count',
+        label: 'Widget — Boxes Left',
         singleton: false,
-        singletonGroup: 'widget:count',
+        singletonGroup: 'widget:boxesLeft',
         defaultBox: widgetDefaultBox(4),
         allowedPhases: PHASES,
         defaultPhases: ['selling'],
         preload: [],
-        component: Placeholder,
+        component: CircleWidget,
+        available: true,
+        hasBox: true,
+        reactsTo: [],
+    },
+    'widget:chasersLeft': {
+        id: 'widget:chasersLeft',
+        kind: 'widget',
+        label: 'Widget — Chasers Left',
+        singleton: false,
+        singletonGroup: 'widget:chasersLeft',
+        defaultBox: widgetDefaultBox(5),
+        allowedPhases: PHASES,
+        defaultPhases: ['selling'],
+        preload: [],
+        component: CircleWidget,
         available: true,
         hasBox: true,
         reactsTo: [],
@@ -224,7 +257,7 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         // Matches board-flat (obs-layout-plan.md §2.1): a manually-triggered 'sold' scene event
         // forces an immediate events refetch so the results grid updates without waiting up to
         // 5s for the spine's normal poll (obs-layout-plan.md §2.3).
-        reactsTo: ['sold'],
+        reactsTo: [],
     },
     resultsThin: {
         id: 'resultsThin',
@@ -247,7 +280,7 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         hasBox: true,
         // Matches `results` (§2.3): a manually-triggered 'sold' scene event forces an immediate
         // events refetch instead of waiting up to 5s for the spine's normal poll.
-        reactsTo: ['sold'],
+        reactsTo: [],
     },
     cards: {
         id: 'cards',
@@ -259,9 +292,10 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         allowedPhases: PHASES,
         defaultPhases: ['selling'],
         preload: [],
-        component: Placeholder,
+        component: CardsElement,
         available: true,
         hasBox: true,
+        wideBlock: true,
         reactsTo: [],
     },
     ripbar: {
@@ -337,6 +371,25 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         available: true,
         // Boxless (obs-layout-plan.md §1.9): it draws a ring around ANOTHER element's box
         // (useResolvedBox(target)) rather than occupying one of its own.
+        hasBox: false,
+        reactsTo: ['stash_or_pass'],
+    },
+    // The timeline rebuild (stash-or-pass-timeline-plan.md). Identical config surface to the
+    // entry above — same `kind: 'animation'` shape, so `makeElement()` needs no new branch and
+    // stored configs need no migration — and it reacts to the same cue, so placing both and
+    // pointing them at different boards with `target` plays old and new from one keypress.
+    'animation:stashOrPassWrapTl': {
+        id: 'animation:stashOrPassWrapTl',
+        kind: 'animation',
+        label: 'Stash or Pass — wrap (timeline)',
+        singleton: false,
+        singletonGroup: 'animation:stashOrPassWrapTl',
+        defaultBox: FULL_BOX,
+        allowedPhases: PHASES,
+        defaultPhases: [],
+        preload: ['/fonts/Grechka SHA_0.otf'],
+        component: StashOrPassTl,
+        available: true,
         hasBox: false,
         reactsTo: ['stash_or_pass'],
     },

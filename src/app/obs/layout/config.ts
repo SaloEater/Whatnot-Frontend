@@ -4,7 +4,17 @@
 // / `migrateState` and then `validateConfig` / `validateState` before it is trusted.
 
 import type { Box, Cue, Element, LayoutConfig, OverlayState, Phase, PlacementKey, Sides } from './schema'
-import { CANVAS, DEFAULT_FRAME_BORDERS, DEFAULT_FRAME_WIDTH, PHASES } from './schema'
+import {
+    ANIMATION_IDS,
+    BOARD_VARIANTS,
+    CANVAS,
+    DEFAULT_FRAME_BORDERS,
+    DEFAULT_FRAME_WIDTH,
+    FRAME_VARIANTS,
+    PHASES,
+    RESULTS_SORTS,
+    WIDGET_IDS,
+} from './schema'
 import type { RegistryId } from './registry'
 import { REGISTRY, registryIdOf } from './registry'
 import type { SceneEventName } from './sceneEvents'
@@ -103,6 +113,29 @@ export function migrateConfig(raw: unknown): unknown {
             changed = true
         }
 
+        // The old single `widget:count` id was split into `boxesLeft`/`chasersLeft`
+        // (obs-layout-plan.md §2.7) — a stored `count` becomes `chasersLeft` so existing configs
+        // keep validating; the operator adds the boxes cell alongside it if they want both (the
+        // old page rendered both in one element, which the layout cannot express as one box).
+        if (el.kind === 'widget' && el.widget === 'count') {
+            el = { ...el, widget: 'chasersLeft' }
+            changed = true
+        }
+
+        // Scene events can be retired from the vocabulary (`sold` and `pick2` were), and the
+        // validator rejects a `reactions` key naming one that no longer exists — which would fail
+        // the WHOLE config and drop the operator back to an empty default layout. Strip them.
+        const reactionsRaw = el.reactions
+        if (isPlainObject(reactionsRaw)) {
+            const kept = Object.fromEntries(
+                Object.entries(reactionsRaw).filter(([name]) => isSceneEventName(name))
+            )
+            if (Object.keys(kept).length !== Object.keys(reactionsRaw).length) {
+                el = { ...el, reactions: kept }
+                changed = true
+            }
+        }
+
         const placementsRaw = el.placements
         if (isPlainObject(placementsRaw) && 'transition' in placementsRaw) {
             const rest = { ...placementsRaw }
@@ -120,17 +153,41 @@ export function migrateConfig(raw: unknown): unknown {
 
 export function migrateState(raw: unknown): unknown {
     if (!isPlainObject(raw)) return raw
-    if (raw.phase === 'transition') {
-        return { ...raw, phase: 'selling' }
+
+    let out: Record<string, unknown> = raw
+    let changed = false
+
+    if (out.phase === 'transition') {
+        out = { ...out, phase: 'selling' }
+        changed = true
     }
-    return raw
+
+    // Same reasoning as the `reactions` strip in migrateConfig: a latched event that has since been
+    // removed from the vocabulary would fail validateState and reset the live state.
+    const activeRaw = out.active
+    if (isPlainObject(activeRaw)) {
+        const kept = Object.fromEntries(
+            Object.entries(activeRaw).filter(([name]) => isSceneEventName(name))
+        )
+        if (Object.keys(kept).length !== Object.keys(activeRaw).length) {
+            out = { ...out, active: kept }
+            changed = true
+        }
+    }
+
+    return changed ? out : raw
 }
 
-const VALID_BOARD_VARIANTS = ['flat', 'classic', 'cobra'] as const
-const VALID_WIDGET_IDS = ['pick2', 'stashorpass', 'name', 'boxesPerBreak', 'count'] as const
-const VALID_FRAME_VARIANTS = ['static'] as const
-const VALID_ANIMATION_IDS = ['stashOrPassWrap'] as const
-const VALID_RESULTS_SORTS = ['alphabetical', 'customer'] as const
+// Aliased straight from schema.ts rather than re-listed here. These used to be a second,
+// hand-maintained copy of the same literals, and the two drifted: `stashOrPassWrapTl` was added to
+// the AnimationId union and the registry but not to this array, so adding that element produced
+// `invalid animation id "stashOrPassWrapTl"` — the type said yes and the validator said no. The
+// union is now derived FROM the array, so a new id can only be added in one place.
+const VALID_BOARD_VARIANTS = BOARD_VARIANTS
+const VALID_WIDGET_IDS = WIDGET_IDS
+const VALID_FRAME_VARIANTS = FRAME_VARIANTS
+const VALID_ANIMATION_IDS = ANIMATION_IDS
+const VALID_RESULTS_SORTS = RESULTS_SORTS
 
 function validatePlacements(key: string, placementsRaw: unknown, regId: RegistryId): string[] {
     const errors: string[] = []
@@ -139,6 +196,10 @@ function validatePlacements(key: string, placementsRaw: unknown, regId: Registry
         return [`element "${key}": placements must be an object`]
     }
     const entry = REGISTRY[regId]
+    if (!entry) {
+        errors.push(`element "${key}": unknown registry ID "${regId}"`)
+        return errors
+    }
     for (const [phase, box] of Object.entries(placementsRaw)) {
         if (!isPlacementKey(phase)) {
             errors.push(`element "${key}": invalid phase "${phase}" in placements`)
@@ -358,6 +419,12 @@ export function validateConfig(
                 }
                 if (rawEl.speed !== undefined && !isFiniteNumber(rawEl.speed)) {
                     elErrors.push(`element "${key}": speed must be a finite number`)
+                }
+                if (
+                    rawEl.rate !== undefined &&
+                    (!isFiniteNumber(rawEl.rate) || rawEl.rate <= 0)
+                ) {
+                    elErrors.push(`element "${key}": rate must be a finite number > 0`)
                 }
                 if (rawEl.holdMs !== undefined && !isFiniteNumber(rawEl.holdMs)) {
                     elErrors.push(`element "${key}": holdMs must be a finite number`)

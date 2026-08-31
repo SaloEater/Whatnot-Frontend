@@ -5,7 +5,7 @@
 //
 // Always-on chain (mirrors obs/[id]/page.tsx + hooks/useActiveStream.ts, written fresh — those
 // hooks leak intervals / don't re-arm cleanly for this use):
-//   channel_get 30s -> stream_get 20s -> break_get 30s -> break_events 5s
+//   channel_get -> stream_get -> break_get on POLL_MS (60s); break_events on EVENTS_POLL_MS (5s)
 // On-demand sources are enabled only when `config.elements` contains something that needs them,
 // so mounting more registry components never adds more network traffic than the config declares.
 
@@ -35,8 +35,32 @@ import {
     WNStream,
 } from '@/app/entity/entities'
 import {get, getEndpoints, post, seriesPricesEndpoint} from '@/app/lib/backend'
+import {enqueue} from './requestQueue'
 import type {LayoutConfig} from './schema'
 import {useCueBus} from './cueBus'
+
+// Every spine read goes through the shared limiter (requestQueue.ts) rather than calling
+// post()/get() directly: the pollers below all tick together, and an unbounded burst just queues
+// invisibly inside the browser's per-host connection limit instead. Same signatures as the
+// originals, so call sites are unchanged apart from the name.
+// One cadence for every source. Since every operator-driven change now pushes an immediate cue
+// (controls/elements/useSettingWrite.ts and the config push path), polling is no longer how
+// changes are delivered — it is the recovery net for a browser source that reloaded or missed an
+// emit, and a minute is fine for that.
+//
+// `photos` keeps its own longer interval: it is the heaviest response of the set and already has
+// an explicit `photos-changed` cue behind mark-sold.
+const POLL_MS = 60000
+const PHOTOS_POLL_MS = 120000
+
+// `events` is the one source with NO push path: sales arrive from the userscript's webhook, which
+// nothing on the controls page knows about, so a poll is genuinely how the board learns about
+// them. It stays fast for that reason — at POLL_MS a sale could take a minute to reach the board
+// mid-break. Retire this back to POLL_MS only once the sold webhook notifies the layout directly.
+const EVENTS_POLL_MS = 5000
+
+const qPost = (endpoint: string, body: object) => enqueue(() => post(endpoint, body))
+const qGet = (endpoint: string) => enqueue(() => get(endpoint))
 
 // ---- shape derivation from config -----------------------------------------------------------
 
@@ -64,7 +88,7 @@ function deriveNeeds(config: LayoutConfig): Needs {
         if (element.kind === 'cards') needsCards = true
         if (element.kind === 'widget') {
             if (element.widget === 'name') needsName = true
-            if (element.widget === 'count') needsCount = true
+            if (element.widget === 'boxesLeft' || element.widget === 'chasersLeft') needsCount = true
             if (element.widget === 'pick2') needsPick2 = true
             if (element.widget === 'stashorpass') needsStashOrPass = true
             if (element.widget === 'boxesPerBreak') needsBoxesPerBreak = true
@@ -90,6 +114,27 @@ function isErrorResponse(v: unknown): boolean {
 }
 
 // ---- context shape ----------------------------------------------------------------------------
+
+// Every string key the spine registers a fetcher under (see the `fetchers[...] = ...` assignments
+// below) — i.e. every valid target for `refetch(key)` / a `{kind: 'refetch', key}` cue. Exported
+// so callers that build such a cue at compile time (useSettingWrite.ts) can be typo-checked
+// against the spine's real source keys instead of the bare `string` the wire-format `Cue` type
+// uses (that one stays `string` deliberately — it's parsed off an untrusted bus payload).
+export type LayoutDataSourceKey =
+    | 'channel'
+    | 'stream'
+    | 'breakObject'
+    | 'events'
+    | 'series'
+    | 'priceRanges'
+    | 'teamPrices'
+    | 'seriesCount'
+    | 'pick2'
+    | 'stashorpass'
+    | 'boxesPerBreak'
+    | 'countSettings'
+    | 'photos'
+    | 'cardsBoardSettings'
 
 export type LayoutData = {
     // Exposed mainly so sceneEventBus.tsx's `useSceneEvent()` can look up an element's current
@@ -173,7 +218,7 @@ export function LayoutDataProvider({
         const fetchers = fetchersRef.current
         let cancelled = false
         function fetchChannel() {
-            post(getEndpoints().channel_get, {id: channelIdRef}).then((resp: WNChannel) => {
+            qPost(getEndpoints().channel_get, {id: channelIdRef}).then((resp: WNChannel) => {
                 if (cancelled || !resp || isErrorResponse(resp)) return
                 setChannel(resp)
                 touch('channel')
@@ -181,7 +226,7 @@ export function LayoutDataProvider({
         }
         fetchers['channel'] = fetchChannel
         fetchChannel()
-        const id = setInterval(fetchChannel, 30000)
+        const id = setInterval(fetchChannel, POLL_MS)
         return () => {
             cancelled = true
             clearInterval(id)
@@ -198,7 +243,7 @@ export function LayoutDataProvider({
         }
         let cancelled = false
         function fetchStream() {
-            post(getEndpoints().stream_get, {id: activeStreamId}).then((resp: WNStream) => {
+            qPost(getEndpoints().stream_get, {id: activeStreamId}).then((resp: WNStream) => {
                 if (cancelled || !resp || isErrorResponse(resp)) return
                 setStream(resp)
                 touch('stream')
@@ -206,7 +251,7 @@ export function LayoutDataProvider({
         }
         fetchers['stream'] = fetchStream
         fetchStream()
-        const id = setInterval(fetchStream, 20000)
+        const id = setInterval(fetchStream, POLL_MS)
         return () => {
             cancelled = true
             clearInterval(id)
@@ -223,7 +268,7 @@ export function LayoutDataProvider({
         }
         let cancelled = false
         function fetchBreak() {
-            post(getEndpoints().break_get, {id: activeBreakId}).then((resp: WNBreak) => {
+            qPost(getEndpoints().break_get, {id: activeBreakId}).then((resp: WNBreak) => {
                 if (cancelled || !resp || isErrorResponse(resp)) return
                 setBreakObject(resp)
                 touch('breakObject')
@@ -231,7 +276,7 @@ export function LayoutDataProvider({
         }
         fetchers['breakObject'] = fetchBreak
         fetchBreak()
-        const id = setInterval(fetchBreak, 30000)
+        const id = setInterval(fetchBreak, POLL_MS)
         return () => {
             cancelled = true
             clearInterval(id)
@@ -248,7 +293,7 @@ export function LayoutDataProvider({
         }
         let cancelled = false
         function fetchEvents() {
-            post(getEndpoints().break_events, {break_id: activeBreakId}).then(
+            qPost(getEndpoints().break_events, {break_id: activeBreakId}).then(
                 (resp: GetEventsByBreakResponse) => {
                     if (cancelled || !resp || isErrorResponse(resp)) return
                     setEvents(resp.events ?? [])
@@ -258,7 +303,7 @@ export function LayoutDataProvider({
         }
         fetchers['events'] = fetchEvents
         fetchEvents()
-        const id = setInterval(fetchEvents, 5000)
+        const id = setInterval(fetchEvents, EVENTS_POLL_MS)
         return () => {
             cancelled = true
             clearInterval(id)
@@ -276,7 +321,7 @@ export function LayoutDataProvider({
         }
         let cancelled = false
         function fetchSeries() {
-            post(getEndpoints().series_get, {id: seriesId}).then((resp: Series) => {
+            qPost(getEndpoints().series_get, {id: seriesId}).then((resp: Series) => {
                 if (cancelled || !resp || isErrorResponse(resp)) return
                 setSeries(resp)
                 touch('series')
@@ -299,7 +344,7 @@ export function LayoutDataProvider({
         }
         let cancelled = false
         function fetchRanges() {
-            post(getEndpoints().widget_board_price_ranges_list, {channel_id: channelIdRef}).then(
+            qPost(getEndpoints().widget_board_price_ranges_list, {channel_id: channelIdRef}).then(
                 (resp: {ranges: PriceRange[]}) => {
                     if (cancelled || !resp?.ranges || isErrorResponse(resp)) return
                     setPriceRanges(resp.ranges)
@@ -327,7 +372,7 @@ export function LayoutDataProvider({
         const currentSeriesId = seriesId
         let cancelled = false
         function fetchPrices() {
-            get(seriesPricesEndpoint(currentSeriesId)).then((data: SeriesTeamTotal[]) => {
+            qGet(seriesPricesEndpoint(currentSeriesId)).then((data: SeriesTeamTotal[]) => {
                 if (cancelled || !Array.isArray(data)) return
                 setTeamPrices(data)
                 touch('teamPrices')
@@ -335,7 +380,7 @@ export function LayoutDataProvider({
         }
         fetchers['teamPrices'] = fetchPrices
         fetchPrices()
-        const id = setInterval(fetchPrices, 60000)
+        const id = setInterval(fetchPrices, POLL_MS)
         return () => {
             cancelled = true
             clearInterval(id)
@@ -352,7 +397,7 @@ export function LayoutDataProvider({
         }
         let cancelled = false
         function fetchCount() {
-            post(getEndpoints().series_get_with_count, {id: seriesId}).then(
+            qPost(getEndpoints().series_get_with_count, {id: seriesId}).then(
                 (resp: SeriesWithCount) => {
                     if (cancelled || !resp || isErrorResponse(resp)) return
                     setSeriesCount(resp)
@@ -362,7 +407,7 @@ export function LayoutDataProvider({
         }
         fetchers['seriesCount'] = fetchCount
         fetchCount()
-        const id = setInterval(fetchCount, 5000)
+        const id = setInterval(fetchCount, POLL_MS)
         return () => {
             cancelled = true
             clearInterval(id)
@@ -379,7 +424,7 @@ export function LayoutDataProvider({
         }
         let cancelled = false
         function fetchPick2() {
-            post(getEndpoints().widget_pick2_get, {channel_id: channelIdRef}).then(
+            qPost(getEndpoints().widget_pick2_get, {channel_id: channelIdRef}).then(
                 (resp: CircleWidgetValue) => {
                     if (cancelled || !resp || isErrorResponse(resp)) return
                     setPick2(resp)
@@ -389,7 +434,7 @@ export function LayoutDataProvider({
         }
         fetchers['pick2'] = fetchPick2
         fetchPick2()
-        const id = setInterval(fetchPick2, 5000)
+        const id = setInterval(fetchPick2, POLL_MS)
         return () => {
             cancelled = true
             clearInterval(id)
@@ -406,7 +451,7 @@ export function LayoutDataProvider({
         }
         let cancelled = false
         function fetchStashOrPass() {
-            post(getEndpoints().widget_stashorpass_get, {channel_id: channelIdRef}).then(
+            qPost(getEndpoints().widget_stashorpass_get, {channel_id: channelIdRef}).then(
                 (resp: CircleWidgetValue) => {
                     if (cancelled || !resp || isErrorResponse(resp)) return
                     setStashOrPass(resp)
@@ -416,7 +461,7 @@ export function LayoutDataProvider({
         }
         fetchers['stashorpass'] = fetchStashOrPass
         fetchStashOrPass()
-        const id = setInterval(fetchStashOrPass, 5000)
+        const id = setInterval(fetchStashOrPass, POLL_MS)
         return () => {
             cancelled = true
             clearInterval(id)
@@ -433,7 +478,7 @@ export function LayoutDataProvider({
         }
         let cancelled = false
         function fetchBoxesPerBreak() {
-            post(getEndpoints().widget_boxes_per_break_get, {series_id: seriesId}).then(
+            qPost(getEndpoints().widget_boxes_per_break_get, {series_id: seriesId}).then(
                 (resp: CircleWidgetValue) => {
                     if (cancelled || !resp || isErrorResponse(resp)) return
                     setBoxesPerBreak(resp)
@@ -443,7 +488,7 @@ export function LayoutDataProvider({
         }
         fetchers['boxesPerBreak'] = fetchBoxesPerBreak
         fetchBoxesPerBreak()
-        const id = setInterval(fetchBoxesPerBreak, 5000)
+        const id = setInterval(fetchBoxesPerBreak, POLL_MS)
         return () => {
             cancelled = true
             clearInterval(id)
@@ -460,7 +505,7 @@ export function LayoutDataProvider({
         }
         let cancelled = false
         function fetchCountSettings() {
-            post(getEndpoints().widget_channel_count_settings_get, {channel_id: channelIdRef}).then(
+            qPost(getEndpoints().widget_channel_count_settings_get, {channel_id: channelIdRef}).then(
                 (resp: CountSettings) => {
                     if (cancelled || !resp || isErrorResponse(resp)) return
                     setCountSettings(resp)
@@ -487,7 +532,7 @@ export function LayoutDataProvider({
         }
         let cancelled = false
         function fetchPhotos() {
-            post(getEndpoints().photo_board, {channel_id: channelIdRef, with_sold: false}).then(
+            qPost(getEndpoints().photo_board, {channel_id: channelIdRef, with_sold: false}).then(
                 (resp: Photo[]) => {
                     if (cancelled || !Array.isArray(resp)) return
                     setPhotos(resp)
@@ -497,7 +542,7 @@ export function LayoutDataProvider({
         }
         fetchers['photos'] = fetchPhotos
         fetchPhotos()
-        const id = setInterval(fetchPhotos, 120000)
+        const id = setInterval(fetchPhotos, PHOTOS_POLL_MS)
         return () => {
             cancelled = true
             clearInterval(id)
@@ -514,7 +559,7 @@ export function LayoutDataProvider({
         }
         let cancelled = false
         function fetchCardsBoardSettings() {
-            post(getEndpoints().widget_cards_board_get, {channel_id: channelIdRef}).then(
+            qPost(getEndpoints().widget_cards_board_get, {channel_id: channelIdRef}).then(
                 (resp: CardsBoardSettings) => {
                     if (cancelled || !resp || isErrorResponse(resp)) return
                     setCardsBoardSettings(resp)
@@ -524,7 +569,7 @@ export function LayoutDataProvider({
         }
         fetchers['cardsBoardSettings'] = fetchCardsBoardSettings
         fetchCardsBoardSettings()
-        const id = setInterval(fetchCardsBoardSettings, 5000)
+        const id = setInterval(fetchCardsBoardSettings, POLL_MS)
         return () => {
             cancelled = true
             clearInterval(id)

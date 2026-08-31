@@ -1,0 +1,72 @@
+/* The `cards` registry element (obs-layout-plan.md §2.8). Ported from
+   channel/[id]/photos/boardComponent.css — classes renamed `crd-*` (`board-`/`gallery-` are too
+   generic for the shared layout page). `.crd-root` fills its `<ElementFrame>` (100%/100%, already
+   sized to the element's box in px by the layout page), so `.crd-card-area`'s 85%/60% reproduce
+   the old fixed-viewport page's fractions of VIEWPORT_W/VIEWPORT_H without any px literals here —
+   see CardsElement.tsx for the matching JS-side fractions the packer uses for its pixel budget.
+   No body/html rules, no .container/.row/.col, no vh/vw/vmin. */
+
+.crd-root {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: transparent;
+}
+
+.crd-card-area {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 85%;
+    height: 60%;
+    overflow: visible;
+}
+
+.crd-row {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.crd-card {
+    flex-shrink: 0;
+    position: relative;
+}
+
+.crd-card-visual {
+    position: absolute;
+    inset: 0;
+}
+
+.crd-card-visual img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+/* ── Gallery mode ── */
+.crd-gallery-area {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* gap is set inline (px, derived from box.w) — percentage gap on a flex container is not
+       reliably supported in the CEF build OBS ships. */
+}
+
+.crd-gallery-card {
+    flex: 0 0 auto;
+    transition: width 0.6s ease, height 0.6s ease;
+}
+
+.crd-gallery-card img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}

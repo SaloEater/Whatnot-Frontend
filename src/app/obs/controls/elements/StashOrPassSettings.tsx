@@ -1,15 +1,21 @@
 'use client'
 
 // Settings for the widget:stashorpass element, ported verbatim (request/response handling and
-// endpoints) from src/app/channel/[id]/widgets/page.tsx.
+// endpoints) from src/app/channel/[id]/widgets/page.tsx. Save pushes a `stashorpass` spine
+// refetch cue via useSettingWrite.ts so OBS sees the new price immediately rather than waiting
+// for the spine's 5s poll.
 
 import {useEffect, useState} from 'react'
 import {getEndpoints, post} from '@/app/lib/backend'
+import type {Cue} from '@/app/obs/layout/schema'
+import {useSettingWrite} from './useSettingWrite'
 
-export default function StashOrPassSettings({channelId}: { channelId: number }) {
+export default function StashOrPassSettings({channelId, onFireCue}: {
+    channelId: number
+    onFireCue?: (cue: Cue) => void
+}) {
     const [price, setPrice] = useState<number | null>(null)
-    const [saving, setSaving] = useState(false)
-    const [status, setStatus] = useState<'idle' | 'ok' | 'error'>('idle')
+    const {save: writeSetting, saving, status, reset} = useSettingWrite(onFireCue)
 
     useEffect(() => {
         post(getEndpoints().widget_stashorpass_get, {channel_id: channelId})
@@ -17,16 +23,7 @@ export default function StashOrPassSettings({channelId}: { channelId: number }) 
     }, [channelId])
 
     async function save() {
-        setSaving(true)
-        setStatus('idle')
-        try {
-            await post(getEndpoints().widget_stashorpass_update, {channel_id: channelId, price})
-            setStatus('ok')
-        } catch {
-            setStatus('error')
-        } finally {
-            setSaving(false)
-        }
+        await writeSetting('stashorpass', () => post(getEndpoints().widget_stashorpass_update, {channel_id: channelId, price}))
     }
 
     return (
@@ -38,7 +35,7 @@ export default function StashOrPassSettings({channelId}: { channelId: number }) 
                 style={{width: '120px'}}
                 value={price ?? ''}
                 disabled={price === null}
-                onChange={(e) => { setPrice(parseInt(e.target.value) || 0); setStatus('idle') }}
+                onChange={(e) => { setPrice(parseInt(e.target.value) || 0); reset() }}
             />
             <button className="btn btn-sm btn-primary" onClick={save} disabled={price === null || saving}>
                 {saving ? 'Saving…' : 'Save'}

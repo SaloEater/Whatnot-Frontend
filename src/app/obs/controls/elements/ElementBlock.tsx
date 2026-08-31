@@ -4,7 +4,7 @@
 // (see obs-layout-plan.md §1.6/§1.7, now folded into the controls page). Replaces the table row
 // this element used to be in the old channel/[id]/widgets LayoutBuilder.
 
-import type {Box, Element, LayoutConfig, PlacementKey, Phase} from '@/app/obs/layout/schema'
+import type {Box, Cue, Element, LayoutConfig, PlacementKey, Phase} from '@/app/obs/layout/schema'
 import {CANVAS} from '@/app/obs/layout/schema'
 import {REGISTRY, registryIdOf} from '@/app/obs/layout/registry'
 import {resolveBox} from '@/app/obs/layout/config'
@@ -32,6 +32,12 @@ type Props = {
     onSetPersistent: SetPersistent
     onPatchElement: PatchElement
     onRemove: (key: string) => void
+    visible: boolean
+    onSetVisible: (key: string, visible: boolean) => void
+    onMove: (key: string, direction: -1 | 1) => void
+    canMoveUp: boolean
+    canMoveDown: boolean
+    onFireCue?: (cue: Cue) => void
 }
 
 export default function ElementBlock({
@@ -45,9 +51,21 @@ export default function ElementBlock({
     onSetPersistent,
     onPatchElement,
     onRemove,
+    visible,
+    onSetVisible,
+    onMove,
+    canMoveUp,
+    canMoveDown,
+    onFireCue,
 }: Props) {
     // Folded/open is remembered per channel + stage in localStorage (useFoldState).
     const [open, setOpen] = useFoldState(channelId, currentPhase, elementKey)
+    // Box is collapsed by default: positions are set once when a layout is built and rarely touched
+    // again, while the widget's own settings below are what an operator actually reaches for.
+    const [boxOpen, setBoxOpen] = useFoldState(channelId, currentPhase, elementKey, {
+        suffix: 'box',
+        defaultOpen: false,
+    })
 
     const regId = registryIdOf(element)
     const entry = REGISTRY[regId]
@@ -55,15 +73,10 @@ export default function ElementBlock({
     const persistent = !!placements.all
     const overrideBox = placements[currentPhase]
     const resolvedBox = resolveBox(element, currentPhase)
-    const enabledInCurrentPhase = !!resolvedBox
     const z = element.z ?? 0
 
-    function toggleEnabled(enabled: boolean) {
-        if (persistent) return
-        if (enabled) {
-            const anyBox = Object.values(placements)[0]
-            onSetPlacement(elementKey, currentPhase, anyBox ? {...anyBox} : {...entry.defaultBox})
-        } else {
+    function removeFromStage() {
+        if (window.confirm(`Remove "${elementKey}" from the ${currentPhase} stage?`)) {
             onSetPlacement(elementKey, currentPhase, null)
         }
     }
@@ -123,7 +136,9 @@ export default function ElementBlock({
     }
 
     return (
-        <div className="ctl-el-block">
+        <div
+            className={`ctl-el-block${visible ? '' : ' ctl-el-block--hidden'}${entry.wideBlock ? ' ctl-el-block--wide' : ''}`}
+        >
             <div className="ctl-el-header">
                 <button type="button" className="btn btn-sm btn-link ctl-el-chevron" onClick={() => setOpen(!open)}>
                     {open ? '▾' : '▸'}
@@ -133,14 +148,9 @@ export default function ElementBlock({
                         type="checkbox"
                         className="form-check-input"
                         id={`ctl-visible-${elementKey}`}
-                        checked={enabledInCurrentPhase}
-                        disabled={persistent}
-                        title={
-                            persistent
-                                ? 'Persistent — uncheck Persistent first'
-                                : `Visible in ${currentPhase} stage (uncheck to remove from this stage)`
-                        }
-                        onChange={(e) => toggleEnabled(e.target.checked)}
+                        checked={visible}
+                        title="Hide this element without removing it — it keeps its placement and stays in this list"
+                        onChange={(e) => onSetVisible(elementKey, e.target.checked)}
                     />
                     <label className="form-check-label small" htmlFor={`ctl-visible-${elementKey}`}>
                         Visible
@@ -161,6 +171,26 @@ export default function ElementBlock({
                 <span className="ctl-el-label">{entry.label}</span>
                 {persistent && <span className="badge bg-info-subtle text-info-emphasis ctl-el-badge">persistent</span>}
                 <span className="ctl-el-key text-secondary small">{elementKey}</span>
+                <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary ctl-el-move"
+                    onClick={() => onMove(elementKey, -1)}
+                    disabled={!canMoveUp}
+                    title="Move up one place"
+                    aria-label="Move up"
+                >
+                    ▲
+                </button>
+                <button
+                    type="button"
+                    className="btn btn-sm btn-outline-secondary ctl-el-move"
+                    onClick={() => onMove(elementKey, 1)}
+                    disabled={!canMoveDown}
+                    title="Move down one place"
+                    aria-label="Move down"
+                >
+                    ▼
+                </button>
                 <button type="button" className="btn btn-sm btn-outline-danger ctl-el-remove" onClick={handleRemove} title="Remove element from ALL stages">
                     ×
                 </button>
@@ -169,8 +199,15 @@ export default function ElementBlock({
             {open && (
                 <div className="ctl-el-body">
                     <div className="ctl-el-section">
-                        <div className="ctl-el-section-title">Box</div>
-                        {entry.hasBox && (
+                        <button
+                            type="button"
+                            className="ctl-el-section-toggle"
+                            aria-expanded={boxOpen}
+                            onClick={() => setBoxOpen(!boxOpen)}
+                        >
+                            <span className="ctl-el-section-title">{boxOpen ? '▾' : '▸'} Box</span>
+                        </button>
+                        {boxOpen && entry.hasBox && (
                             resolvedBox ? (
                                 <>
                                     <div className="ctl-box-grid">
@@ -239,6 +276,16 @@ export default function ElementBlock({
                                 <div className="text-secondary small">Not placed in {currentPhase}.</div>
                             )
                         )}
+                        {boxOpen && !persistent && (
+                            <button
+                                type="button"
+                                className="btn btn-sm btn-link p-0 mt-1 text-danger d-block"
+                                onClick={removeFromStage}
+                            >
+                                Remove from this stage
+                            </button>
+                        )}
+                        {boxOpen && (
                         <div className="d-flex align-items-center gap-2 mt-2">
                             <label className="form-label mb-0 small" title="Render order — higher draws on top">Layer</label>
                             <input
@@ -249,6 +296,7 @@ export default function ElementBlock({
                                 onChange={(e) => setZ(parseInt(e.target.value) || 0)}
                             />
                         </div>
+                        )}
                     </div>
 
                     {entry.reactsTo.length > 0 && (
@@ -287,6 +335,7 @@ export default function ElementBlock({
                             currentPhase={currentPhase}
                             config={config}
                             onPatchElement={onPatchElement}
+                            onFireCue={onFireCue}
                         />
                     </div>
                 </div>

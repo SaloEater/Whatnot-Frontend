@@ -2,15 +2,21 @@
 
 // Settings for the widget:boxesPerBreak element, ported verbatim (request/response handling and
 // endpoints) from src/app/channel/[id]/widgets/page.tsx. Unlike the other widget settings this
-// one is keyed by series_id (from the active break), not channel_id.
+// one is keyed by series_id (from the active break), not channel_id. Save pushes a
+// `boxesPerBreak` spine refetch cue via useSettingWrite.ts so OBS sees the new amount
+// immediately rather than waiting for the spine's 5s poll.
 
 import {useEffect, useState} from 'react'
 import {getEndpoints, post} from '@/app/lib/backend'
+import type {Cue} from '@/app/obs/layout/schema'
+import {useSettingWrite} from './useSettingWrite'
 
-export default function BoxesPerBreakSettings({seriesId}: { seriesId?: number | null }) {
+export default function BoxesPerBreakSettings({seriesId, onFireCue}: {
+    seriesId?: number | null
+    onFireCue?: (cue: Cue) => void
+}) {
     const [amount, setAmount] = useState<number | null>(null)
-    const [saving, setSaving] = useState(false)
-    const [status, setStatus] = useState<'idle' | 'ok' | 'error'>('idle')
+    const {save: writeSetting, saving, status, reset} = useSettingWrite(onFireCue)
 
     useEffect(() => {
         if (!seriesId) {
@@ -23,16 +29,7 @@ export default function BoxesPerBreakSettings({seriesId}: { seriesId?: number | 
 
     async function save() {
         if (!seriesId || amount === null) return
-        setSaving(true)
-        setStatus('idle')
-        try {
-            await post(getEndpoints().widget_boxes_per_break_update, {series_id: seriesId, amount})
-            setStatus('ok')
-        } catch {
-            setStatus('error')
-        } finally {
-            setSaving(false)
-        }
+        await writeSetting('boxesPerBreak', () => post(getEndpoints().widget_boxes_per_break_update, {series_id: seriesId, amount}))
     }
 
     if (!seriesId) {
@@ -48,7 +45,7 @@ export default function BoxesPerBreakSettings({seriesId}: { seriesId?: number | 
                 style={{width: '120px'}}
                 value={amount ?? ''}
                 disabled={amount === null}
-                onChange={(e) => { setAmount(parseInt(e.target.value) || 0); setStatus('idle') }}
+                onChange={(e) => { setAmount(parseInt(e.target.value) || 0); reset() }}
             />
             <button className="btn btn-sm btn-primary" onClick={save} disabled={amount === null || saving}>
                 {saving ? 'Saving…' : 'Save'}

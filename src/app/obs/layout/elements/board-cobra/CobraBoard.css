@@ -1,0 +1,290 @@
+/* obs-layout-plan.md §2.9 — box-relative `board:cobra` element, ported from
+   obs/prices/[id]/cobra/page.css. All classes prefixed `cbr-` (`cobra-` in the old file — renamed
+   throughout so nothing here can collide with `res-`/`rest-`/`flat-`/`circ-`/`crd-`/`sopw-`/
+   `frm-`/`lay-`/`ctl-`/Bootstrap); no `body`/`html` rules (the old file's `body{background:
+   transparent}` is dropped entirely — the layout page owns the page background); no `vh`/`vw`/
+   `vmin` anywhere.
+
+   Two viewport-relative patterns from the old file are replaced:
+     - `.cobra-root{height:100vh}` -> `.cbr-root{height:100%}`, since ElementFrame already sizes
+       this component's root to exactly the element's box (matching ResultsElement.css/
+       CircleWidget.css's convention). Per-row `maxHeight` (was `${share*100}vh`) is now computed
+       in CobraBoard.tsx as `${share * box.h}px` and set inline, same as the old file did (it was
+       already an inline style there, just in vh).
+     - Every fixed `rem` font-size is now `calc(var(--cbr-font) * N)` with the SAME N the old file
+       used per tier — same pattern `var(--cbr-rem)` used, except `--cbr-font` is set PER ROW by
+       CobraBoard.tsx (on each `.cbr-row`) to a font basis fit to BOTH axes of that row (see the
+       K_H/K_W comment in that file), not once globally on `.cbr-root` from `box.w` alone. Custom
+       properties inherit exactly like `--cbr-rem` did, so every descendant of a `.cbr-row` — cells,
+       names, prices, the gem — sees that row's own `--cbr-font`.
+     - `.cbr-row` also sets `font-size: var(--cbr-font)` (below), purely so plain `em` units on its
+       descendants — the chrome, next — resolve against the SAME basis without every chrome rule
+       having to spell out `calc(var(--cbr-font) * …)` itself; `.cbr-cell__gem` then re-sets ITS
+       OWN font-size (`calc(var(--cbr-font) * 1.05)`, unchanged from before), so `em` used for the
+       gem's own chrome (margin/border/border-radius) and for anything nested inside it
+       (`.cbr-cell__gem-label`) automatically follows the gem's tier-scaled size instead of the row
+       basis — exactly the "follows step 1 automatically" property below relies on.
+
+   Chrome (margin/padding/border/border-radius) that used to be fixed px is now proportional:
+     - Text-relative chrome (cell margin+border, cell content's bottom padding, the gem's margin/
+       border/border-radius) is `em`, so it follows the font-size cascade above automatically — see
+       the per-rule comments below for how each em value was derived from the old px number.
+     - Structural chrome that has nothing to do with any one row's text (`.cbr-root`'s row `gap`,
+       `.cbr-waiting`'s padding) is a fraction of the box height instead, via the `--cbr-box-h`
+       custom property CobraBoard.tsx sets on `.cbr-root` (raw `box.h` in px) — see
+       ROW_GAP_FRACTION/WAITING_PADDING_FRACTION in that file for how each fraction reproduces the
+       old fixed px value at the reference box (h=1300).
+     - Left as bare px: the two `border: 2px` frames were promoted to `em` (see `.cbr-cell`/
+       `.cbr-cell__gem` below) since they read as an integral "frame" of the neon chrome, not a
+       hairline. What's left as literal px is every text-shadow/box-shadow blur & spread radius
+       (the neon glow/bloom) — those are a decorative lighting effect layered over the fit, not
+       chrome that determines whether text/frame fit their box, and the task's own enumeration of
+       "the offenders" names gap/padding/margin/border-radius, not glow radii. Left unconverted on
+       purpose; flagged in the refactor's report. */
+
+/* ── Root ── */
+.cbr-root {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    /* 1px at the reference box height (1300px) — see ROW_GAP_FRACTION, CobraBoard.tsx. */
+    gap: calc(var(--cbr-box-h) * 0.00076923);
+    font-family: var(--font-exo2), sans-serif;
+}
+
+.cbr-waiting {
+    color: #fff;
+    font-size: calc(var(--cbr-font) * 1.5);
+    /* 20px at the reference box height (1300px) — see WAITING_PADDING_FRACTION, CobraBoard.tsx. */
+    padding: calc(var(--cbr-box-h) * 0.01538462);
+}
+
+/* ── Rows ──
+   Heights come from the inline flex-grow weights AND the inline max-height (px, derived from
+   box.h) set in CobraBoard.tsx: each row is either as tall as the row above it or 10% shorter,
+   never taller. `--cbr-font` (also set inline, per row) is this row's two-axis font basis; the
+   `font-size` here just makes plain `em` on every descendant resolve against it without each
+   chrome rule needing its own `calc(var(--cbr-font) * …)`. */
+.cbr-row {
+    display: flex;
+    flex: 1 1 0%;
+    min-height: 0;
+    overflow: hidden;
+    width: 100%;
+    justify-content: center;
+    font-size: var(--cbr-font);
+}
+
+/* ── Tier neon variables ──
+   --neon-soft is the tier colour at 45% alpha, for wide low-intensity glows.
+   --neon-faint drives the price glow only: 32% alpha on the top two tiers
+   (70% of --neon-soft), 18% on the bottom two.
+   --neon-pale is 30% tier colour over white, the badge gradient's early stop.
+   --neon-vivid is the tier colour at 1.2x HSL saturation then darkened 15%,
+   the badge gradient's late stop.
+   All are precomputed rather than color-mix()'d, since OBS ships an older CEF
+   than color-mix() requires. */
+.cbr-cell--best    { --neon: #9eedf6; --neon-mid: #c5f4fa; --neon-soft: rgba(158,237,246,0.45); --neon-faint: rgba(158,237,246,0.32); --neon-pale: #e2fafc; --neon-vivid: #195FC2; }
+.cbr-cell--good    { --neon: #2ef079; --neon-mid: #82f6af; --neon-soft: rgba(46,240,121,0.45);  --neon-faint: rgba(46,240,121,0.32);  --neon-pale: #c0fbd7; --neon-vivid: #1ad964; }
+.cbr-cell--mid     { --neon: #f25d26; --neon-mid: #f79e7d; --neon-soft: rgba(242,93,38,0.45);   --neon-faint: rgba(242,93,38,0.18);   --neon-pale: #F3A445; --neon-vivid: #F02C02; }
+.cbr-cell--regular { --neon: #ebdb61; --neon-mid: #f3e9a0; --neon-soft: rgba(235,219,97,0.45);  --neon-faint: rgba(235,219,97,0.18);  --neon-pale: #f9f4d0; --neon-vivid: #d4c447; }
+
+/* ── Cell base ── */
+.cbr-cell {
+    /* Dimmer than the tier colour but spread ~2.4x wider. */
+    --neon-glow: 0 0 5px var(--neon-faint), 0 0 14px var(--neon-faint), 0 0 34px var(--neon-faint);
+    /* One specular pass: the composite board's 9s period x 0.18 duty cycle. */
+    --sheen-sweep: 1.62s;
+    position: relative;
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    /* 6px / 16px basis at the reference box == 0.375em (CELL_MARGIN_EM, CobraBoard.tsx). Resolves
+       against the row's font-size since nothing between .cbr-row and .cbr-cell sets its own. */
+    margin: 0.375em;
+    /* 2px / 16px == 0.125em (CELL_BORDER_EM) — kept as a frame, not a hairline: it's an integral
+       part of the tier's neon chrome and should read as a frame at any cell size, not a fixed
+       line-width regardless of it. */
+    border: 0.125em solid var(--neon);
+    /* 10px / 16px == 0.625em. */
+    border-radius: 0.625em;
+    /* Weak white bloom centred on the top edge, falling off into the black. */
+    background:
+        radial-gradient(circle at 50% 0%, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 72%),
+        #000000;
+    /* Outer bloom — dimmer than the frame but thrown wider — then a tight
+       inner halo hugging it. */
+    box-shadow:
+        0 0 26px var(--neon-soft),
+        0 0 60px var(--neon-soft),
+        inset 0 0 6px var(--neon),
+        inset 0 0 16px var(--neon-soft);
+}
+
+/* Glow falls away down the tiers: Chaser keeps only the inner halo, Side Card
+   has none at all. These must follow .cbr-cell — same specificity, so source
+   order is what decides. */
+.cbr-cell--mid {
+    box-shadow:
+        inset 0 0 6px var(--neon),
+        inset 0 0 16px var(--neon-soft);
+}
+
+.cbr-cell--regular {
+    box-shadow: none;
+}
+
+/* The price is pinned ~3.5px (0.21875em == 3.5px / 16px at the reference box, matching the 1em
+   left/right padding's basis) off the bottom frame on every tier; the name takes the remaining
+   space and centres itself within it. */
+.cbr-cell__content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 0.4em;
+    padding: 0 1em 0.21875em;
+    min-height: 0;
+}
+
+/* ── Sheen ──
+   Two one-shot specular sweeps, fired per-cell by the lottery in CobraBoard.tsx: the
+   card sweeps left-to-right, then the tier badge answers on the diagonal, from
+   its bottom-right corner out the top-left. The badge's delay is exactly one
+   sweep, so it starts as the card's finishes.
+
+   The card's clip layer is a separate box rather than overflow:hidden on the
+   cell, so the sweep is bounded by the frame while the badge's glow can still
+   spill outside it. */
+.cbr-cell__sheen-clip {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    /* Matches .cbr-cell's own border-radius — see that rule. */
+    border-radius: 0.625em;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.cbr-cell__sheen {
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(105deg, transparent 38%, rgba(232,223,203,0.50) 50%, transparent 62%);
+    transform: translateX(-100%);
+    animation: cbr-sheen-once var(--sheen-sweep) linear forwards;
+}
+
+/* Parked past the bottom-right corner until the delay elapses, then sweeps
+   diagonally up and out the top-left. */
+.cbr-cell__gem-sheen {
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(330deg, transparent 38%, rgba(232,223,203,0.50) 50%, transparent 62%);
+    transform: translate(100%, 100%);
+    animation: cbr-gem-sheen-once var(--sheen-sweep) linear var(--sheen-sweep) forwards;
+    pointer-events: none;
+}
+
+@keyframes cbr-sheen-once {
+    from { transform: translateX(-100%); }
+    to   { transform: translateX(100%); }
+}
+
+@keyframes cbr-gem-sheen-once {
+    from { transform: translate(100%, 100%); }
+    to   { transform: translate(-100%, -100%); }
+}
+
+/* ── Tier badge ──
+   A normal-flow flex item pinned to the cell's right edge, so the name/price
+   block below it starts underneath rather than behind it. Width collapses to
+   fit the label. */
+.cbr-cell__gem {
+    align-self: flex-end;
+    /* This rule sets its OWN font-size (1.05em of the row basis it inherits, or 0.77em on the
+       regular tier below), so every other em on this rule (margin/border/border-radius) resolves
+       against THAT — the badge's whole frame scales with its own label text, tier for tier, same
+       as `padding: 0 0.7em` already did before this pass. */
+    font-size: calc(var(--cbr-font) * 1.05);
+    /* 14px / 16.8px (16px row basis * 1.05 gem font-size, at the reference box) == 0.83333em. */
+    margin: 0.83333em 0.83333em 0 0;
+    /* Bounds the badge's own sheen to the pill. The outer glow is a box-shadow,
+       so it still spills past this clip. */
+    position: relative;
+    overflow: hidden;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    padding: 0 0.7em;
+    /* 2px / 16.8px == 0.11905em — kept as a frame, not a hairline, same reasoning as .cbr-cell. */
+    border: 0.11905em solid var(--neon);
+    /* 24px / 16.8px == 1.42857em. */
+    border-radius: 1.42857em;
+    /* White at both corners; a 30% wash of the tier colour arrives early, then
+       ramps past full strength to 1.2x saturation before falling back to white. */
+    background: linear-gradient(135deg,
+        #ffffff            0%,
+        var(--neon-pale)   5%,
+        var(--neon-vivid) 80%,
+        #ffffff          100%);
+    box-shadow: 0 0 14px var(--neon-soft), 0 0 36px var(--neon-soft);
+    font-weight: 300;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+/* "Side Card Team" is the longest label and lands on the densest rows (up to
+   MAX_ROW_CELLS), so it gets a smaller badge to stay inside its cell — and no
+   glow, matching its unlit frame. The margin/border/border-radius above are
+   unchanged em values, so they shrink right along with this override. */
+.cbr-cell--regular .cbr-cell__gem {
+    font-size: calc(var(--cbr-font) * 0.77);
+    box-shadow: none;
+}
+
+.cbr-cell__gem-label {
+    color: #000000;
+    font-size: 1em;
+    font-weight: 500;
+    text-shadow: 0 0 1px rgba(0,0,0,0.9), 0 0 4px rgba(0,0,0,0.6);
+}
+
+/* Names bleed ~15% of their colour into the surrounding area — a soft halo,
+   not the tight multi-stop neon the price uses. */
+.cbr-cell__name-last {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-weight: 900;
+    line-height: 1.2;
+    text-shadow: 0 0 12px rgba(255,255,255,0.15), 0 0 34px rgba(255,255,255,0.15);
+}
+
+/* Tier-specific font sizes */
+.cbr-cell--best    .cbr-cell__name-last   { font-size: calc(var(--cbr-font) * 3.9); }
+.cbr-cell--good    .cbr-cell__name-last   { font-size: calc(var(--cbr-font) * 3.575); }
+.cbr-cell--mid     .cbr-cell__name-last   { font-size: calc(var(--cbr-font) * 3.25); }
+.cbr-cell--regular .cbr-cell__name-last   { font-size: calc(var(--cbr-font) * 3.12); }
+
+/* ── Price ── */
+.cbr-cell__price {
+    flex: 0 0 auto;
+    color: var(--neon);
+    font-weight: 900;
+    text-shadow: var(--neon-glow);
+}
+
+.cbr-cell--best    .cbr-cell__price { font-size: calc(var(--cbr-font) * 3.64); }
+.cbr-cell--good    .cbr-cell__price { font-size: calc(var(--cbr-font) * 3.38); }
+.cbr-cell--mid     .cbr-cell__price { font-size: calc(var(--cbr-font) * 2.86); }
+.cbr-cell--regular .cbr-cell__price { font-size: calc(var(--cbr-font) * 2.08); }
