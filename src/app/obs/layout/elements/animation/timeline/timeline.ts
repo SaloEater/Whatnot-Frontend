@@ -1,6 +1,11 @@
-// The local timeline engine for `animation:stashOrPassWrapTl` (stash-or-pass-timeline-plan.md §2).
-// Pure — no React, no DOM. Deliberately NOT shared with other elements: this is local to this
-// animation by decision, so it can stay exactly as expressive as this one choreography needs.
+// The timeline engine behind the stash-or-pass rebuilds (stash-or-pass-timeline-plan.md §2).
+// Pure — no React, no DOM.
+//
+// SCOPE. This is shared by the stash-or-pass experiments ONLY (`tl/` and `ring/`), and it lives
+// in its own directory purely so that deleting either experiment leaves the other intact. It is
+// deliberately NOT a general engine for every `animation:*` element — that was considered and
+// declined. When one of the experiments wins and the others are deleted, this folds back into
+// the survivor's directory.
 //
 // WHY THIS EXISTS. The original StashOrPassWrap models the entrance as ONE exclusive `beat`
 // state, so no action can span two stages. Warm-ups ("start part of stage N during the tail of
@@ -26,11 +31,13 @@ export type Stage = { id: string; dur: number }
  */
 export type Anchor = string | [string, number]
 
-/** The animatable parts of this element. `copy` and `band` have four instances each. */
-export type ElId = 'wash' | 'ring' | 'fill' | 'blowout' | 'word' | 'copy' | 'band'
-
-export type Track = {
-    el: ElId
+/**
+ * The animatable parts of an element, as that element's own union of names — each choreography
+ * declares its own (see tl/choreography.ts's TlElId, ring/choreography.ts's RingElId), so a typo
+ * in a track's `el` is a compile error rather than a track that silently attaches to nothing.
+ */
+export type Track<E extends string = string> = {
+    el: E
     /** 0..3 for `copy`/`band`; omitted (0) for the singletons. */
     index?: number
     at: Anchor
@@ -46,16 +53,20 @@ export type Track = {
     label?: string
 }
 
-export type ResolvedTrack = { track: Track; start: number; duration: number }
+export type ResolvedTrack<E extends string = string> = {
+    track: Track<E>
+    start: number
+    duration: number
+}
 
-export type BuiltTimeline = {
+export type BuiltTimeline<E extends string = string> = {
     /** Stage id -> start ms, plus `<id>:end` for every stage and `end` for the whole timeline. */
     labels: Record<string, number>
     /** Stage boundaries in order, for the tuner's ruler. */
     ruler: Array<{ id: string; start: number; dur: number }>
     total: number
     /** Sorted by `start` ascending — see the note on composite order below. */
-    resolved: ResolvedTrack[]
+    resolved: ResolvedTrack<E>[]
 }
 
 function anchorName(a: Anchor): string {
@@ -88,7 +99,7 @@ export function buildLabels(stages: Stage[]): { labels: Record<string, number>; 
  * track at 0: a typo'd anchor must fail at module/build time, not produce an animation that
  * looks subtly wrong at cue time.
  */
-export function buildTimeline(stages: Stage[], tracks: Track[]): BuiltTimeline {
+export function buildTimeline<E extends string>(stages: Stage[], tracks: Track<E>[]): BuiltTimeline<E> {
     const { labels, total, ruler } = buildLabels(stages)
 
     function resolve(a: Anchor, who: string): number {
@@ -102,7 +113,7 @@ export function buildTimeline(stages: Stage[], tracks: Track[]): BuiltTimeline {
         return typeof a === 'string' ? base : base + a[1]
     }
 
-    const resolved: ResolvedTrack[] = tracks.map((track, i) => {
+    const resolved: ResolvedTrack<E>[] = tracks.map((track, i) => {
         const who = track.label ? `track "${track.label}"` : `track #${i} (${track.el})`
         let start = resolve(track.at, who)
         if (start < 0) {

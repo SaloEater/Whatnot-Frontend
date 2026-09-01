@@ -31,9 +31,10 @@ import { useSceneEvent } from '../../../sceneEventBus'
 import { useEventActive } from '../../../eventActive'
 import { useLayoutData } from '../../../useLayoutData'
 import type { Box } from '../../../schema'
-import { buildTimeline } from './timeline'
-import { useNodes, useTimeline } from './useTimeline'
+import { buildTimeline } from '../timeline/timeline'
+import { useNodes, useTimeline } from '../timeline/useTimeline'
 import { buildStages, buildTracks } from './choreography'
+import type { TlElId } from './choreography'
 import {
     BAND_ORDER,
     BAND_REVERSE,
@@ -44,7 +45,7 @@ import {
     headlineSize,
     DIAGONALS,
 } from './geometry'
-import { TlTuner } from './TlTuner'
+import { Tuner } from '../timeline/Tuner'
 import './StashOrPassTl.css'
 
 type Style = CSSProperties & Record<string, string | number>
@@ -180,7 +181,7 @@ export function StashOrPassTl(props: ElementProps) {
         )
     }, [box, pad, thickness, holdMs, playToken])
 
-    const nodes = useNodes()
+    const nodes = useNodes<TlElId>()
     const ctl = useTimeline(built, nodes, {
         rate,
         onDone: (direction) => {
@@ -319,7 +320,7 @@ export function StashOrPassTl(props: ElementProps) {
                     />
                 ))}
             </div>
-            <TlTuner
+            <Tuner
                 built={built}
                 ctl={ctl}
                 rate={rate}
@@ -333,6 +334,7 @@ export function StashOrPassTl(props: ElementProps) {
                     setPlayToken((t) => t + 1)
                 }}
                 phase={phase}
+                title="stash or pass — timeline"
             />
         </>
     )

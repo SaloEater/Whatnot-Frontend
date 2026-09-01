@@ -7,6 +7,7 @@ import { Placeholder } from './Placeholder'
 import { FrameElement } from './elements/frame/FrameElement'
 import { StashOrPassWrap } from './elements/animation/StashOrPassWrap'
 import { StashOrPassTl } from './elements/animation/tl/StashOrPassTl'
+import { StashOrPassRing } from './elements/animation/ring/StashOrPassRing'
 import { FlatBoard } from './elements/board-flat/FlatBoard'
 import { CobraBoard } from './elements/board-cobra/CobraBoard'
 import { ResultsElement } from './elements/results/ResultsElement'
@@ -14,7 +15,7 @@ import { ThinResults } from './elements/results-thin/ThinResults'
 import { CircleWidget } from './elements/circle/CircleWidget'
 import { CardsElement } from './elements/cards/CardsElement'
 import type { AnimationId, BoardVariant, Box, Element, ElementKind, FrameVariant, Phase, WidgetId } from './schema'
-import { DEFAULT_FRAME_BORDERS, DEFAULT_FRAME_WIDTH, PHASES } from './schema'
+import { ANIMATION_IDS, DEFAULT_FRAME_BORDERS, DEFAULT_FRAME_WIDTH, PHASES } from './schema'
 import type { SceneEventName } from './sceneEvents'
 
 export type RegistryId =
@@ -35,6 +36,7 @@ export type RegistryId =
     | 'frame:static'
     | 'animation:stashOrPassWrap'
     | 'animation:stashOrPassWrapTl'
+    | 'animation:stashOrPassWrapRing'
 
 // Shared prop contract every registry component (placeholder now, real components in Phase 2)
 // implements.
@@ -393,6 +395,24 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         hasBox: false,
         reactsTo: ['stash_or_pass'],
     },
+    // The single-lane build: one continuous ring of text instead of four marquees, and four copies
+    // that arrive together to form it. Same config surface again, same cue again — all three wrap
+    // builds can be on the canvas at once, each `target`ed at a different board.
+    'animation:stashOrPassWrapRing': {
+        id: 'animation:stashOrPassWrapRing',
+        kind: 'animation',
+        label: 'Stash or Pass — wrap (single lane)',
+        singleton: false,
+        singletonGroup: 'animation:stashOrPassWrapRing',
+        defaultBox: FULL_BOX,
+        allowedPhases: PHASES,
+        defaultPhases: [],
+        preload: ['/fonts/Grechka SHA_0.otf'],
+        component: StashOrPassRing,
+        available: true,
+        hasBox: false,
+        reactsTo: ['stash_or_pass'],
+    },
 }
 
 export function registryIdOf(element: Element): RegistryId {
@@ -420,6 +440,18 @@ export function registryIdOf(element: Element): RegistryId {
             throw new Error(`registryIdOf: unhandled element ${JSON.stringify(_exhaustive)}`)
         }
     }
+}
+
+/** Narrows a registry id's suffix to a real AnimationId, refusing anything ANIMATION_IDS lacks. */
+function toAnimationId(registryId: RegistryId): AnimationId {
+    const suffix = registryId.split(':')[1]
+    if (!(ANIMATION_IDS as readonly string[]).includes(suffix)) {
+        throw new Error(
+            `registry: "${registryId}" has no matching entry in ANIMATION_IDS (schema.ts) — ` +
+                `add it there, or the config validator will reject every element built from it.`
+        )
+    }
+    return suffix as AnimationId
 }
 
 export function makeElement(registryId: RegistryId): Element {
@@ -450,7 +482,12 @@ export function makeElement(registryId: RegistryId): Element {
     if (entry.kind === 'animation') {
         return {
             kind: 'animation',
-            animation: registryId.split(':')[1] as AnimationId,
+            // Validated, not cast. `as AnimationId` here is what let `stashOrPassWrapTl` and then
+            // `stashOrPassWrapRing` ship with a registry entry but no entry in ANIMATION_IDS: the
+            // cast asserted the id was valid, the runtime validator disagreed, and adding the
+            // element failed with "invalid animation id". Throwing at construction turns that into
+            // an immediate, obvious failure at the one place new variants are added.
+            animation: toAnimationId(registryId),
             placements: { all: { ...entry.defaultBox } },
             z: 20,
         }

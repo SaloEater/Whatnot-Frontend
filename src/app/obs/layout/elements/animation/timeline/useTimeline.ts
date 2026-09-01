@@ -1,7 +1,8 @@
 'use client'
 
-// WAAPI runner for the local timeline (stash-or-pass-timeline-plan.md §3). Turns a BuiltTimeline
-// plus a set of DOM nodes into one controllable playback.
+// WAAPI runner for the timeline (stash-or-pass-timeline-plan.md §3). Turns a BuiltTimeline plus a
+// set of DOM nodes into one controllable playback. Shared by the stash-or-pass experiments only —
+// see the scope note in timeline.ts.
 //
 // WHY WAAPI RATHER THAN setTimeout + CSS CLASSES (what the original element does):
 //   - `playbackRate` replaces the original's committed `TIME_SCALE = 5` / `--sopw-ts: 5` debug
@@ -19,27 +20,30 @@
 // equivalent to driving a group.
 
 import { useCallback, useEffect, useRef } from 'react'
-import type { BuiltTimeline, ElId } from './timeline'
+import type { BuiltTimeline } from './timeline'
 
-export type NodeStore = {
+/** Animatable nodes may be SVG (the ring build's lane) as well as HTML. */
+type AnyEl = HTMLElement | SVGElement
+
+export type NodeStore<E extends string = string> = {
     /** Stable ref callback for one node, e.g. `ref={nodes.ref('copy', 2)}`. */
-    ref: (el: ElId, index?: number) => (node: HTMLElement | null) => void
-    get: (el: ElId, index?: number) => HTMLElement | undefined
+    ref: (el: E, index?: number) => (node: AnyEl | null) => void
+    get: (el: E, index?: number) => AnyEl | undefined
 }
 
 /**
  * Ref-callback registry. The callbacks are cached per `el:index`, so a re-render does not hand
  * React a new function identity and make it detach/reattach every node.
  */
-export function useNodes(): NodeStore {
-    const store = useRef(new Map<string, HTMLElement>())
-    const cbs = useRef(new Map<string, (node: HTMLElement | null) => void>())
+export function useNodes<E extends string = string>(): NodeStore<E> {
+    const store = useRef(new Map<string, AnyEl>())
+    const cbs = useRef(new Map<string, (node: AnyEl | null) => void>())
 
-    const ref = useCallback((el: ElId, index = 0) => {
+    const ref = useCallback((el: E, index = 0) => {
         const key = `${el}:${index}`
         let cb = cbs.current.get(key)
         if (!cb) {
-            cb = (node: HTMLElement | null) => {
+            cb = (node: AnyEl | null) => {
                 if (node) store.current.set(key, node)
                 else store.current.delete(key)
             }
@@ -48,11 +52,11 @@ export function useNodes(): NodeStore {
         return cb
     }, [])
 
-    const get = useCallback((el: ElId, index = 0) => store.current.get(`${el}:${index}`), [])
+    const get = useCallback((el: E, index = 0) => store.current.get(`${el}:${index}`), [])
 
     // Stable object, for the same reason the Controller below is one: consumers hold onto it
     // across renders, and both members already read through refs.
-    const api = useRef<NodeStore>()
+    const api = useRef<NodeStore<E>>()
     if (!api.current) api.current = { ref, get }
     return api.current
 }
@@ -84,7 +88,11 @@ type Opts = {
     onDone?: (direction: 'forward' | 'reverse') => void
 }
 
-export function useTimeline(built: BuiltTimeline | null, nodes: NodeStore, opts: Opts): Controller {
+export function useTimeline<E extends string>(
+    built: BuiltTimeline<E> | null,
+    nodes: NodeStore<E>,
+    opts: Opts
+): Controller {
     const anims = useRef<Animation[]>([])
     // Same cancellation idiom the original element used for its timer chain: a pass that has been
     // superseded (a re-cue, an unmount) must not fire its completion handler.

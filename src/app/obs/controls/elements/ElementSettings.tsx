@@ -60,15 +60,17 @@ export default function ElementSettings({registryId, channelId, seriesId, elemen
             return <ResultsSettings elementKey={elementKey} element={element} onPatchElement={onPatchElement}/>
         case 'resultsThin':
             return <ThinResultsSettings elementKey={elementKey} element={element} onPatchElement={onPatchElement}/>
-        // Both wrap animations share one config shape (target/pad/laneFontSize/speed/holdMs), so
-        // they share one settings panel — see registry.ts's note on the timeline rebuild.
+        // All three wrap builds share one config shape (target/pad/laneFontSize/speed/holdMs), so
+        // they share one settings panel — see registry.ts's notes on the parallel builds.
         case 'animation:stashOrPassWrap':
         case 'animation:stashOrPassWrapTl':
+        case 'animation:stashOrPassWrapRing':
             return (
                 <StashOrPassWrapSettings
                     elementKey={elementKey}
                     element={element}
                     config={config}
+                    currentPhase={currentPhase}
                     onPatchElement={onPatchElement}
                 />
             )

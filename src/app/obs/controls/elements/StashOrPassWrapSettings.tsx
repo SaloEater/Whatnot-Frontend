@@ -9,8 +9,9 @@
 // via `onPatchElement` rather than a separate backend endpoint.
 
 import { useEffect, useState } from 'react'
-import type { Element, LayoutConfig } from '@/app/obs/layout/schema'
+import type { Element, LayoutConfig, Phase } from '@/app/obs/layout/schema'
 import { REGISTRY, registryIdOf } from '@/app/obs/layout/registry'
+import { resolveBox } from '@/app/obs/layout/config'
 import {
     DEFAULT_LANE_FONT,
     DEFAULT_HOLD_MS,
@@ -27,19 +28,39 @@ type Props = {
     elementKey: string
     element: Element
     config: LayoutConfig
+    /** Which stage the block is showing — the target list is scoped to it (see targetChoices). */
+    currentPhase: Phase
     onPatchElement: PatchElement
 }
 
-export default function StashOrPassWrapSettings({ elementKey, element, config, onPatchElement }: Props) {
+export default function StashOrPassWrapSettings({
+    elementKey,
+    element,
+    config,
+    currentPhase,
+    onPatchElement,
+}: Props) {
     // Narrowed here rather than via an early return so the hooks below stay unconditional
     // (rules-of-hooks): this component is only mounted for `animation` elements anyway.
     const anim = element.kind === 'animation' ? element : null
 
-    // Target choices: every other element that has a real box of its own (hasBox) — a boxless
-    // element (including this one, and any other wrap) has nothing to glue to.
+    // Only elements that can ACTUALLY be targeted from this stage. Two filters, both necessary:
+    //   - `hasBox` — a boxless element (another wrap, the frame) has no box to wrap.
+    //   - placed in `currentPhase` — the layout builds `useResolvedBox`'s map from
+    //     elementsForPhase(), so a target that is not in the current stage resolves to undefined
+    //     and the animation renders nothing at all. Offering it was how you could pick a target
+    //     and get silence.
     const targetChoices = Object.entries(config.elements).filter(
-        ([key, el]) => key !== elementKey && REGISTRY[registryIdOf(el)].hasBox
+        ([key, el]) =>
+            key !== elementKey &&
+            REGISTRY[registryIdOf(el)].hasBox &&
+            resolveBox(el, currentPhase) !== undefined
     )
+    // A stored target that is not viable here still has to appear, or the select would fall blank
+    // and hide what is actually configured.
+    const storedTarget = anim?.target
+    const storedTargetMissing =
+        !!storedTarget && !targetChoices.some(([key]) => key === storedTarget)
 
     const pad = anim?.pad ?? DEFAULT_PAD
     // Pad is allowed to be NEGATIVE (bands sit inside the target's box, overlapping it) — the
@@ -84,6 +105,11 @@ export default function StashOrPassWrapSettings({ elementKey, element, config, o
                     onChange={(e) => onPatchElement(elementKey, { target: e.target.value || undefined })}
                 >
                     <option value="">(first board)</option>
+                    {storedTargetMissing && (
+                        <option value={storedTarget}>
+                            {storedTarget} — not in this stage
+                        </option>
+                    )}
                     {targetChoices.map(([key, el]) => (
                         <option key={key} value={key}>
                             {REGISTRY[registryIdOf(el)].label} ({key})

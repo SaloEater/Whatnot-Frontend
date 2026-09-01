@@ -1,0 +1,118 @@
+/* Styles for the shared ?dev=1 timeline tuner (timeline/Tuner.tsx). Lives with the component
+   rather than in either element's stylesheet, so deleting an experiment cannot take the tuner's
+   appearance with it. */
+
+#antl-tuner-dock {
+    position: fixed;
+    right: 8px;
+    bottom: 8px;
+    z-index: 9999;
+    display: flex;
+    /* column-reverse so a second build's tuner stacks upward instead of pushing the first off
+       the bottom of the screen. */
+    flex-direction: column-reverse;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.antl-tuner {
+    width: 320px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    background: rgba(12, 12, 14, 0.92);
+    color: #e8e8e8;
+    font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+    pointer-events: auto;
+}
+.antl-tuner h6 {
+    margin: 0 0 6px;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #f0c24b;
+}
+.antl-tuner-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+.antl-tuner-row label {
+    width: 46px;
+    flex: none;
+    color: #9a9a9a;
+}
+.antl-tuner-row input[type='range'] {
+    flex: 1;
+    accent-color: #f0c24b;
+}
+.antl-tuner-row .antl-tuner-val {
+    width: 62px;
+    flex: none;
+    text-align: right;
+}
+.antl-tuner-buttons {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+.antl-tuner-buttons button {
+    flex: 1;
+    padding: 3px 0;
+    border: 1px solid #4a4a4a;
+    border-radius: 4px;
+    background: #1e1e22;
+    color: #e8e8e8;
+    font: inherit;
+    cursor: pointer;
+}
+.antl-tuner-buttons button:hover {
+    border-color: #f0c24b;
+}
+/* Stage ruler: proportional strips, so a retimed stage is visible as a width change. */
+.antl-tuner-ruler {
+    position: relative;
+    display: flex;
+    height: 20px;
+    border: 1px solid #3a3a3a;
+    border-radius: 3px;
+    overflow: hidden;
+}
+.antl-tuner-stage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-right: 1px solid #3a3a3a;
+    font-size: 9px;
+    color: #b9b9b9;
+    background: #202024;
+    white-space: nowrap;
+}
+.antl-tuner-stage:last-child {
+    border-right: 0;
+}
+.antl-tuner-playhead {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #f0c24b;
+    pointer-events: none;
+}
+.antl-tuner-tracks {
+    margin-top: 8px;
+    max-height: 130px;
+    overflow-y: auto;
+    font-size: 10px;
+    color: #9a9a9a;
+}
+.antl-tuner-tracks div {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+}
+.antl-tuner-tracks b {
+    color: #d8d8d8;
+    font-weight: 400;
+}

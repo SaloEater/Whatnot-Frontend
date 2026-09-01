@@ -1,35 +1,39 @@
 'use client'
 
-// ?dev=1 tuner for the timeline build (stash-or-pass-timeline-plan.md §7). Deliberately LOCAL to
-// this element rather than a row added to the shared [id]/DevPanel.tsx — the timeline is local by
-// decision, and so is the surface for tuning it. Nothing here touches the cue bus, OverlayState
-// or the backend; Replay re-runs the entrance without changing whether the event is "on".
+// ?dev=1 tuner for the timeline builds (stash-or-pass-timeline-plan.md §7). Deliberately NOT a row
+// added to the shared [id]/DevPanel.tsx — the timeline is local to these elements by decision, and
+// so is the surface for tuning it. Nothing here touches the cue bus, OverlayState or the backend;
+// Replay re-runs the entrance without changing whether the event is "on".
 //
-// Portalled to <body> because .lay-canvas carries a transform, which makes `position: fixed`
-// resolve against that element instead of the viewport — the tuner would otherwise be scaled and
-// clipped along with the 1080x1920 canvas.
+// Portalled out of the stage into a fixed dock (see `dock()` below) because .lay-canvas carries a
+// transform, which makes `position: fixed` resolve against that element instead of the viewport —
+// the tuner would otherwise be scaled and clipped along with the 1080x1920 canvas.
 
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { BuiltTimeline } from './timeline'
 import type { Controller } from './useTimeline'
+import './Tuner.css'
 
-const RATE_KEY = 'soptl.tuner.rate'
+const RATE_KEY = 'antl.tuner.rate'
 
-export function TlTuner({
+export function Tuner({
     built,
     ctl,
     rate,
     onRate,
     onReplay,
     phase,
+    title,
 }: {
-    built: BuiltTimeline | null
+    built: BuiltTimeline<string> | null
     ctl: Controller
     rate: number
     onRate: (rate: number) => void
     onReplay: () => void
     phase: string
+    /** Names which build this tuner belongs to — two can be on screen at once. */
+    title: string
 }) {
     // Mount-gated on the client only: reading location during render would differ from the SSR
     // markup. Same reason DevPanel seeds Date.now() in an effect.
@@ -67,10 +71,10 @@ export function TlTuner({
     const pos = playhead === null ? 0 : Math.max(0, Math.min(total, playhead))
 
     return createPortal(
-        <div className="soptl-tuner">
-            <h6>stash or pass — timeline</h6>
+        <div className="antl-tuner">
+            <h6>{title}</h6>
 
-            <div className="soptl-tuner-row">
+            <div className="antl-tuner-row">
                 <label htmlFor="soptl-rate">rate</label>
                 <input
                     id="soptl-rate"
@@ -85,10 +89,10 @@ export function TlTuner({
                         window.localStorage.setItem(RATE_KEY, String(r))
                     }}
                 />
-                <span className="soptl-tuner-val">{rate.toFixed(2)}×</span>
+                <span className="antl-tuner-val">{rate.toFixed(2)}×</span>
             </div>
 
-            <div className="soptl-tuner-row">
+            <div className="antl-tuner-row">
                 <label htmlFor="soptl-scrub">time</label>
                 <input
                     id="soptl-scrub"
@@ -105,12 +109,12 @@ export function TlTuner({
                         ctl.seek(Number(e.target.value))
                     }}
                 />
-                <span className="soptl-tuner-val">
+                <span className="antl-tuner-val">
                     {Math.round(pos)}/{total}
                 </span>
             </div>
 
-            <div className="soptl-tuner-buttons">
+            <div className="antl-tuner-buttons">
                 <button
                     onClick={() => {
                         setScrubbing(false)
@@ -134,11 +138,11 @@ export function TlTuner({
             {/* Stage ruler — strips proportional to each stage's duration, so a retiming shows up
                 as a width change and a warm-up's start is visible as a playhead position inside
                 the PREVIOUS stage. */}
-            <div className="soptl-tuner-ruler">
+            <div className="antl-tuner-ruler">
                 {built?.ruler.map((s) => (
                     <div
                         key={s.id}
-                        className="soptl-tuner-stage"
+                        className="antl-tuner-stage"
                         style={{ width: `${total > 0 ? (s.dur / total) * 100 : 0}%` }}
                         title={`${s.id}: ${s.start}–${s.start + s.dur}ms`}
                     >
@@ -146,12 +150,12 @@ export function TlTuner({
                     </div>
                 ))}
                 <div
-                    className="soptl-tuner-playhead"
+                    className="antl-tuner-playhead"
                     style={{ left: `${total > 0 ? (pos / total) * 100 : 0}%` }}
                 />
             </div>
 
-            <div className="soptl-tuner-tracks">
+            <div className="antl-tuner-tracks">
                 <div>
                     <b>phase</b>
                     <span>{phase}</span>
@@ -166,6 +170,23 @@ export function TlTuner({
                 ))}
             </div>
         </div>,
-        document.body
+        dock()
     )
+}
+
+/**
+ * Find-or-create the fixed column every tuner portals into. A dock rather than each panel being
+ * `position: fixed` itself, because more than one build can be placed on the canvas at once and
+ * they must not stack on top of each other. Portalled out of the stage because .lay-canvas carries
+ * a transform, which makes `position: fixed` resolve against that element instead of the viewport.
+ */
+function dock(): HTMLElement {
+    const id = 'antl-tuner-dock'
+    let el = document.getElementById(id)
+    if (!el) {
+        el = document.createElement('div')
+        el.id = id
+        document.body.appendChild(el)
+    }
+    return el
 }

@@ -48,7 +48,7 @@ export type FrameVariant = (typeof FRAME_VARIANTS)[number]
 // animation rebuilt on a local label timeline (stash-or-pass-timeline-plan.md). The two are
 // deliberately both available so they can be placed together and compared; whichever wins, the
 // other is deleted and this union goes back to one member.
-export const ANIMATION_IDS = ['stashOrPassWrap', 'stashOrPassWrapTl'] as const
+export const ANIMATION_IDS = ['stashOrPassWrap', 'stashOrPassWrapTl', 'stashOrPassWrapRing'] as const
 export type AnimationId = (typeof ANIMATION_IDS)[number]
 
 // Sort mode shared by `results` (§2.3, always 'alphabetical') and `resultsThin` (§2.4, operator

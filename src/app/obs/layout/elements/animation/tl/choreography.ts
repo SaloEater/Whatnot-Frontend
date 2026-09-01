@@ -8,7 +8,7 @@
 // stack) the rebuild keeps the departure, so old and new can be compared like for like.
 
 import type { Box } from '../../../schema'
-import type { Stage, Track } from './timeline'
+import type { Stage, Track } from '../timeline/timeline'
 import { BAND_ORDER, BAND_ROTATION, bandCenter, boxCenter, fanOffset } from './geometry'
 
 /* ── The numbers ────────────────────────────────────────────────────────────────────────────
@@ -74,6 +74,9 @@ function round(n: number, dp = 2): number {
     return Math.round(n * f) / f
 }
 
+/** The animatable parts of this build. `copy` and `band` have four instances each. */
+export type TlElId = 'wash' | 'ring' | 'fill' | 'blowout' | 'word' | 'copy' | 'band'
+
 export type Geometry = {
     box: Box
     pad: number
@@ -89,10 +92,10 @@ export type Geometry = {
  * WHAT VALUES. Tracks may overlap freely — several tracks driving the same property on the same
  * element form a chain of segments in clock order (see buildTimeline's sort note).
  */
-export function buildTracks(g: Geometry): Track[] {
+export function buildTracks(g: Geometry): Track<TlElId>[] {
     const { box, pad, thickness, recoil, glitch } = g
     const centre = boxCenter(box)
-    const tracks: Track[] = []
+    const tracks: Track<TlElId>[] = []
 
     /* ── ground wash ── dims for the anticipation, released once the word splits ── */
     tracks.push(

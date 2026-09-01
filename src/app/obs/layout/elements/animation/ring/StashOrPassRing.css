@@ -1,0 +1,152 @@
+/* animation:stashOrPassWrapRing — appearance only.
+ *
+ * Same rule as the other timeline build: CSS owns look, TS owns time. No transition, no delay and
+ * no duration here at all — this build does not even have the two orbit marquee keyframes the
+ * four-lane one keeps, because the single lane's scroll is an SVG `startOffset` that CSS cannot
+ * animate (see StashOrPassRing.tsx's rAF loop and the note on its cost).
+ *
+ * Classes are prefixed `soptlr-`, distinct from `sopw-` and `soptl-`, so all three builds can sit
+ * on one canvas and be compared.
+ */
+
+@font-face {
+    font-family: 'Grechka SHA';
+    src: url('/fonts/Grechka%20SHA_0.otf') format('opentype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: block;
+}
+
+.soptlr-root {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: visible;
+    --soptlr-ivory: #f3ecd8;
+    --soptlr-gold-bright: #f0c24b;
+    --soptlr-gold-mid: #c99a38;
+    --soptlr-bronze: #8a6a1f;
+    --soptlr-ground: #14100a;
+}
+
+.soptlr-measure {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    visibility: hidden;
+    pointer-events: none;
+    white-space: nowrap;
+    line-height: 1;
+    font-family: 'Grechka SHA', 'Arial Narrow', sans-serif;
+    font-weight: 400;
+}
+
+/* ---- ground wash + panel ------------------------------------------------------------------ */
+
+.soptlr-wash {
+    position: absolute;
+    inset: 0;
+    background: #000;
+    opacity: 0;
+}
+
+.soptlr-panel {
+    position: absolute;
+    overflow: visible;
+}
+
+.soptlr-ring {
+    position: absolute;
+    inset: 0;
+    border: 4px solid var(--soptlr-gold-mid);
+    transform: scale(1);
+    opacity: 0;
+}
+
+.soptlr-fill {
+    position: absolute;
+    inset: 0;
+    background: var(--soptlr-gold-bright);
+    opacity: 0;
+}
+
+.soptlr-blowout {
+    position: absolute;
+    inset: 0;
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* ---- word + copies ------------------------------------------------------------------------ */
+
+.soptlr-anchor {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+.soptlr-word,
+.soptlr-copy {
+    font-family: 'Grechka SHA', 'Arial Narrow', sans-serif;
+    font-weight: 400;
+    font-size: var(--soptlr-headline, 96px);
+    line-height: 1;
+    white-space: nowrap;
+    transform-origin: center;
+    opacity: 0;
+}
+
+.soptlr-word {
+    color: var(--soptlr-ground);
+    letter-spacing: 0.02em;
+}
+
+.soptlr-copy {
+    -webkit-text-stroke: calc(var(--soptlr-headline, 96px) * 0.055) #000;
+    paint-order: stroke fill;
+}
+
+/* ---- the single lane ----------------------------------------------------------------------
+ * The <svg> spans the whole canvas so the ring can be described in the same canvas coordinates as
+ * everything else; it never intercepts input and never paints outside the lane.
+ */
+
+.soptlr-svg {
+    position: absolute;
+    inset: 0;
+    overflow: visible;
+    pointer-events: none;
+}
+
+/* Base opacity 0; raised by the `lane forms` track during the entrance (which keeps filling
+   afterwards) and by --lit once the orbit owns it. Both mean 1, so the handoff is invisible. */
+.soptlr-lane {
+    opacity: 0;
+}
+.soptlr-lane--lit {
+    opacity: 1;
+}
+
+.soptlr-lane-body {
+    fill: none;
+    stroke: var(--soptlr-gold-mid);
+    /* stroke-width is set inline from the measured lane thickness. */
+    stroke-linejoin: round;
+}
+
+.soptlr-lane-stripes {
+    fill: none;
+    stroke-linejoin: round;
+    pointer-events: none;
+}
+
+.soptlr-lane-text {
+    font-family: 'Grechka SHA', 'Arial Narrow', sans-serif;
+    font-weight: 400; /* never synthesise bold — see tokens.ts's note on this typeface */
+    fill: var(--soptlr-ground);
+    /* No stroke and no shadow: on a path, a stroked glyph reads as fringing where the tangent
+       turns. The lane's own gold gives enough contrast. */
+}
