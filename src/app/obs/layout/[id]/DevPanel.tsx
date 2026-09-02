@@ -5,8 +5,7 @@
 // local-only override (obs-layout-plan.md §1.4).
 
 import {useEffect, useState} from 'react'
-import {PHASES} from '../schema'
-import type {Phase} from '../schema'
+import type {Phase, Stage} from '../schema'
 import {useLayoutData} from '../useLayoutData'
 import {useCueBus} from '../cueBus'
 import {SCENE_EVENTS} from '../sceneEvents'
@@ -20,11 +19,13 @@ function agoLabel(now: number | null, at: number | undefined): string {
 
 export function DevPanel({
     phase,
+    stages,
     seq,
     lastBusEventAt,
     onSetPhase,
 }: {
     phase: Phase
+    stages: Stage[]
     seq: number
     lastBusEventAt: number | null
     onSetPhase: (phase: Phase) => void
@@ -47,14 +48,14 @@ export function DevPanel({
             <div className="lay-dev-row">
                 <span className="lay-dev-label">phase</span>
                 <div className="lay-dev-phase-buttons">
-                    {PHASES.map((p) => (
+                    {stages.map((s) => (
                         <button
-                            key={p}
+                            key={s.id}
                             type="button"
-                            className={`lay-dev-phase-btn${p === phase ? ' lay-dev-phase-btn--active' : ''}`}
-                            onClick={() => onSetPhase(p)}
+                            className={`lay-dev-phase-btn${s.id === phase ? ' lay-dev-phase-btn--active' : ''}`}
+                            onClick={() => onSetPhase(s.id)}
                         >
-                            {p}
+                            {s.id}
                         </button>
                     ))}
                 </div>

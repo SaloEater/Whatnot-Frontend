@@ -14,8 +14,9 @@ import { ResultsElement } from './elements/results/ResultsElement'
 import { ThinResults } from './elements/results-thin/ThinResults'
 import { CircleWidget } from './elements/circle/CircleWidget'
 import { CardsElement } from './elements/cards/CardsElement'
+import { TextElement } from './elements/text/TextElement'
 import type { AnimationId, BoardVariant, Box, Element, ElementKind, FrameVariant, Phase, WidgetId } from './schema'
-import { ANIMATION_IDS, DEFAULT_FRAME_BORDERS, DEFAULT_FRAME_WIDTH, PHASES } from './schema'
+import { ANIMATION_IDS, DEFAULT_FRAME_BORDERS, DEFAULT_FRAME_WIDTH } from './schema'
 import type { SceneEventName } from './sceneEvents'
 
 export type RegistryId =
@@ -37,6 +38,7 @@ export type RegistryId =
     | 'animation:stashOrPassWrap'
     | 'animation:stashOrPassWrapTl'
     | 'animation:stashOrPassWrapRing'
+    | 'text'
 
 // Shared prop contract every registry component (placeholder now, real components in Phase 2)
 // implements.
@@ -58,7 +60,10 @@ export type RegistryEntry = {
     singleton: boolean
     singletonGroup: string
     defaultBox: Box
-    allowedPhases: Phase[]
+    // Every entry allows every stage — with per-channel configurable stages (schema.ts's `Stage`)
+    // a static list can no longer express which stages an element is placeable in, so there is no
+    // `allowedPhases` any more (config.ts's `validatePlacements` accepts any of the config's own
+    // stages, or 'all', for every registry entry).
     defaultPhases: Phase[]
     preload: string[]
     component: ComponentType<ElementProps>
@@ -97,6 +102,12 @@ const RESERVED_BOX: Box = { x: 1080 - 480, y: 0, w: 480, h: 270 }
 // (obs-layout-plan.md §2.4's stated use case), not full-canvas like `results` (§2.3). Purely a
 // starting point; the operator resizes it in the builder like any other box.
 const RESULTS_THIN_BOX: Box = { x: 1080 - 340, y: 300, w: 340, h: 1300 }
+// Upper-middle strip, chosen to land in the one gap the other defaults leave clear at that height:
+// below RIPBAR_BOX (y 0-120, full width) and to the left of RESERVED_BOX (x 600-1080, y 0-270),
+// above BOARD_BOX (starts y 300). x=40..600 and y=130..290 sits inside all three gaps at once, so
+// a freshly-added text element doesn't spawn already overlapping the camera hole, the rip bar, or
+// the board — purely a starting point, the operator repositions/resizes it like anything else.
+const TEXT_BOX: Box = { x: 40, y: 130, w: 560, h: 160 }
 
 export const REGISTRY: Record<RegistryId, RegistryEntry> = {
     'board:flat': {
@@ -106,7 +117,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: true,
         singletonGroup: 'board',
         defaultBox: BOARD_BOX,
-        allowedPhases: PHASES,
         defaultPhases: ['selling'],
         // Just the static board background — the per-cell/per-tile skin art is combinatorial
         // (style x tier x piece x variant, resolved from manifest.json at runtime) and not worth
@@ -126,7 +136,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: true,
         singletonGroup: 'board',
         defaultBox: BOARD_BOX,
-        allowedPhases: PHASES,
         defaultPhases: ['selling'],
         preload: [],
         component: Placeholder,
@@ -141,7 +150,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: true,
         singletonGroup: 'board',
         defaultBox: BOARD_BOX,
-        allowedPhases: PHASES,
         defaultPhases: ['selling'],
         preload: [],
         component: CobraBoard,
@@ -160,7 +168,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: false,
         singletonGroup: 'widget:pick2',
         defaultBox: widgetDefaultBox(0),
-        allowedPhases: PHASES,
         defaultPhases: ['selling'],
         preload: [],
         component: CircleWidget,
@@ -175,7 +182,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: false,
         singletonGroup: 'widget:stashorpass',
         defaultBox: widgetDefaultBox(1),
-        allowedPhases: PHASES,
         defaultPhases: ['selling'],
         preload: [],
         component: CircleWidget,
@@ -190,7 +196,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: false,
         singletonGroup: 'widget:name',
         defaultBox: widgetDefaultBox(2),
-        allowedPhases: PHASES,
         defaultPhases: ['selling'],
         preload: [],
         component: CircleWidget,
@@ -205,7 +210,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: false,
         singletonGroup: 'widget:boxesPerBreak',
         defaultBox: widgetDefaultBox(3),
-        allowedPhases: PHASES,
         defaultPhases: ['selling'],
         preload: [],
         component: CircleWidget,
@@ -220,7 +224,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: false,
         singletonGroup: 'widget:boxesLeft',
         defaultBox: widgetDefaultBox(4),
-        allowedPhases: PHASES,
         defaultPhases: ['selling'],
         preload: [],
         component: CircleWidget,
@@ -235,7 +238,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: false,
         singletonGroup: 'widget:chasersLeft',
         defaultBox: widgetDefaultBox(5),
-        allowedPhases: PHASES,
         defaultPhases: ['selling'],
         preload: [],
         component: CircleWidget,
@@ -250,7 +252,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: true,
         singletonGroup: 'results',
         defaultBox: FULL_BOX,
-        allowedPhases: PHASES,
         defaultPhases: ['results'],
         preload: [],
         component: ResultsElement,
@@ -271,7 +272,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: true,
         singletonGroup: 'resultsThin',
         defaultBox: RESULTS_THIN_BOX,
-        allowedPhases: PHASES,
         // Interpretation: the plan's use case is "alongside a board, or during ripping" — full
         // `results` already owns the `results` phase by default, so this defaults to `ripping`
         // rather than competing with it. The operator can add it to any phase either way.
@@ -291,7 +291,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: true,
         singletonGroup: 'cards',
         defaultBox: FULL_BOX,
-        allowedPhases: PHASES,
         defaultPhases: ['selling'],
         preload: [],
         component: CardsElement,
@@ -307,7 +306,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: true,
         singletonGroup: 'ripbar',
         defaultBox: RIPBAR_BOX,
-        allowedPhases: PHASES,
         defaultPhases: ['ripping'],
         preload: [],
         component: Placeholder,
@@ -322,7 +320,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: true,
         singletonGroup: 'reserved',
         defaultBox: RESERVED_BOX,
-        allowedPhases: PHASES,
         defaultPhases: ['selling'],
         preload: [],
         component: Placeholder,
@@ -342,7 +339,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: true,
         singletonGroup: 'frame',
         defaultBox: FULL_BOX,
-        allowedPhases: PHASES,
         // Irrelevant for frame — makeElement() below always places it via `all` instead.
         defaultPhases: [],
         preload: [],
@@ -364,7 +360,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: false,
         singletonGroup: 'animation:stashOrPassWrap',
         defaultBox: FULL_BOX,
-        allowedPhases: PHASES,
         // Irrelevant here too — makeElement() always places it via `all`, same as frame.
         defaultPhases: [],
         // Self-hosted font (public/fonts/Grechka SHA_0.otf) — see StashOrPassWrap.css.
@@ -387,7 +382,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: false,
         singletonGroup: 'animation:stashOrPassWrapTl',
         defaultBox: FULL_BOX,
-        allowedPhases: PHASES,
         defaultPhases: [],
         preload: ['/fonts/Grechka SHA_0.otf'],
         component: StashOrPassTl,
@@ -405,13 +399,28 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: false,
         singletonGroup: 'animation:stashOrPassWrapRing',
         defaultBox: FULL_BOX,
-        allowedPhases: PHASES,
         defaultPhases: [],
         preload: ['/fonts/Grechka SHA_0.otf'],
         component: StashOrPassRing,
         available: true,
         hasBox: false,
         reactsTo: ['stash_or_pass'],
+    },
+    text: {
+        id: 'text',
+        kind: 'text',
+        label: 'Text box',
+        // Several may be placed (obs-layout-plan.md §2.12) — like the wrap animations, each
+        // instance gets its own group so `singleton: false` alone is what allows multiple copies.
+        singleton: false,
+        singletonGroup: 'text',
+        defaultBox: TEXT_BOX,
+        defaultPhases: ['selling'],
+        preload: [],
+        component: TextElement,
+        available: true,
+        hasBox: true,
+        reactsTo: [],
     },
 }
 
@@ -435,6 +444,8 @@ export function registryIdOf(element: Element): RegistryId {
             return `frame:${element.variant}` as RegistryId
         case 'animation':
             return `animation:${element.animation}` as RegistryId
+        case 'text':
+            return 'text'
         default: {
             const _exhaustive: never = element
             throw new Error(`registryIdOf: unhandled element ${JSON.stringify(_exhaustive)}`)
@@ -514,6 +525,10 @@ export function makeElement(registryId: RegistryId): Element {
             return { kind: 'ripbar', placements }
         case 'reserved':
             return { kind: 'reserved', placements }
+        case 'text':
+            // text/fontSize left unset — the component's own default applies (TextElement.tsx's
+            // DEFAULT_FONT_SIZE), same convention as resultsThin's columns/textSize/iconSize/sort.
+            return { kind: 'text', placements }
         default: {
             const _exhaustive: never = entry.kind
             throw new Error(`makeElement: unhandled kind ${JSON.stringify(_exhaustive)}`)

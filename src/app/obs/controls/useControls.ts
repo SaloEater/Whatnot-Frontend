@@ -83,39 +83,58 @@ export function useControls(channelId: number, obs: MyOBSWebsocket | null, isCon
                 post(getEndpoints().layout_state_get, {channel_id: channelId}) as Promise<LayoutStateGetResponse | unknown>,
             ])
 
+            let nextConfig: LayoutConfig
             if (!isBackendFailure(configResp)) {
                 const raw = (configResp as LayoutConfigGetResponse).config
                 if (raw) {
                     const validated = validateConfig(migrateConfig(raw))
-                    setConfig(validated.ok ? validated.config : defaultConfig())
+                    nextConfig = validated.ok ? validated.config : defaultConfig()
                     if (!validated.ok) {
                         console.warn('[useControls] config from backend failed validation, using default', validated.errors)
                     }
                 } else {
-                    setConfig(defaultConfig())
+                    nextConfig = defaultConfig()
                 }
             } else {
                 console.warn('[useControls] failed to load config, using default', configResp)
-                setConfig(defaultConfig())
+                nextConfig = defaultConfig()
             }
 
+            let nextState: OverlayState
+            let nextSeq = 0
             if (!isBackendFailure(stateResp)) {
                 const resp = stateResp as LayoutStateGetResponse
                 if (resp.state) {
                     const validated = validateState(migrateState(resp.state))
-                    setState(validated.ok ? validated.state : defaultState())
+                    nextState = validated.ok ? validated.state : defaultState()
                     if (!validated.ok) {
                         console.warn('[useControls] state from backend failed validation, using default', validated.errors)
                     }
                 } else {
-                    setState(defaultState())
+                    nextState = defaultState()
                 }
-                setSeq(typeof resp.seq === 'number' ? resp.seq : 0)
+                nextSeq = typeof resp.seq === 'number' ? resp.seq : 0
             } else {
                 console.warn('[useControls] failed to load state, using default', stateResp)
-                setState(defaultState())
-                setSeq(0)
+                nextState = defaultState()
+                nextSeq = 0
             }
+
+            // `state` and `config` are validated independently (validateState has no `stages` in
+            // scope to check `phase` against — see config.ts) — reconcile the two here instead: a
+            // stored phase that isn't one of THIS config's stages (the stage was deleted, or the
+            // whole config was swapped) falls back to the config's first stage. Surfaced via
+            // console.warn rather than silently: cheap, and matches every other correction above.
+            if (!nextConfig.stages.some((s) => s.id === nextState.phase)) {
+                console.warn(
+                    `[useControls] state.phase "${nextState.phase}" is not a stage in this config, falling back to "${nextConfig.stages[0].id}"`
+                )
+                nextState = {...nextState, phase: nextConfig.stages[0].id}
+            }
+
+            setConfig(nextConfig)
+            setState(nextState)
+            setSeq(nextSeq)
         } finally {
             setLoading(false)
         }

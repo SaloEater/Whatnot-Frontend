@@ -3,15 +3,17 @@
 // so everything that touches a config/state coming off the network must go through `migrateConfig`
 // / `migrateState` and then `validateConfig` / `validateState` before it is trusted.
 
-import type { Box, Cue, Element, LayoutConfig, OverlayState, Phase, PlacementKey, Sides } from './schema'
+import type { Box, Cue, Element, LayoutConfig, OverlayState, Phase, PlacementKey, Sides, Stage } from './schema'
 import {
     ANIMATION_IDS,
     BOARD_VARIANTS,
+    BUILT_IN_STAGES,
     CANVAS,
     DEFAULT_FRAME_BORDERS,
     DEFAULT_FRAME_WIDTH,
+    DEFAULT_STAGES,
     FRAME_VARIANTS,
-    PHASES,
+    MAX_TEXT_LENGTH,
     RESULTS_SORTS,
     WIDGET_IDS,
 } from './schema'
@@ -24,6 +26,7 @@ export function defaultConfig(): LayoutConfig {
     return {
         version: 1,
         canvas: { ...CANVAS },
+        stages: DEFAULT_STAGES.map((s) => ({ ...s })),
         elements: {},
         obsBindings: { useTransition: false },
     }
@@ -41,12 +44,15 @@ function isFiniteNumber(v: unknown): v is number {
     return typeof v === 'number' && Number.isFinite(v)
 }
 
-function isPhase(v: unknown): v is Phase {
-    return typeof v === 'string' && (PHASES as string[]).includes(v)
+// Validated against ONE config's `stages` (there is no global stage list any more) — every caller
+// below has that config's stages in scope already, since stages are validated before anything that
+// needs to check a phase against them (see `validateConfig`'s ordering).
+function isPhase(v: unknown, stages: Stage[]): v is Phase {
+    return typeof v === 'string' && stages.some((s) => s.id === v)
 }
 
-function isPlacementKey(v: unknown): v is PlacementKey {
-    return v === 'all' || isPhase(v)
+function isPlacementKey(v: unknown, stages: Stage[]): v is PlacementKey {
+    return v === 'all' || isPhase(v, stages)
 }
 
 function isBox(v: unknown): v is Box {
@@ -90,10 +96,21 @@ function isSides(v: unknown): v is Sides {
 
 export function migrateConfig(raw: unknown): unknown {
     if (!isPlainObject(raw)) return raw
-    const elementsRaw = raw.elements
-    if (!isPlainObject(elementsRaw)) return raw
 
+    let out: Record<string, unknown> = raw
     let changed = false
+
+    // `stages` is new — any config stored before it existed gets the three built-ins, so it keeps
+    // validating and working exactly as it did (every existing element's placements were already
+    // keyed by one of these three).
+    if (out.stages === undefined) {
+        out = { ...out, stages: BUILT_IN_STAGES.map((s) => ({ ...s })) }
+        changed = true
+    }
+
+    const elementsRaw = out.elements
+    if (!isPlainObject(elementsRaw)) return changed ? out : raw
+
     const migratedElements: Record<string, unknown> = {}
     for (const [key, elRaw] of Object.entries(elementsRaw)) {
         if (!isPlainObject(elRaw)) {
@@ -148,7 +165,7 @@ export function migrateConfig(raw: unknown): unknown {
     }
 
     if (!changed) return raw
-    return { ...raw, elements: migratedElements }
+    return { ...out, elements: migratedElements }
 }
 
 export function migrateState(raw: unknown): unknown {
@@ -189,7 +206,7 @@ const VALID_FRAME_VARIANTS = FRAME_VARIANTS
 const VALID_ANIMATION_IDS = ANIMATION_IDS
 const VALID_RESULTS_SORTS = RESULTS_SORTS
 
-function validatePlacements(key: string, placementsRaw: unknown, regId: RegistryId): string[] {
+function validatePlacements(key: string, placementsRaw: unknown, regId: RegistryId, stages: Stage[]): string[] {
     const errors: string[] = []
     if (placementsRaw === undefined) return errors
     if (!isPlainObject(placementsRaw)) {
@@ -200,15 +217,12 @@ function validatePlacements(key: string, placementsRaw: unknown, regId: Registry
         errors.push(`element "${key}": unknown registry ID "${regId}"`)
         return errors
     }
+    // Every registry entry allows every stage (there is no more per-type `allowedPhases` — see
+    // registry.ts) — a placement is invalid only if its key isn't 'all' or one of THIS config's
+    // stages.
     for (const [phase, box] of Object.entries(placementsRaw)) {
-        if (!isPlacementKey(phase)) {
+        if (!isPlacementKey(phase, stages)) {
             errors.push(`element "${key}": invalid phase "${phase}" in placements`)
-            continue
-        }
-        // 'all' is a persistence fallback available to every element, regardless of which real
-        // phases it is normally allowed in.
-        if (phase !== 'all' && !entry.allowedPhases.includes(phase)) {
-            errors.push(`element "${key}": phase "${phase}" is not allowed for ${regId}`)
             continue
         }
         if (!isBox(box)) {
@@ -260,14 +274,14 @@ function validateFrameWidth(key: string, raw: unknown): string[] {
 // as `placements` (a real phase, or `all`), each value a `Sides` of four finite numbers >= 0.
 // Mirrors `validatePlacements` in shape but there is no `allowedPhases` gate here — a border isn't
 // what puts an element in a stage, `placements` already does that, so any `PlacementKey` is valid.
-function validateBorders(key: string, bordersRaw: unknown): string[] {
+function validateBorders(key: string, bordersRaw: unknown, stages: Stage[]): string[] {
     const errors: string[] = []
     if (bordersRaw === undefined) return errors
     if (!isPlainObject(bordersRaw)) {
         return [`element "${key}": borders must be an object`]
     }
     for (const [phase, sides] of Object.entries(bordersRaw)) {
-        if (!isPlacementKey(phase)) {
+        if (!isPlacementKey(phase, stages)) {
             errors.push(`element "${key}": invalid phase "${phase}" in borders`)
             continue
         }
@@ -305,6 +319,76 @@ function validateResultsThinFields(key: string, rawEl: Record<string, unknown>):
     return errors
 }
 
+// `text` field validation (obs-layout-plan.md §2.12): `text` is a string capped at
+// MAX_TEXT_LENGTH (schema.ts), `fontSize` a finite number > 0 (absolute canvas px — see
+// TextElement.tsx for why it is not derived from `box`).
+function validateTextFields(key: string, rawEl: Record<string, unknown>): string[] {
+    const errors: string[] = []
+    if (rawEl.text !== undefined) {
+        if (typeof rawEl.text !== 'string') {
+            errors.push(`element "${key}": text must be a string`)
+        } else if (rawEl.text.length > MAX_TEXT_LENGTH) {
+            errors.push(`element "${key}": text must be at most ${MAX_TEXT_LENGTH} characters`)
+        }
+    }
+    if (rawEl.fontSize !== undefined && (!isFiniteNumber(rawEl.fontSize) || rawEl.fontSize <= 0)) {
+        errors.push(`element "${key}": fontSize must be a finite number > 0`)
+    }
+    return errors
+}
+
+// `config.stages`: non-empty, every entry `{id: non-empty string, label: non-empty string}`,
+// unique ids, 'all' reserved (it's the persistent-placement key, not a real stage), and every
+// built-in id (BUILT_IN_STAGES) present — order among them is free, since reordering built-ins is
+// allowed, only deleting them is refused. Validated BEFORE placements (`validateConfig` calls this
+// first) since `validatePlacements`/`validateBorders` check every placement key against the result.
+//
+// Interpretation: the spec's "each entry {id: string, label: string} with a non-empty id" states
+// the id requirement explicitly; a stage with an empty label would be unselectable/unreadable in
+// every stage picker, so this also requires a non-empty label. The Stages tab UI never lets an
+// operator submit one anyway (the Add button is disabled on an empty label draft).
+function validateStages(rawStages: unknown): { errors: string[]; stages: Stage[] } {
+    const errors: string[] = []
+    const stages: Stage[] = []
+
+    if (!Array.isArray(rawStages) || rawStages.length === 0) {
+        errors.push('config.stages must be a non-empty array')
+        return { errors, stages: DEFAULT_STAGES.map((s) => ({ ...s })) }
+    }
+
+    const seenIds = new Set<string>()
+    rawStages.forEach((raw, i) => {
+        if (
+            !isPlainObject(raw) ||
+            typeof raw.id !== 'string' ||
+            raw.id.length === 0 ||
+            typeof raw.label !== 'string' ||
+            raw.label.length === 0
+        ) {
+            errors.push(`config.stages[${i}] must be {id: non-empty string, label: non-empty string}`)
+            return
+        }
+        if (raw.id === 'all') {
+            errors.push(`config.stages[${i}]: id "all" is reserved (it is the persistent-placement key)`)
+            return
+        }
+        if (seenIds.has(raw.id)) {
+            errors.push(`config.stages[${i}]: duplicate stage id "${raw.id}"`)
+            return
+        }
+        seenIds.add(raw.id)
+        stages.push({ id: raw.id, label: raw.label })
+    })
+
+    for (const builtIn of BUILT_IN_STAGES) {
+        if (!seenIds.has(builtIn.id)) {
+            errors.push(`config.stages is missing built-in stage "${builtIn.id}"`)
+        }
+    }
+
+    return { errors, stages }
+}
+
 export function validateConfig(
     input: unknown
 ): { ok: true; config: LayoutConfig } | { ok: false; errors: string[] } {
@@ -322,6 +406,12 @@ export function validateConfig(
     if (!isPlainObject(canvas) || canvas.w !== 1080 || canvas.h !== 1920) {
         errors.push('config.canvas must be {w:1080,h:1920}')
     }
+
+    // Validated before elements/placements — every placement/border key below is checked against
+    // `stages`.
+    const stagesResult = validateStages(input.stages)
+    errors.push(...stagesResult.errors)
+    const stages = stagesResult.stages
 
     const elements: Record<string, Element> = {}
     const elementsRaw = input.elements
@@ -346,7 +436,7 @@ export function validateConfig(
                     elErrors.push(`element "${key}": invalid board variant ${JSON.stringify(variant)}`)
                 } else {
                     regId = `board:${variant}` as RegistryId
-                    elErrors.push(...validatePlacements(key, rawEl.placements, regId))
+                    elErrors.push(...validatePlacements(key, rawEl.placements, regId, stages))
                 }
             } else if (kind === 'widget') {
                 const widget = rawEl.widget
@@ -354,11 +444,11 @@ export function validateConfig(
                     elErrors.push(`element "${key}": invalid widget id ${JSON.stringify(widget)}`)
                 } else {
                     regId = `widget:${widget}` as RegistryId
-                    elErrors.push(...validatePlacements(key, rawEl.placements, regId))
+                    elErrors.push(...validatePlacements(key, rawEl.placements, regId, stages))
                 }
             } else if (kind === 'results') {
                 regId = 'results'
-                elErrors.push(...validatePlacements(key, rawEl.placements, regId))
+                elErrors.push(...validatePlacements(key, rawEl.placements, regId, stages))
                 if (
                     rawEl.columns !== undefined &&
                     (!isFiniteNumber(rawEl.columns) || !Number.isInteger(rawEl.columns) || rawEl.columns < 1)
@@ -374,10 +464,10 @@ export function validateConfig(
                 }
             } else if (kind === 'cards' || kind === 'ripbar' || kind === 'reserved') {
                 regId = kind as RegistryId
-                elErrors.push(...validatePlacements(key, rawEl.placements, regId))
+                elErrors.push(...validatePlacements(key, rawEl.placements, regId, stages))
             } else if (kind === 'resultsThin') {
                 regId = 'resultsThin'
-                elErrors.push(...validatePlacements(key, rawEl.placements, regId))
+                elErrors.push(...validatePlacements(key, rawEl.placements, regId, stages))
                 elErrors.push(...validateResultsThinFields(key, rawEl))
             } else if (kind === 'frame') {
                 const variant = rawEl.variant
@@ -385,9 +475,9 @@ export function validateConfig(
                     elErrors.push(`element "${key}": invalid frame variant ${JSON.stringify(variant)}`)
                 } else {
                     regId = `frame:${variant}` as RegistryId
-                    elErrors.push(...validatePlacements(key, rawEl.placements, regId))
+                    elErrors.push(...validatePlacements(key, rawEl.placements, regId, stages))
                 }
-                elErrors.push(...validateBorders(key, rawEl.borders))
+                elErrors.push(...validateBorders(key, rawEl.borders, stages))
                 elErrors.push(...validateFrameWidth(key, rawEl.frameWidth))
             } else if (kind === 'animation') {
                 const animation = rawEl.animation
@@ -395,7 +485,7 @@ export function validateConfig(
                     elErrors.push(`element "${key}": invalid animation id ${JSON.stringify(animation)}`)
                 } else {
                     regId = `animation:${animation}` as RegistryId
-                    elErrors.push(...validatePlacements(key, rawEl.placements, regId))
+                    elErrors.push(...validatePlacements(key, rawEl.placements, regId, stages))
                 }
                 // `target`, if set, must name another existing element (obs-layout-plan.md
                 // §1.9) — no self-reference, since an element can't glue itself to its own box.
@@ -429,6 +519,10 @@ export function validateConfig(
                 if (rawEl.holdMs !== undefined && !isFiniteNumber(rawEl.holdMs)) {
                     elErrors.push(`element "${key}": holdMs must be a finite number`)
                 }
+            } else if (kind === 'text') {
+                regId = 'text'
+                elErrors.push(...validatePlacements(key, rawEl.placements, regId, stages))
+                elErrors.push(...validateTextFields(key, rawEl))
             } else {
                 elErrors.push(`element "${key}": unknown kind ${JSON.stringify(kind)}`)
             }
@@ -492,6 +586,7 @@ export function validateConfig(
         config: {
             version: 1,
             canvas: { w: 1080, h: 1920 },
+            stages,
             elements,
             obsBindings: validatedBindings,
         },
@@ -507,8 +602,14 @@ export function validateState(
         return { ok: false, errors: ['state must be an object'] }
     }
 
-    if (!isPhase(input.phase)) {
-        errors.push(`state.phase must be one of ${PHASES.join(', ')}, got ${JSON.stringify(input.phase)}`)
+    // `state` carries no config, so there is no `stages` list to check `phase` against here — a
+    // phase that names a stage which does not (or no longer) exists in the config it is paired
+    // with is a cross-object concern, not something one object's own shape validation can catch.
+    // Callers that load both together (useControls.loadAll, the obs/layout page's reconcile) check
+    // `phase` against `config.stages` themselves and fall back to the config's first stage if it
+    // doesn't match. Here we validate only that it is a non-empty string.
+    if (typeof input.phase !== 'string' || input.phase.length === 0) {
+        errors.push(`state.phase must be a non-empty string, got ${JSON.stringify(input.phase)}`)
     }
 
     if (input.phaseData !== undefined && !isPlainObject(input.phaseData)) {

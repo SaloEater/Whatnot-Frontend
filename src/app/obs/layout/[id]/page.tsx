@@ -156,33 +156,48 @@ function LayoutPageInner({channelId, devMode}: {channelId: number; devMode: bool
             ])
             if (cancelled) return
 
+            let nextConfig: LayoutConfig
             const rawConfig = configResp?.config ?? null
             if (rawConfig === null) {
-                setConfig(defaultConfig())
+                nextConfig = defaultConfig()
             } else {
                 const result = validateConfig(migrateConfig(rawConfig))
                 if (result.ok) {
-                    setConfig(result.config)
+                    nextConfig = result.config
                 } else {
                     console.error('[obs/layout] invalid config from backend, using default', result.errors)
-                    setConfig(defaultConfig())
+                    nextConfig = defaultConfig()
                 }
             }
+            setConfig(nextConfig)
 
             const incomingSeq = typeof stateResp?.seq === 'number' ? stateResp.seq : 0
             if (guardRef.current.accept(incomingSeq)) {
                 const rawState = stateResp?.state ?? null
+                let nextState: OverlayState
                 if (rawState === null) {
-                    setState(defaultState())
+                    nextState = defaultState()
                 } else {
                     const result = validateState(migrateState(rawState))
                     if (result.ok) {
-                        setState(result.state)
+                        nextState = result.state
                     } else {
                         console.error('[obs/layout] invalid state from backend, using default', result.errors)
-                        setState(defaultState())
+                        nextState = defaultState()
                     }
                 }
+                // Same reconciliation useControls.loadAll does on the controls page: `state` was
+                // validated with no `stages` in scope (config.ts's validateState), so a phase that
+                // no longer names a stage in THIS config (the stage was deleted, or the config was
+                // swapped) is only caught here, once both are in hand. Falls back to the config's
+                // first stage rather than rendering a blank canvas until the next 60s reconcile.
+                if (!nextConfig.stages.some((s) => s.id === nextState.phase)) {
+                    console.error(
+                        `[obs/layout] state.phase "${nextState.phase}" is not a stage in this config, falling back to "${nextConfig.stages[0].id}"`
+                    )
+                    nextState = {...nextState, phase: nextConfig.stages[0].id}
+                }
+                setState(nextState)
                 setSeq(incomingSeq)
                 setDevPhaseOverride(null)
             }
@@ -219,6 +234,7 @@ function LayoutPageInner({channelId, devMode}: {channelId: number; devMode: bool
             {devMode && (
                 <DevPanel
                     phase={effectiveState.phase}
+                    stages={config.stages}
                     seq={seq}
                     lastBusEventAt={lastBusEventAt}
                     onSetPhase={setDevPhaseOverride}

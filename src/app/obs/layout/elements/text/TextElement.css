@@ -1,0 +1,31 @@
+/* `text` (obs-layout-plan.md §2.12). Classes prefixed `txt-` only — no html/body rules, no
+ * .container/.row/.col, no vh/vw/vmin (the root always fills its box, sized by ElementFrame, so a
+ * plain 100%/100% is exactly right — same convention as the other boxed elements' CSS).
+ */
+
+.txt-root {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    /* Panel: 80% black behind the text, closed off by the same thin rule the frame draws — 2px
+       (FrameElement.tsx's INNER_RULE_PX) in the frame's bronze. The value is copied rather than
+       shared because the frame scopes its palette to `.frm-root`, and CSS custom properties do
+       not cross element roots; every other element here copies palette values the same way.
+       Square corners, like the frame — no radius. */
+    box-sizing: border-box;
+    background-color: rgba(0, 0, 0, 0.8);
+    border: 2px solid #756241;
+}
+
+.txt-text {
+    /* Overlay ivory — matches `results`/`resultsThin` (--res-ivory / --rest-ivory: #e8dfcb). No
+       colour or font-family setting on this element, so this is the one and only value. */
+    color: #e8dfcb;
+    text-align: center;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-width: 100%;
+}

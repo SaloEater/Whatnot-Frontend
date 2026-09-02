@@ -8,10 +8,9 @@
 // the only way the deck can tell a live page from a closed one — the transport has no delivery
 // acknowledgement.
 
-import {useCallback, useEffect, useRef, useState} from 'react'
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
 import type {MyOBSWebsocket} from '@/app/entity/my_obs_websocket'
-import {PHASE_LABELS, PHASES} from '@/app/obs/layout/schema'
-import type {Phase} from '@/app/obs/layout/schema'
+import type {Phase, Stage} from '@/app/obs/layout/schema'
 import {SCENE_EVENTS, isSceneEventName} from '@/app/obs/layout/sceneEvents'
 import type {SceneEventName} from '@/app/obs/layout/sceneEvents'
 import {isDeckMessage, MOB, newSrc, PROTOCOL_VERSION, vocabRev} from '@/app/obs/controls/deckProtocol'
@@ -34,13 +33,16 @@ export type DeckBridgeHandlers = {
 export type DeckBridgeStatus = {
     seq: number
     phase: Phase
+    /** This channel's configured stages (obs/layout/schema.ts's `Stage[]`) — the deck vocabulary
+     * and the next_stage/prev_stage wrap-around are both derived from this instead of a fixed
+     * PHASES constant, since stages are now per-channel config. */
+    stages: Stage[]
     transitioning: boolean
     isConnected: boolean
     /** Latching scene events that are currently on. Reference-stable between applies. */
     active?: Partial<Record<SceneEventName, boolean>>
 }
 
-const STAGE_VOCAB: VocabItem[] = PHASES.map((p) => ({name: p, label: PHASE_LABELS[p]}))
 // `latching` is spread in only when true: an explicit `false` on every momentary event would
 // change vocabRev for no reason and force a pointless re-sync on every plugin.
 const EVENT_VOCAB: VocabItem[] = SCENE_EVENTS.map((e) => ({
@@ -48,7 +50,6 @@ const EVENT_VOCAB: VocabItem[] = SCENE_EVENTS.map((e) => ({
     label: e.label,
     ...(e.latching ? {latching: true} : {}),
 }))
-const VOCAB_REV = vocabRev(STAGE_VOCAB, EVENT_VOCAB)
 
 export function useDeckBridge(
     obs: MyOBSWebsocket | null,
@@ -67,6 +68,19 @@ export function useDeckBridge(
     const onCommandRef = useRef(onCommand)
     onCommandRef.current = onCommand
 
+    // Derived from `status.stages` (per-channel config, not a fixed constant any more) — recomputed
+    // whenever the config's stage list changes, and read from a ref so `sendVocab` (a `describe`
+    // reply can arrive at any time, from a stale closure otherwise) always sends the CURRENT vocab.
+    const stageVocab = useMemo<VocabItem[]>(
+        () => status.stages.map((s) => ({name: s.id, label: s.label})),
+        [status.stages]
+    )
+    const vocabRevValue = useMemo(() => vocabRev(stageVocab, EVENT_VOCAB), [stageVocab])
+    const stageVocabRef = useRef(stageVocab)
+    stageVocabRef.current = stageVocab
+    const vocabRevRef = useRef(vocabRevValue)
+    vocabRevRef.current = vocabRevValue
+
     const seenIds = useRef<string[]>([])
 
     const broadcast = useCallback((payload: HeadState | DeckVocab) => {
@@ -81,7 +95,15 @@ export function useDeckBridge(
     }, [obs])
 
     const sendVocab = useCallback(() => {
-        broadcast({mob: MOB, kind: 'vocab', src, protocol: PROTOCOL_VERSION, rev: VOCAB_REV, stages: STAGE_VOCAB, sceneEvents: EVENT_VOCAB})
+        broadcast({
+            mob: MOB,
+            kind: 'vocab',
+            src,
+            protocol: PROTOCOL_VERSION,
+            rev: vocabRevRef.current,
+            stages: stageVocabRef.current,
+            sceneEvents: EVENT_VOCAB,
+        })
     }, [broadcast, src])
 
     const sendState = useCallback(() => {
@@ -145,9 +167,10 @@ export function useDeckBridge(
                         break
                     }
                     const step = cmd.cmd === 'next_stage' ? 1 : -1
-                    const at = PHASES.indexOf(s.phase)
-                    if (at < 0) return
-                    await h.setPhase(PHASES[(at + step + PHASES.length) % PHASES.length])
+                    const stages = s.stages
+                    const at = stages.findIndex((stage) => stage.id === s.phase)
+                    if (at < 0 || stages.length === 0) return
+                    await h.setPhase(stages[(at + step + stages.length) % stages.length].id)
                     break
                 }
 
@@ -174,10 +197,13 @@ export function useDeckBridge(
     // future path that mutates the latch without advancing seq.
 }, [sendState, status.seq, status.phase, status.transitioning, status.isConnected, status.active])
 
+    // On connect, AND whenever the vocab itself changes (an operator adding/removing/reordering a
+    // stage while the deck is connected) — `vocabRevValue` only moves when `stageVocab` or
+    // `EVENT_VOCAB` actually differs, so this doesn't fire on every unrelated status change.
     useEffect(() => {
         if (!status.isConnected) return
         sendVocab()
-    }, [sendVocab, status.isConnected])
+    }, [sendVocab, status.isConnected, vocabRevValue])
 
     useEffect(() => {
         const id = setInterval(sendState, HEARTBEAT_MS)

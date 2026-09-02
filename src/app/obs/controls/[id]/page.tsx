@@ -11,7 +11,6 @@ import {WebSocketUrlComponent} from '@/app/obs/manage/[id]/web_socket_url_compon
 import {ConnectedComponent} from '@/app/obs/manage/[id]/connected_component'
 import {ApplyResult, useControls} from '@/app/obs/controls/useControls'
 import type {BusPayload, OverlayState, Phase} from '@/app/obs/layout/schema'
-import {PHASE_LABELS, PHASES} from '@/app/obs/layout/schema'
 import {isEventActive} from '@/app/obs/layout/config'
 import {useDeckBridge} from '@/app/obs/controls/useDeckBridge'
 import {useKeepAwake} from '@/app/obs/controls/useKeepAwake'
@@ -19,6 +18,7 @@ import {SCENE_EVENTS, isLatchingEvent} from '@/app/obs/layout/sceneEvents'
 import type {SceneEventName} from '@/app/obs/layout/sceneEvents'
 import {TabsComponent} from '@/app/component/tabsComponent'
 import ElementsPanel from '@/app/obs/controls/elements/ElementsPanel'
+import StagesPanel from '@/app/obs/controls/elements/StagesPanel'
 import '../controls.css'
 
 // How long the "Sent!" flash lasts on an Actions strip button after it fires (obs-layout-plan.md
@@ -197,6 +197,7 @@ export default function Page({params}: { params: { id: string } }) {
         {
             seq: controls.seq,
             phase: controls.state.phase,
+            stages: controls.config.stages,
             transitioning: transitionPending !== null,
             isConnected,
             active: controls.state.active,
@@ -205,8 +206,14 @@ export default function Page({params}: { params: { id: string } }) {
         () => setLastDeckCommandAt(new Date()),
     )
 
+    // Stages are per-channel config now (obs/layout/schema.ts's `Stage[]`), not a fixed 3-literal
+    // union — every PHASE_LABELS/PHASES lookup below reads controls.config.stages instead.
+    function stageLabel(id: Phase): string {
+        return controls.config.stages.find((s) => s.id === id)?.label ?? id
+    }
+
     // Keep this tab responsive for the deck even when it sits hidden all stream (§E3.4).
-    useKeepAwake(PHASE_LABELS[controls.state.phase], controls.reload)
+    useKeepAwake(stageLabel(controls.state.phase), controls.reload)
 
     // Media inputs available in OBS, for the transition-source dropdown (refreshed on connect).
     const [mediaInputs, setMediaInputs] = useState<string[]>([])
@@ -238,10 +245,17 @@ export default function Page({params}: { params: { id: string } }) {
         reportPush(await controls.pushConfig(next))
     }
 
-    const phaseIndex = PHASES.indexOf(controls.state.phase)
-    // The phases form a cycle (ripping -> selling starts the next break), so prev/next wrap.
-    const prevPhase: Phase = PHASES[(phaseIndex - 1 + PHASES.length) % PHASES.length]
-    const nextPhase: Phase = PHASES[(phaseIndex + 1) % PHASES.length]
+    const stages = controls.config.stages
+    const phaseIndex = stages.findIndex((s) => s.id === controls.state.phase)
+    // The stages form a cycle (the last one wraps back to the first — e.g. ripping -> selling
+    // starts the next break), so prev/next wrap. `stages` is never empty (validateConfig requires
+    // it), and `phaseIndex` falling to -1 (a phase not in this config) is handled by
+    // useControls.loadAll / the layout page's reconcile, which correct it before this ever renders
+    // — but `Math.max(phaseIndex, 0)` keeps this expression itself from going negative if that
+    // hasn't happened yet on a given render.
+    const safePhaseIndex = Math.max(phaseIndex, 0)
+    const prevStage = stages[(safePhaseIndex - 1 + stages.length) % stages.length]
+    const nextStage = stages[(safePhaseIndex + 1) % stages.length]
 
     const sideTabs = [
         {
@@ -325,7 +339,7 @@ export default function Page({params}: { params: { id: string } }) {
                         {transitionPending && (
                             <div className="ctl-transition-pending d-flex align-items-center gap-2 mb-2">
                                 <span className="small">
-                                    Transition playing… → {PHASE_LABELS[transitionPending.phase]} (switches when the video ends)
+                                    Transition playing… → {stageLabel(transitionPending.phase)} (switches when the video ends)
                                 </span>
                                 <button className="btn btn-sm btn-outline-warning" onClick={skipTransition}>
                                     Skip
@@ -366,6 +380,10 @@ export default function Page({params}: { params: { id: string } }) {
                 </div>
             ),
         },
+        {
+            name: 'Stages',
+            node: <StagesPanel controls={controls} onPushResult={reportPush}/>,
+        },
     ]
 
     return (
@@ -385,9 +403,9 @@ export default function Page({params}: { params: { id: string } }) {
                         <div className="ctl-stage-block">
                             <button
                                 className="btn btn-outline-secondary"
-                                onClick={() => setPhase(prevPhase)}
+                                onClick={() => setPhase(prevStage.id)}
                             >
-                                ← {PHASE_LABELS[prevPhase]}
+                                ← {prevStage.label}
                             </button>
                             <select
                                 className={`form-select ctl-stage-select ctl-stage-${stageDelivery}`}
@@ -395,15 +413,15 @@ export default function Page({params}: { params: { id: string } }) {
                                 value={controls.state.phase}
                                 onChange={(e) => setPhase(e.target.value as Phase)}
                             >
-                                {PHASES.map((p) => (
-                                    <option key={p} value={p}>{PHASE_LABELS[p]}</option>
+                                {stages.map((s) => (
+                                    <option key={s.id} value={s.id}>{s.label}</option>
                                 ))}
                             </select>
                             <button
                                 className="btn btn-outline-secondary"
-                                onClick={() => setPhase(nextPhase)}
+                                onClick={() => setPhase(nextStage.id)}
                             >
-                                {PHASE_LABELS[nextPhase]} →
+                                {nextStage.label} →
                             </button>
                         </div>
                     </div>

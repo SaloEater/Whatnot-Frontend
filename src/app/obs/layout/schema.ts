@@ -7,7 +7,17 @@
 
 import type { SceneEventName } from './sceneEvents'
 
-export type Phase = 'selling' | 'results' | 'ripping'
+// A stage (formerly a fixed `selling | results | ripping` union) is now per-channel config data
+// (obs-layout-plan.md follow-up: "configurable stages") — an operator can add and remove stages,
+// so a phase is only ever validated against ONE config's `LayoutConfig.stages`, never a global
+// constant. `id` is derived once at creation time (see the controls-side Stages tab) and is
+// immutable afterwards: every element's `placements` key on it, so renaming would orphan them.
+export type Stage = { id: string; label: string }
+
+// Loosened from the old 3-literal union to a plain string: which strings are actually valid is now
+// a property of one `LayoutConfig.stages` array, checked at runtime (config.ts's `isPhase`), not
+// something the type system can express any more.
+export type Phase = string
 
 // A placement is keyed by a real phase, or 'all' — a persistent fallback used when no
 // phase-specific placement exists. Resolution: placements[phase] ?? placements.all (see
@@ -30,6 +40,7 @@ export type ElementKind =
     | 'ripbar'
     | 'frame'
     | 'animation'
+    | 'text'
 
 export const BOARD_VARIANTS = ['flat', 'classic', 'cobra'] as const
 export type BoardVariant = (typeof BOARD_VARIANTS)[number]
@@ -141,10 +152,27 @@ export type Element =
           z?: number
           reactions?: Reactions
       }
+    // Free-form operator text (obs-layout-plan.md §2.12) — a custom string and a font size,
+    // centred on both axes in its box. `fontSize` is absolute canvas px (see TextElement.tsx's
+    // comment for why: unlike the circle widgets' fixed-content readouts, this holds arbitrary
+    // text the operator sizes by eye, so it is deliberately NOT derived from `box`). `text` is
+    // capped at MAX_TEXT_LENGTH (below) by config.ts's validator.
+    | {
+          kind: 'text'
+          text?: string
+          fontSize?: number
+          placements: Partial<Record<PlacementKey, Box>>
+          z?: number
+          reactions?: Reactions
+      }
 
 export type LayoutConfig = {
     version: 1
     canvas: { w: 1080; h: 1920 }
+    // Ordered — this order IS the prev/dropdown/next cycle on the controls page and the Stream
+    // Deck's next_stage/prev_stage wrap. Always non-empty and always contains the three built-ins
+    // (see `BUILT_IN_STAGES` below) — enforced by config.ts's `validateConfig`.
+    stages: Stage[]
     elements: Record<string, Element> // key = stable id, e.g. 'board', 'camera', 'pick2'
     obsBindings: {
         transitionSource?: string
@@ -184,16 +212,22 @@ export type BusPayload = {
     cue?: Cue
 }
 
-export const PHASES: Phase[] = ['selling', 'results', 'ripping']
+// The three stages every config is born with and can never fully lose — deleting one is refused
+// by the Stages tab UI, and config.ts's `validateConfig` rejects a config missing any of them
+// outright, since an ungoverned config would leave elements placed on a stage nothing can reach.
+// They CAN be reordered — this array's order is not itself meaningful, it's a set of ids/labels.
+export const BUILT_IN_STAGES: Stage[] = [
+    { id: 'selling', label: 'Selling' },
+    { id: 'results', label: 'Results' },
+    { id: 'ripping', label: 'Ripping' },
+]
 
-// Display labels for the stages. Lives here rather than in the controls page because the Stream
-// Deck vocabulary (obs/controls/useDeckBridge.ts) sends them to the plugin, which has no stage
-// list of its own.
-export const PHASE_LABELS: Record<Phase, string> = {
-    selling: 'Selling',
-    results: 'Results',
-    ripping: 'Ripping',
-}
+// What `defaultConfig()` (config.ts) seeds `stages` with, and what `migrateConfig` backfills onto
+// any config stored before `stages` existed. Same three, same order, as `BUILT_IN_STAGES` — kept
+// as a separate constant (rather than every caller reusing BUILT_IN_STAGES directly) so the two
+// concerns — "which stages can never be deleted" vs. "what a fresh config starts with" — can drift
+// independently if a future change ever needs them to.
+export const DEFAULT_STAGES: Stage[] = BUILT_IN_STAGES.map((s) => ({ ...s }))
 
 export const CANVAS: { w: 1080; h: 1920 } = { w: 1080, h: 1920 }
 
@@ -208,6 +242,13 @@ export const DEFAULT_FRAME_BORDERS: Sides = { top: 24, right: 24, bottom: 24, le
 // ornament this setting replaces, so a config stored before `frameWidth` existed keeps the same
 // overall footprint it had: its `borders` become the black fill and the frame sits inside them.
 export const DEFAULT_FRAME_WIDTH = 8
+
+// Cap on `text` element's `text` field (obs-layout-plan.md §2.12: "Validate text as a string
+// (capped)"). 500 was picked as generous for a few lines of operator copy while still being far
+// short of anything that could bloat the config payload or overflow a box in a way `white-space:
+// pre-wrap` can't just wrap around. Enforced by config.ts's validator and used as the controls
+// textarea's `maxLength` (TextSettings.tsx) so the two never disagree.
+export const MAX_TEXT_LENGTH = 500
 
 export const BUS_EVENT_NAME = 'mob:trigger'
 export const DEV_CHANNEL_NAME = 'mob:bus'

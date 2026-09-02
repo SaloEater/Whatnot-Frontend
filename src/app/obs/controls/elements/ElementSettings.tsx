@@ -18,6 +18,7 @@ import FrameSettings from './FrameSettings'
 import StashOrPassWrapSettings from './StashOrPassWrapSettings'
 import ResultsSettings from './ResultsSettings'
 import ThinResultsSettings from './ThinResultsSettings'
+import TextSettings from './TextSettings'
 
 type Props = {
     registryId: RegistryId
@@ -60,6 +61,8 @@ export default function ElementSettings({registryId, channelId, seriesId, elemen
             return <ResultsSettings elementKey={elementKey} element={element} onPatchElement={onPatchElement}/>
         case 'resultsThin':
             return <ThinResultsSettings elementKey={elementKey} element={element} onPatchElement={onPatchElement}/>
+        case 'text':
+            return <TextSettings elementKey={elementKey} element={element} onPatchElement={onPatchElement}/>
         // All three wrap builds share one config shape (target/pad/laneFontSize/speed/holdMs), so
         // they share one settings panel — see registry.ts's notes on the parallel builds.
         case 'animation:stashOrPassWrap':
