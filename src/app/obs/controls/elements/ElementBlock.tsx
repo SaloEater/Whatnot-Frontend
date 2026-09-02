@@ -140,60 +140,69 @@ export default function ElementBlock({
             className={`ctl-el-block${visible ? '' : ' ctl-el-block--hidden'}${entry.wideBlock ? ' ctl-el-block--wide' : ''}`}
         >
             <div className="ctl-el-header">
-                <button type="button" className="btn btn-sm btn-link ctl-el-chevron" onClick={() => setOpen(!open)}>
-                    {open ? '▾' : '▸'}
-                </button>
-                <div className="form-check form-check-inline ctl-el-visible">
-                    <input
-                        type="checkbox"
-                        className="form-check-input"
-                        id={`ctl-visible-${elementKey}`}
-                        checked={visible}
-                        title="Hide this element without removing it — it keeps its placement and stays in this list"
-                        onChange={(e) => onSetVisible(elementKey, e.target.checked)}
-                    />
-                    <label className="form-check-label small" htmlFor={`ctl-visible-${elementKey}`}>
-                        Visible
-                    </label>
+                {/* Row 1: identity and controls. Row 2: the two state toggles. Splitting them keeps
+                    the name and the destructive controls on one scannable line instead of the
+                    checkboxes pushing them around as labels change length. */}
+                <div className="ctl-el-header-row">
+                    <button type="button" className="btn btn-sm btn-link ctl-el-chevron" onClick={() => setOpen(!open)}>
+                        {open ? '▾' : '▸'}
+                    </button>
+                    <span className="ctl-el-label">{entry.label}</span>
+                    <span className="ctl-el-key text-secondary small">{elementKey}</span>
+                    <button
+                        type="button"
+                        className="btn btn-sm btn-outline-secondary ctl-el-move"
+                        onClick={() => onMove(elementKey, -1)}
+                        disabled={!canMoveUp}
+                        title="Move up one place"
+                        aria-label="Move up"
+                    >
+                        ▲
+                    </button>
+                    <button
+                        type="button"
+                        className="btn btn-sm btn-outline-secondary ctl-el-move"
+                        onClick={() => onMove(elementKey, 1)}
+                        disabled={!canMoveDown}
+                        title="Move down one place"
+                        aria-label="Move down"
+                    >
+                        ▼
+                    </button>
+                    <button type="button" className="btn btn-sm btn-outline-danger ctl-el-remove" onClick={handleRemove} title="Remove element from ALL stages">
+                        ×
+                    </button>
                 </div>
-                <div className="form-check form-check-inline ctl-el-persistent">
-                    <input
-                        type="checkbox"
-                        className="form-check-input"
-                        id={`ctl-persistent-${elementKey}`}
-                        checked={persistent}
-                        onChange={(e) => togglePersistent(e.target.checked)}
-                    />
-                    <label className="form-check-label small" htmlFor={`ctl-persistent-${elementKey}`}>
-                        Persistent
-                    </label>
+                <div className="ctl-el-header-row ctl-el-header-row--toggles">
+                    <div className="form-check form-check-inline ctl-el-visible">
+                        <input
+                            type="checkbox"
+                            className="form-check-input"
+                            id={`ctl-visible-${elementKey}`}
+                            checked={visible}
+                            title="Hide this element without removing it — it keeps its placement and stays in this list"
+                            onChange={(e) => onSetVisible(elementKey, e.target.checked)}
+                        />
+                        <label className="form-check-label small" htmlFor={`ctl-visible-${elementKey}`}>
+                            Visible
+                        </label>
+                    </div>
+                    <div className="form-check form-check-inline ctl-el-persistent">
+                        <input
+                            type="checkbox"
+                            className="form-check-input"
+                            id={`ctl-persistent-${elementKey}`}
+                            checked={persistent}
+                            onChange={(e) => togglePersistent(e.target.checked)}
+                        />
+                        <label className="form-check-label small" htmlFor={`ctl-persistent-${elementKey}`}>
+                            Persistent
+                        </label>
+                    </div>
+                    {persistent && (
+                        <span className="badge bg-info-subtle text-info-emphasis ctl-el-badge">persistent</span>
+                    )}
                 </div>
-                <span className="ctl-el-label">{entry.label}</span>
-                {persistent && <span className="badge bg-info-subtle text-info-emphasis ctl-el-badge">persistent</span>}
-                <span className="ctl-el-key text-secondary small">{elementKey}</span>
-                <button
-                    type="button"
-                    className="btn btn-sm btn-outline-secondary ctl-el-move"
-                    onClick={() => onMove(elementKey, -1)}
-                    disabled={!canMoveUp}
-                    title="Move up one place"
-                    aria-label="Move up"
-                >
-                    ▲
-                </button>
-                <button
-                    type="button"
-                    className="btn btn-sm btn-outline-secondary ctl-el-move"
-                    onClick={() => onMove(elementKey, 1)}
-                    disabled={!canMoveDown}
-                    title="Move down one place"
-                    aria-label="Move down"
-                >
-                    ▼
-                </button>
-                <button type="button" className="btn btn-sm btn-outline-danger ctl-el-remove" onClick={handleRemove} title="Remove element from ALL stages">
-                    ×
-                </button>
             </div>
 
             {open && (

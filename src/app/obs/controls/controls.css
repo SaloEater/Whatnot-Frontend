@@ -172,10 +172,24 @@
     opacity: 0.55;
 }
 
+/* Two rows: identity + controls, then the state toggles (see ElementBlock). */
 .ctl-el-header {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.ctl-el-header-row {
     display: flex;
     align-items: center;
     gap: 10px;
+}
+
+/* Indented to sit under the label rather than the chevron, and tightened up — these are
+   secondary to the row above. */
+.ctl-el-header-row--toggles {
+    padding-left: 28px;
+    gap: 4px;
 }
 
 .ctl-el-chevron {
