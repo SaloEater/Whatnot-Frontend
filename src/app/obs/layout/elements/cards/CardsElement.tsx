@@ -17,9 +17,11 @@
 //     page hardcoded as 918/1152 px — so this looks identical at a 1080x1920 box and rescales
 //     proportionally at any other size. The row-packing math (packing.ts) takes that width/height
 //     budget as plain arguments instead of closing over the old module constants.
-//   - Hover-zoom (hoveredId/elevatedId, the mouseenter/mouseleave handlers, and the
-//     translate/scale transform sized against the full old viewport) is removed: meaningless in a
-//     browser source, and it would overflow a composed layout.
+//   - Hover-zoom (hoveredId/elevatedId, the mouseenter/mouseleave handlers, the translate/scale
+//     transform) is KEPT, but re-based: the original sized it against the fixed 1080x1920 viewport,
+//     whereas here it centres on this element's own box and converts rect offsets back through the
+//     stage scale. A browser source has no mouse, but this page is also opened in a real browser to
+//     check a board, which is exactly when it is wanted.
 //   - CSS is prefixed `crd-` (`board-`/`gallery-` are too generic for the shared layout page).
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
@@ -41,6 +43,11 @@ const CARD_AREA_H_FRACTION = 0.6
 const GALLERY_BASE_W_FRACTION = 0.277778
 const GALLERY_GAP_FRACTION = 0.022222
 
+/** Nearest equivalent rotation in (-180, 180], so a hovered card unwinds the short way round. */
+function shortestRotation(deg: number): number {
+    return (((deg % 360) + 540) % 360) - 180
+}
+
 function normalizeTeam(team: string): string {
     return team.trim().toLowerCase()
 }
@@ -52,6 +59,73 @@ export function CardsElement({ box }: ElementProps) {
     const prevIdsRef = useRef<string>('')
 
     const [cardDims, setCardDims] = useState<Record<number, { w: number; h: number }>>({})
+
+    // Hover-to-inspect, ported back from channel/[id]/photos. It was dropped in the §2.8 port on
+    // the grounds that a browser source has no mouse — true in OBS, but the layout page is also
+    // opened in a normal browser to check a board, and that is exactly when you want it.
+    //
+    // The maths differs from the original in two ways that matter:
+    //   - It centres the card in THIS ELEMENT'S box, not the 1080x1920 viewport. ElementFrame
+    //     clips a boxed element, so a card centred on the canvas would just be cut off.
+    //   - `getBoundingClientRect()` returns VIEWPORT px, but the stage is scaled and the transform
+    //     is applied inside that scaled canvas. Everything is divided back through the stage scale
+    //     (measured as rootRect.width / box.w) so the offsets are in canvas units.
+    const rootRef = useRef<HTMLDivElement>(null)
+    const [hoveredId, setHoveredId] = useState<number | null>(null)
+    const [elevatedId, setElevatedId] = useState<number | null>(null)
+    const hoverData = useRef({ scale: 1, dx: 0, dy: 0 })
+    const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const elevationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    useEffect(() => {
+        return () => {
+            if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
+            if (elevationTimerRef.current) clearTimeout(elevationTimerRef.current)
+        }
+    }, [])
+
+    function handleMouseEnter(e: React.MouseEvent<HTMLDivElement>, photo: Photo, alreadyRotated: boolean) {
+        const root = rootRef.current
+        if (!root) return
+        const rootRect = root.getBoundingClientRect()
+        const rect = e.currentTarget.getBoundingClientRect()
+        // Viewport px per canvas px. Guarded: a zero-width root (never laid out) would divide by 0.
+        const stageScale = rootRect.width > 0 ? rootRect.width / box.w : 1
+
+        const cardW = rect.width / stageScale
+        const cardH = rect.height / stageScale
+        const rotation = photo.rotation ?? 0
+        const swapAxes = !alreadyRotated && rotation % 180 !== 0
+        const scale = swapAxes
+            ? Math.min((box.w * 0.8) / cardH, (box.h * 0.8) / cardW)
+            : Math.min((box.w * 0.8) / cardW, (box.h * 0.8) / cardH)
+
+        const dx = (rootRect.left + rootRect.width / 2 - (rect.left + rect.width / 2)) / stageScale
+        const dy = (rootRect.top + rootRect.height / 2 - (rect.top + rect.height / 2)) / stageScale
+        hoverData.current = { scale, dx, dy }
+
+        if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
+        hoverTimerRef.current = setTimeout(() => {
+            hoverTimerRef.current = null
+            setElevatedId(photo.id)
+            setHoveredId(photo.id)
+        }, 500)
+    }
+
+    function handleMouseLeave() {
+        if (hoverTimerRef.current) {
+            clearTimeout(hoverTimerRef.current)
+            hoverTimerRef.current = null
+        }
+        setHoveredId(null)
+        if (elevationTimerRef.current) clearTimeout(elevationTimerRef.current)
+        // Held briefly after the zoom releases so the full-res image is not swapped back to the
+        // thumbnail mid-transition.
+        elevationTimerRef.current = setTimeout(() => {
+            setElevatedId(null)
+            elevationTimerRef.current = null
+        }, 220)
+    }
     const [galleryIndex, setGalleryIndex] = useState(0)
 
     const orientation = cardsBoardSettings?.orientation ?? 'list'
@@ -199,7 +273,7 @@ export function CardsElement({ box }: ElementProps) {
     const rows = packRows()
 
     return (
-        <div className="crd-root">
+        <div className="crd-root" ref={rootRef}>
             <div className="crd-card-area">
                 {rows.map((row, ri) => (
                     <div key={ri} className="crd-row">
@@ -207,6 +281,8 @@ export function CardsElement({ box }: ElementProps) {
                             const rotation = photo.rotation ?? 0
                             const rotateInBox = !!row.rotated && rotation !== 0
                             const swap = rotateInBox && rotation % 180 !== 0
+                            const hovered = hoveredId === photo.id
+                            const isElevated = hovered || elevatedId === photo.id
                             return (
                                 <div
                                     key={photo.id}
@@ -214,11 +290,20 @@ export function CardsElement({ box }: ElementProps) {
                                     style={{
                                         width: `${row.widths[ci]}px`,
                                         height: `${row.cardHeights[ci]}px`,
+                                        ...(isElevated ? { zIndex: 10 } : {}),
                                     }}
+                                    onMouseEnter={(e) => handleMouseEnter(e, photo, !!row.rotated)}
+                                    onMouseLeave={handleMouseLeave}
                                 >
-                                    <div className="crd-card-visual">
+                                    <div
+                                        className="crd-card-visual"
+                                        style={hovered ? {
+                                            transform: `translate(${hoverData.current.dx}px, ${hoverData.current.dy}px) scale(${hoverData.current.scale})${row.rotated ? '' : ` rotate(${shortestRotation(rotation)}deg)`}`,
+                                            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                                        } : undefined}
+                                    >
                                         <img
-                                            src={photo.thumbnail || photo.url}
+                                            src={isElevated ? photo.url : (photo.thumbnail || photo.url)}
                                             alt={photo.name || 'card'}
                                             style={rotateInBox ? {
                                                 position: 'absolute',

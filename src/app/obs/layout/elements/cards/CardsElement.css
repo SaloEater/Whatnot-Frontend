@@ -39,6 +39,9 @@
 .crd-card-visual {
     position: absolute;
     inset: 0;
+    /* Drives the hover-to-inspect zoom; the transform/shadow themselves are set inline by
+       CardsElement so they can be computed against the element's box. */
+    transition: transform 200ms ease-out, box-shadow 200ms ease-out;
 }
 
 .crd-card-visual img {
