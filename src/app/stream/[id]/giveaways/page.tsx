@@ -10,6 +10,8 @@ import {sortBreaksById} from "@/app/common/breaks";
 
 const GAP_THRESHOLD_MS = 10 * 60 * 1000
 const TIMEZONE_KEY = 'giveaway_tz'
+const PATTERN_KEY = 'giveaway_pattern'
+const DEFAULT_PATTERN = 'giveaway'
 
 interface GiveawayRow {
     orderId: string
@@ -109,7 +111,7 @@ export default function Page({params}: {params: {id: string}}) {
     const [timezone, setTimezone] = useState('UTC')
     const [timezoneList, setTimezoneList] = useState<string[]>([])
     const [csvContent, setCsvContent] = useState<string | null>(null)
-    const [giveawayPattern, setGiveawayPattern] = useState('giveaway')
+    const [giveawayPattern, setGiveawayPattern] = useState(DEFAULT_PATTERN)
 
     useEffect(() => {
         post(getEndpoints().stream_breaks, {id: streamId})
@@ -117,11 +119,17 @@ export default function Page({params}: {params: {id: string}}) {
         const stored = localStorage.getItem(TIMEZONE_KEY)
         setTimezone(stored ?? Intl.DateTimeFormat().resolvedOptions().timeZone)
         setTimezoneList(Intl.supportedValuesOf('timeZone'))
+        setGiveawayPattern(localStorage.getItem(PATTERN_KEY) ?? DEFAULT_PATTERN)
     }, [streamId])
 
     function handleTimezoneChange(tz: string) {
         setTimezone(tz)
         localStorage.setItem(TIMEZONE_KEY, tz)
+    }
+
+    function handlePatternChange(pattern: string) {
+        setGiveawayPattern(pattern)
+        localStorage.setItem(PATTERN_KEY, pattern)
     }
 
     function processContent(content: string, pattern: string) {
@@ -285,6 +293,16 @@ export default function Page({params}: {params: {id: string}}) {
                             </select>
                         </div>
 
+                        <div className="mb-3">
+                            <label className="form-label">Giveaway pattern (What is the text that is present in all giveaways, i.e. giveaway #1; giveaway #2; giveaway #3 - means that pattern is the word &quot;giveaway&quot;)</label>
+                            <input
+                                type="text"
+                                className="form-control"
+                                value={giveawayPattern}
+                                onChange={e => handlePatternChange(e.target.value)}
+                            />
+                        </div>
+
                         {fileErrors && (
                             <table className="table table-bordered table-sm mb-3">
                                 <thead>
@@ -303,7 +321,11 @@ export default function Page({params}: {params: {id: string}}) {
 
                         <div className="mb-3">
                             <input type="file" accept=".csv" ref={fileInputRef} className="d-none" onChange={handleFileSelected}/>
-                            <button className="btn btn-secondary" onClick={() => fileInputRef.current?.click()}>
+                            <button
+                                className="btn btn-secondary"
+                                disabled={!giveawayPattern.trim()}
+                                onClick={() => fileInputRef.current?.click()}
+                            >
                                 Upload selling report (.csv)
                             </button>
                         </div>
@@ -323,7 +345,7 @@ export default function Page({params}: {params: {id: string}}) {
                                 type="text"
                                 className="form-control"
                                 value={giveawayPattern}
-                                onChange={e => setGiveawayPattern(e.target.value)}
+                                onChange={e => handlePatternChange(e.target.value)}
                             />
                         </div>
                         <div className="d-flex gap-2">
