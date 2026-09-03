@@ -128,61 +128,65 @@ export default function StagesPanel({controls, onPushResult}: Props) {
 
     return (
         <div className="ctl-stages-tab">
-            <h6 className="mb-2">Stages</h6>
-            <div className="small text-secondary mb-2">
-                Selling / Results / Ripping are built in and can be reordered but not removed.
+            <div className="ctl-stages-list">
+                <h6 className="mb-2">Stages</h6>
+
+                {pushError && (
+                    <div className="alert alert-danger py-2 small mb-2">{pushError}</div>
+                )}
+
+                <ul className="list-group list-group-flush mb-0">
+                    {config.stages.map((stage, i) => (
+                        <li key={stage.id} className="list-group-item d-flex align-items-center gap-2 px-0 py-1">
+                            <div className="d-flex flex-column">
+                                <button
+                                    type="button"
+                                    className="btn btn-sm btn-outline-secondary py-0 px-1"
+                                    disabled={i === 0}
+                                    onClick={() => moveStage(stage.id, -1)}
+                                    title="Move up one place"
+                                    aria-label={`Move ${stage.label} up`}
+                                >
+                                    ▲
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn btn-sm btn-outline-secondary py-0 px-1"
+                                    disabled={i === config.stages.length - 1}
+                                    onClick={() => moveStage(stage.id, 1)}
+                                    title="Move down one place"
+                                    aria-label={`Move ${stage.label} down`}
+                                >
+                                    ▼
+                                </button>
+                            </div>
+                            <div className="flex-grow-1">
+                                <div className="small">{stage.label}</div>
+                                <div className="text-secondary" style={{fontSize: '0.75rem'}}>{stage.id}</div>
+                            </div>
+                            {BUILT_IN_IDS.has(stage.id) ? (
+                                <span className="badge bg-secondary-subtle text-secondary-emphasis">built-in</span>
+                            ) : (
+                                <button
+                                    type="button"
+                                    className="btn btn-sm btn-outline-danger"
+                                    onClick={() => deleteStage(stage)}
+                                    title="Delete stage"
+                                    aria-label={`Delete ${stage.label}`}
+                                >
+                                    ×
+                                </button>
+                            )}
+                        </li>
+                    ))}
+                </ul>
             </div>
 
-            {pushError && (
-                <div className="alert alert-danger py-2 small mb-2">{pushError}</div>
-            )}
-
-            <ul className="list-group list-group-flush mb-3">
-                {config.stages.map((stage, i) => (
-                    <li key={stage.id} className="list-group-item d-flex align-items-center gap-2 px-0 py-1">
-                        <div className="d-flex flex-column">
-                            <button
-                                type="button"
-                                className="btn btn-sm btn-outline-secondary py-0 px-1"
-                                disabled={i === 0}
-                                onClick={() => moveStage(stage.id, -1)}
-                                title="Move up one place"
-                                aria-label={`Move ${stage.label} up`}
-                            >
-                                ▲
-                            </button>
-                            <button
-                                type="button"
-                                className="btn btn-sm btn-outline-secondary py-0 px-1"
-                                disabled={i === config.stages.length - 1}
-                                onClick={() => moveStage(stage.id, 1)}
-                                title="Move down one place"
-                                aria-label={`Move ${stage.label} down`}
-                            >
-                                ▼
-                            </button>
-                        </div>
-                        <div className="flex-grow-1">
-                            <div className="small">{stage.label}</div>
-                            <div className="text-secondary" style={{fontSize: '0.75rem'}}>{stage.id}</div>
-                        </div>
-                        {BUILT_IN_IDS.has(stage.id) ? (
-                            <span className="badge bg-secondary-subtle text-secondary-emphasis">built-in</span>
-                        ) : (
-                            <button
-                                type="button"
-                                className="btn btn-sm btn-outline-danger"
-                                onClick={() => deleteStage(stage)}
-                                title="Delete stage"
-                                aria-label={`Delete ${stage.label}`}
-                            >
-                                ×
-                            </button>
-                        )}
-                    </li>
-                ))}
-            </ul>
-
+            <div className="ctl-stages-add">
+                <h6 className="mb-2">Add a stage</h6>
+                <div className="small text-secondary mb-2">
+                    Selling / Results / Ripping are built in and can be reordered but not removed.
+            </div>
             <div className="d-flex gap-2">
                 <input
                     type="text"
@@ -200,6 +204,7 @@ export default function StagesPanel({controls, onPushResult}: Props) {
                 >
                     Add stage
                 </button>
+            </div>
             </div>
         </div>
     )

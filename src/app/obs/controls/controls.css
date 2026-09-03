@@ -2,17 +2,47 @@
     padding: 16px;
 }
 
-.ctl-columns {
-    gap: 24px;
-    align-items: flex-start;
-}
-
+/* Single column since the OBS/Stages panel folded into the actions row — `min-width: 0` is what
+   keeps a wide child (the element grid, the state dump) from stretching the page instead of
+   scrolling inside itself. */
 .ctl-main-col {
     min-width: 0;
 }
 
+/* Was a permanent right-hand column; now a full-width tray that folds out under the actions row.
+   Kept as its own container so the tabs read as a panel rather than as more page. */
 .ctl-side-panel {
-    min-width: 260px;
+    margin: 0 0 12px;
+    padding: 8px 12px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+/* Fold-out toggle, sitting at the right end of the actions row. */
+.ctl-panel-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ctl-panel-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #6c757d;
+}
+
+.ctl-panel-dot--connected {
+    background: #198754;
+}
+
+.ctl-panel-dot--reconnecting {
+    background: #ffc107;
+}
+
+.ctl-panel-dot--disconnected {
+    background: #dc3545;
 }
 
 .ctl-header {
@@ -77,7 +107,7 @@
 }
 
 .ctl-state-pre {
-    max-height: 320px;
+    max-height: 220px;
     overflow: auto;
     font-size: 0.72rem;
     background: rgba(0, 0, 0, 0.25);
@@ -96,10 +126,61 @@
     min-height: 240px;
 }
 
-.ctl-obs-bindings {
+/* The panel is wide and short now instead of narrow and tall, so its sections sit side by side.
+   The `<hr/>`s that used to separate them were removed with the column — a horizontal rule cannot
+   divide a row — and the group border-left does that job instead. */
+.ctl-obs-tab {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 16px;
+    padding-top: 12px;
+}
+
+.ctl-obs-group {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    min-width: 220px;
+    padding-left: 16px;
+    border-left: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* No divider before the first group, and none after a wrap either — a group that starts a new row
+   would otherwise carry a rule with nothing to its left. */
+.ctl-obs-group:first-child {
+    padding-left: 0;
+    border-left: none;
+}
+
+/* The state dump takes whatever is left rather than sitting at its minimum. */
+.ctl-obs-group--grow {
+    flex: 1 1 320px;
+}
+
+.ctl-obs-bindings {
+    gap: 8px;
+}
+
+/* Same treatment for the Stages tab: the list and the add form side by side. */
+.ctl-stages-tab {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 16px;
+    padding-top: 12px;
+}
+
+.ctl-stages-list {
+    flex: 0 1 420px;
+    min-width: 300px;
+}
+
+.ctl-stages-add {
+    flex: 0 1 340px;
+    min-width: 260px;
+    padding-left: 16px;
+    border-left: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 .ctl-transition-pending {

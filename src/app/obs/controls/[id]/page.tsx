@@ -257,34 +257,61 @@ export default function Page({params}: { params: { id: string } }) {
     const prevStage = stages[(safePhaseIndex - 1 + stages.length) % stages.length]
     const nextStage = stages[(safePhaseIndex + 1) % stages.length]
 
+    // The OBS/Stages panel used to be a permanent right-hand column. It is neither wide enough to
+    // deserve one nor touched often enough — connection setup, bindings and stage editing are all
+    // things you do once — so it now folds out under the actions row, full width, and the element
+    // list gets the whole page. Remembered per channel: an operator who keeps it open (a machine
+    // where OBS keeps dropping) should not have to reopen it every reload.
+    const panelOpenKey = `obs-controls-${channelId}-obs-panel`
+    const [panelOpen, setPanelOpen] = useState(false)
+    useEffect(() => {
+        try {
+            setPanelOpen(localStorage.getItem(panelOpenKey) === '1')
+        } catch {
+            // Storage unavailable — collapsed for this session.
+        }
+    }, [panelOpenKey])
+
+    function togglePanel() {
+        setPanelOpen((open) => {
+            const next = !open
+            try {
+                localStorage.setItem(panelOpenKey, next ? '1' : '0')
+            } catch {
+                // Storage unavailable — the toggle still works, it just won't survive a reload.
+            }
+            return next
+        })
+    }
+
     const sideTabs = [
         {
             name: 'OBS',
             node: (
                 <div className="ctl-obs-tab">
-                    <div className="ctl-conn-block">
-                        <WebSocketUrlComponent url={url} setUrl={setUrl}/>
-                        <ConnectedComponent isConnected={isConnected} connect={connect}/>
-                        <div className={`ctl-conn-status ${controls.connectionStatus}`}>
-                            status: {controls.connectionStatus}
+                    <div className="ctl-obs-group">
+                        <div className="ctl-conn-block">
+                            <WebSocketUrlComponent url={url} setUrl={setUrl}/>
+                            <ConnectedComponent isConnected={isConnected} connect={connect}/>
+                            <div className={`ctl-conn-status ${controls.connectionStatus}`}>
+                                status: {controls.connectionStatus}
+                            </div>
+                            <button className="btn btn-sm btn-outline-secondary" disabled title="wired in 2.8">
+                                Re-sync OBS
+                            </button>
                         </div>
-                        <button className="btn btn-sm btn-outline-secondary" disabled title="wired in 2.8">
-                            Re-sync OBS
-                        </button>
+
+                        {/* Standing condition, not an event: raised by any change that could not
+                            be delivered to OBS and cleared by the first one that is — including
+                            the automatic resend on reconnect. */}
+                        {controls.undelivered && (
+                            <div className="alert alert-warning py-2 px-2 small mb-0 mt-2" role="alert">
+                                {controls.undelivered}
+                            </div>
+                        )}
                     </div>
 
-                    {/* Standing condition, not an event: raised by any change that could not be
-                        delivered to OBS and cleared by the first one that is — including the
-                        automatic resend on reconnect. */}
-                    {controls.undelivered && (
-                        <div className="alert alert-warning py-2 px-2 small mb-0 mt-2" role="alert">
-                            {controls.undelivered}
-                        </div>
-                    )}
-
-                    <hr/>
-
-                    <div className="ctl-obs-bindings">
+                    <div className="ctl-obs-group ctl-obs-bindings">
                         <div className="form-check mb-2">
                             <input
                                 type="checkbox"
@@ -359,24 +386,24 @@ export default function Page({params}: { params: { id: string } }) {
                         </div>
                     </div>
 
-                    <hr/>
-
-                    <div className="small text-secondary mb-2">
-                        Stream Deck:{' '}
-                        {lastDeckCommandAt
-                            ? `last command ${lastDeckCommandAt.toLocaleTimeString()}`
-                            : 'no commands yet'}
-                    </div>
-
-                    <details>
-                        <summary>State (seq {controls.seq})</summary>
-                        <div className="small text-secondary mb-1">
-                            last emit: {controls.lastEmitAt ? controls.lastEmitAt.toLocaleTimeString() : 'never'}
+                    <div className="ctl-obs-group ctl-obs-group--grow">
+                        <div className="small text-secondary">
+                            Stream Deck:{' '}
+                            {lastDeckCommandAt
+                                ? `last command ${lastDeckCommandAt.toLocaleTimeString()}`
+                                : 'no commands yet'}
                         </div>
-                        <pre className="ctl-state-pre">
-                            {JSON.stringify({seq: controls.seq, state: controls.state}, null, 2)}
-                        </pre>
-                    </details>
+
+                        <details>
+                            <summary>State (seq {controls.seq})</summary>
+                            <div className="small text-secondary mb-1">
+                                last emit: {controls.lastEmitAt ? controls.lastEmitAt.toLocaleTimeString() : 'never'}
+                            </div>
+                            <pre className="ctl-state-pre">
+                                {JSON.stringify({seq: controls.seq, state: controls.state}, null, 2)}
+                            </pre>
+                        </details>
+                    </div>
                 </div>
             ),
         },
@@ -388,83 +415,98 @@ export default function Page({params}: { params: { id: string } }) {
 
     return (
         <main className="ctl-page">
-            <div className="d-flex justify-content-between ctl-columns">
-                <div className="w-75p ctl-main-col">
-                    <div className="ctl-header">
-                        <div className="ctl-header-titles">
-                            <h4>{channel?.name ?? `Channel #${channelId}`}</h4>
-                            <div className="ctl-subtitle">
-                                {stream?.active_break_id
-                                    ? (breakObj ? `Break: ${breakObj.name}` : 'Loading break…')
-                                    : 'No active break'}
-                            </div>
-                        </div>
-
-                        <div className="ctl-stage-block">
-                            <button
-                                className="btn btn-outline-secondary"
-                                onClick={() => setPhase(prevStage.id)}
-                            >
-                                ← {prevStage.label}
-                            </button>
-                            <select
-                                className={`form-select ctl-stage-select ctl-stage-${stageDelivery}`}
-                                title={stageDelivery === 'ok' ? 'Stage changes are sent to OBS' : 'Stage changes are NOT reaching OBS'}
-                                value={controls.state.phase}
-                                onChange={(e) => setPhase(e.target.value as Phase)}
-                            >
-                                {stages.map((s) => (
-                                    <option key={s.id} value={s.id}>{s.label}</option>
-                                ))}
-                            </select>
-                            <button
-                                className="btn btn-outline-secondary"
-                                onClick={() => setPhase(nextStage.id)}
-                            >
-                                {nextStage.label} →
-                            </button>
+            <div className="ctl-main-col">
+                <div className="ctl-header">
+                    <div className="ctl-header-titles">
+                        <h4>{channel?.name ?? `Channel #${channelId}`}</h4>
+                        <div className="ctl-subtitle">
+                            {stream?.active_break_id
+                                ? (breakObj ? `Break: ${breakObj.name}` : 'Loading break…')
+                                : 'No active break'}
                         </div>
                     </div>
 
-                    <div className="ctl-actions-strip d-flex flex-wrap gap-2">
-                        {SCENE_EVENTS.map((ev) => {
-                            const lit = ev.latching && isEventActive(controls.state, ev.name)
-                            return (
-                                <button
-                                    key={ev.name}
-                                    type="button"
-                                    className={`btn ${lit ? 'btn-warning' : 'btn-primary'}${firedEvent === ev.name ? ' ctl-action-sent' : ''}`}
-                                    onClick={() => fireSceneEvent(ev.name)}
-                                    title={ev.latching ? 'Stays on until pressed again' : undefined}
-                                >
-                                    {firedEvent === ev.name ? 'Sent!' : lit ? `${ev.label} ■` : ev.label}
-                                </button>
-                            )
-                        })}
+                    <div className="ctl-stage-block">
+                        <button
+                            className="btn btn-outline-secondary"
+                            onClick={() => setPhase(prevStage.id)}
+                        >
+                            ← {prevStage.label}
+                        </button>
+                        <select
+                            className={`form-select ctl-stage-select ctl-stage-${stageDelivery}`}
+                            title={stageDelivery === 'ok' ? 'Stage changes are sent to OBS' : 'Stage changes are NOT reaching OBS'}
+                            value={controls.state.phase}
+                            onChange={(e) => setPhase(e.target.value as Phase)}
+                        >
+                            {stages.map((s) => (
+                                <option key={s.id} value={s.id}>{s.label}</option>
+                            ))}
+                        </select>
+                        <button
+                            className="btn btn-outline-secondary"
+                            onClick={() => setPhase(nextStage.id)}
+                        >
+                            {nextStage.label} →
+                        </button>
                     </div>
-
-                    {notice && (
-                        <div className={`ctl-notice alert alert-${notice.type} alert-dismissible`} role="alert">
-                            {notice.message}
-                            <button type="button" className="btn-close" onClick={() => setNotice(null)}/>
-                        </div>
-                    )}
-
-                    {controls.loading && (
-                        <div className="alert alert-secondary">Loading layout config/state…</div>
-                    )}
-
-                    <ElementsPanel
-                        controls={controls}
-                        channelId={channelId}
-                        seriesId={breakObj?.series_id}
-                        onPushResult={reportPush}
-                    />
                 </div>
 
-                <div className="w-15p ctl-side-panel">
-                    <TabsComponent tabs={sideTabs}/>
+                <div className="ctl-actions-strip d-flex flex-wrap align-items-center gap-2">
+                    {SCENE_EVENTS.map((ev) => {
+                        const lit = ev.latching && isEventActive(controls.state, ev.name)
+                        return (
+                            <button
+                                key={ev.name}
+                                type="button"
+                                className={`btn ${lit ? 'btn-warning' : 'btn-primary'}${firedEvent === ev.name ? ' ctl-action-sent' : ''}`}
+                                onClick={() => fireSceneEvent(ev.name)}
+                                title={ev.latching ? 'Stays on until pressed again' : undefined}
+                            >
+                                {firedEvent === ev.name ? 'Sent!' : lit ? `${ev.label} ■` : ev.label}
+                            </button>
+                        )
+                    })}
+                    <button
+                        type="button"
+                        className="btn btn-outline-secondary ms-auto ctl-panel-toggle"
+                        aria-expanded={panelOpen}
+                        onClick={togglePanel}
+                    >
+                        {/* Connection state is the one thing in this panel worth seeing at a
+                            glance, and collapsing it would otherwise hide it — so it rides on
+                            the toggle itself. */}
+                        <span
+                            className={`ctl-panel-dot ctl-panel-dot--${controls.connectionStatus}`}
+                            title={`OBS: ${controls.connectionStatus}`}
+                        />
+                        OBS &amp; Stages {panelOpen ? '▾' : '▸'}
+                    </button>
                 </div>
+
+                {panelOpen && (
+                    <div className="ctl-side-panel">
+                        <TabsComponent tabs={sideTabs}/>
+                    </div>
+                )}
+
+                {notice && (
+                    <div className={`ctl-notice alert alert-${notice.type} alert-dismissible`} role="alert">
+                        {notice.message}
+                        <button type="button" className="btn-close" onClick={() => setNotice(null)}/>
+                    </div>
+                )}
+
+                {controls.loading && (
+                    <div className="alert alert-secondary">Loading layout config/state…</div>
+                )}
+
+                <ElementsPanel
+                    controls={controls}
+                    channelId={channelId}
+                    seriesId={breakObj?.series_id}
+                    onPushResult={reportPush}
+                />
             </div>
         </main>
     )
