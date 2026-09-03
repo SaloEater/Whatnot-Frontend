@@ -755,5 +755,19 @@ export function validateCue(input: unknown): { ok: true; cue: Cue } | { ok: fals
         }
         return { ok: true, cue: { kind: 'refetch', key: input.key } }
     }
-    return { ok: false, errors: [`cue.kind must be one of event, photos-changed, refetch — got ${JSON.stringify(kind)}`] }
+    if (kind === 'highlight-photo') {
+        // `null` is the "nothing highlighted" value, so it is accepted as-is — but `undefined`
+        // (the key simply missing) is not: that is a malformed cue, not a clear.
+        if (input.photoId !== null && typeof input.photoId !== 'number') {
+            return { ok: false, errors: ['cue.photoId must be a number or null'] }
+        }
+        return { ok: true, cue: { kind: 'highlight-photo', photoId: input.photoId as number | null } }
+    }
+    return {
+        ok: false,
+        errors: [
+            'cue.kind must be one of event, photos-changed, refetch, highlight-photo — ' +
+                `got ${JSON.stringify(kind)}`,
+        ],
+    }
 }

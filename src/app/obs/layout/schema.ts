@@ -204,6 +204,11 @@ export type Cue =
     | { kind: 'event'; name: SceneEventName; params?: Record<string, unknown> }
     | { kind: 'photos-changed' }
     | { kind: 'refetch'; key: string }
+    // The operator hovering a card in the controls page's card grid; the `cards` element zooms
+    // that card the same way a local hover does. `photoId: null` means "nothing highlighted".
+    // Rides the TRANSIENT bus (BUS_CUE_EVENT_NAME below), never a BusPayload: it fires on mouse
+    // movement, and the BusPayload path writes state to the backend and bumps `seq` on every emit.
+    | { kind: 'highlight-photo'; photoId: number | null }
 
 export type BusPayload = {
     seq: number
@@ -252,3 +257,21 @@ export const MAX_TEXT_LENGTH = 500
 
 export const BUS_EVENT_NAME = 'mob:trigger'
 export const DEV_CHANNEL_NAME = 'mob:bus'
+
+// ── Transient cue channel ────────────────────────────────────────────────────────────────────
+// A second, deliberately separate bus event carrying a cue and NOTHING else. `BusPayload` is the
+// durable channel: every emit is preceded by a backend state write that bumps `seq`, which is what
+// makes a reloaded browser source able to catch up. That is exactly wrong for a signal driven by
+// mouse movement — one row in `overlay_state` per hover — so cues that are purely ephemeral (they
+// mean nothing after the moment they describe) go here instead.
+//
+// It carries no state and no config, so it cannot desync the layout and it stays clear of the
+// `seq` guard. `n` is only for ORDERING: obs-browser-event-bus.md §6.5 says delivery order is not
+// preserved, and a "highlight off" overtaking its "highlight on" would leave a card stuck zoomed
+// on stream. Unlike `seq`, `n` is client-assigned (no backend is involved), so it is seeded from
+// the wall clock at first use — a reloaded controls page then resumes ABOVE whatever its previous
+// life sent, instead of restarting at 1 and having every cue dropped as stale.
+export const BUS_CUE_EVENT_NAME = 'mob:cue'
+export const DEV_CUE_CHANNEL_NAME = 'mob:cue-bus'
+
+export type CuePayload = { n: number; cue: Cue }

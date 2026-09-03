@@ -21,7 +21,7 @@
 // The orientation/show_horizontal_row/show_only_available_teams block below (its own `post()`
 // call) does go through useSettingWrite.ts, pushing a `cardsBoardSettings` refetch on save.
 
-import {useEffect, useState} from 'react'
+import {useCallback, useEffect, useRef, useState} from 'react'
 import {getEndpoints, post} from '@/app/lib/backend'
 import {Photo} from '@/app/entity/entities'
 import type {Cue} from '@/app/obs/layout/schema'
@@ -43,10 +43,25 @@ const ORIENTATIONS: ReadonlyArray<{ value: string; label: string }> = [
     {value: 'gallery', label: 'Carousel'},
 ]
 
-export default function CardsSettings({channelId, elementKey, onFireCue}: {
+// How long the pointer must rest on a card before the layout page is told to zoom it. The same
+// 500ms the layout's own hover uses — and it is deliberately HERE rather than there: dwelling on
+// this side means sweeping the pointer across the grid emits nothing at all, instead of a burst of
+// cues the layout would have to sit on.
+const HIGHLIGHT_DWELL_MS = 500
+
+// While a highlight is held, re-send it on this interval. The highlight is a LEASE, not a latch:
+// the layout drops it if the renewals stop (CardsElement's HIGHLIGHT_TTL_MS). Explicit clears do
+// all the real work — this exists for the cases where no clear is ever sent, which is most of the
+// ways a pointer stops hovering something: alt-tabbing away fires no mouseleave at all, and neither
+// does a card being re-rendered out from under the cursor by the photo poll. Without the lease
+// those leave a card zoomed on stream until something else happens to move it.
+const HIGHLIGHT_HEARTBEAT_MS = 1000
+
+export default function CardsSettings({channelId, elementKey, onFireCue, onEmitCue}: {
     channelId: number
     elementKey: string
     onFireCue?: (cue: Cue) => void
+    onEmitCue?: (cue: Cue) => void
 }) {
     const [orientation, setOrientation] = useState<string | null>(null)
     const [showHorizontalRow, setShowHorizontalRow] = useState(false)
@@ -108,6 +123,93 @@ export default function CardsSettings({channelId, elementKey, onFireCue}: {
         localStorage.setItem(SORT_KEY, mode)
     }
 
+    // Hovering a card here zooms the same card on the layout page — the layout is normally an OBS
+    // browser source with no mouse of its own, so this is the only way to reach that zoom while
+    // live. Goes over the TRANSIENT cue channel (schema.ts's BUS_CUE_EVENT_NAME): no backend write,
+    // no seq bump, nothing persisted — a highlight means nothing a moment after it ends.
+    //
+    // Everything below is built around one asymmetry: raising a highlight is cheap to get wrong,
+    // and failing to drop one is not. A card left zoomed is on stream until someone notices.
+    const dwellRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null)
+    const highlightedRef = useRef<number | null>(null)
+    // Kept in a ref so the callbacks below can be stable (`[]` deps) — the window-level listeners
+    // and the unmount cleanup must not be torn down and re-armed on every parent render.
+    const emitRef = useRef(onEmitCue)
+    emitRef.current = onEmitCue
+
+    const clearDwell = useCallback(() => {
+        if (dwellRef.current) {
+            clearTimeout(dwellRef.current)
+            dwellRef.current = null
+        }
+    }, [])
+
+    const sendHighlight = useCallback((photoId: number | null) => {
+        highlightedRef.current = photoId
+        emitRef.current?.({kind: 'highlight-photo', photoId})
+
+        if (heartbeatRef.current) {
+            clearInterval(heartbeatRef.current)
+            heartbeatRef.current = null
+        }
+        if (photoId !== null) {
+            heartbeatRef.current = setInterval(() => {
+                emitRef.current?.({kind: 'highlight-photo', photoId})
+            }, HIGHLIGHT_HEARTBEAT_MS)
+        }
+    }, [])
+
+    /** Drop whatever is highlighted, if anything. Safe to call unconditionally. */
+    const dropHighlight = useCallback(() => {
+        clearDwell()
+        if (highlightedRef.current !== null) sendHighlight(null)
+    }, [clearDwell, sendHighlight])
+
+    function handleCardEnter(photo: Photo) {
+        clearDwell()
+        dwellRef.current = setTimeout(() => {
+            dwellRef.current = null
+            sendHighlight(photo.id)
+        }, HIGHLIGHT_DWELL_MS)
+    }
+
+    function handleCardLeave(photo: Photo) {
+        clearDwell()
+        // Only clear what this card actually raised: moving between two cards fires the new card's
+        // enter before the old card's leave in some browsers, and clearing unconditionally there
+        // would cancel the highlight that was just sent.
+        if (highlightedRef.current === photo.id) sendHighlight(null)
+    }
+
+    // The cases a per-card mouseleave never covers. Alt-tabbing (or clicking into OBS) with the
+    // pointer still resting on a card fires no leave at all — the pointer has not moved, so as far
+    // as the DOM is concerned it is still hovering. Same for a card unmounting under the cursor
+    // when the photo poll returns a changed list.
+    useEffect(() => {
+        function onHidden() {
+            if (document.visibilityState === 'hidden') dropHighlight()
+        }
+        window.addEventListener('blur', dropHighlight)
+        document.addEventListener('visibilitychange', onHidden)
+        return () => {
+            window.removeEventListener('blur', dropHighlight)
+            document.removeEventListener('visibilitychange', onHidden)
+        }
+    }, [dropHighlight])
+
+    // Unmount (the block is folded, the stage changes, the page navigates away) must not leave a
+    // card stuck zoomed on stream either.
+    useEffect(() => {
+        return () => {
+            clearDwell()
+            if (heartbeatRef.current) clearInterval(heartbeatRef.current)
+            if (highlightedRef.current !== null) {
+                emitRef.current?.({kind: 'highlight-photo', photoId: null})
+            }
+        }
+    }, [clearDwell])
+
     function handleMarkSold(photo: Photo) {
         markSold(photo.id, !photo.is_sold)
         // The board's photo_board poll is 120s (useLayoutData.tsx) — without this cue a mark-sold
@@ -131,7 +233,10 @@ export default function CardsSettings({channelId, elementKey, onFireCue}: {
     function renderCard(photo: Photo) {
         const nameLines = splitName(photo.name || '—')
         return (
-            <div key={photo.id} style={{
+            <div key={photo.id}
+                 onMouseEnter={() => handleCardEnter(photo)}
+                 onMouseLeave={() => handleCardLeave(photo)}
+                 style={{
                 width: `${cardSize}px`,
                 flexShrink: 0,
                 padding: '3px',
@@ -276,7 +381,11 @@ export default function CardsSettings({channelId, elementKey, onFireCue}: {
                     </div>
                 </div>
             </div>
-            <div style={{display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center'}}>
+            {/* Grid-level leave as well as per-card: moving the pointer out of the grid in one
+                fast motion, or off the edge of the window, can leave the last card's own leave
+                unfired. */}
+            <div onMouseLeave={dropHighlight}
+                 style={{display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center'}}>
                 {unsold.map((p) => renderCard(p))}
                 {sold.map((p) => renderCard(p))}
             </div>

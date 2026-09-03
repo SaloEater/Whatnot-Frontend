@@ -30,7 +30,7 @@ type Props = {
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
 export default function ElementsPanel({controls, channelId, seriesId, onPushResult}: Props) {
-    const {config, setConfigLocal, pushConfig, apply, state} = controls
+    const {config, setConfigLocal, pushConfig, apply, state, emitCue} = controls
     const currentPhase = state.phase
 
     // Lets an element's own settings panel push a cue through the same state-update path the
@@ -267,9 +267,12 @@ export default function ElementsPanel({controls, channelId, seriesId, onPushResu
         }
 
         const el = makeElement(regId)
-        // Elements born persistent (e.g. the frame) already cover this stage via `all`.
+        // Elements born persistent (e.g. the frame) already cover this stage via `all`. Everything
+        // else gets EXACTLY this stage — assigned, not merged: `makeElement` used to pre-seed a
+        // default stage, so adding a text box while on a custom stage put it in that stage and in
+        // `selling`, and it showed up in both stages' element lists.
         if ('placements' in el && !el.placements.all) {
-            el.placements = {...el.placements, [currentPhase]: boxForPhase(el, regId)}
+            el.placements = {[currentPhase]: boxForPhase(el, regId)}
         }
         mutate(c => ({...c, elements: {...c.elements, [key]: el}}))
         setAddChoice('')
@@ -472,6 +475,7 @@ export default function ElementsPanel({controls, channelId, seriesId, onPushResu
                         canMoveUp={canMove(key, -1)}
                         canMoveDown={canMove(key, 1)}
                         onFireCue={fireCue}
+                        onEmitCue={emitCue}
                     />
                 ))}
                 {elementsInPhase.length === 0 && (

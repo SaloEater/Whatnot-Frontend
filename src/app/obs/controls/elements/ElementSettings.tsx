@@ -34,9 +34,10 @@ type Props = {
     // an immediate spine refetch as part of saving (see useSettingWrite.ts) rather than leaving
     // OBS to catch up on the spine's own poll.
     onFireCue?: (cue: Cue) => void
+    onEmitCue?: (cue: Cue) => void
 }
 
-export default function ElementSettings({registryId, channelId, seriesId, elementKey, element, currentPhase, config, onPatchElement, onFireCue}: Props) {
+export default function ElementSettings({registryId, channelId, seriesId, elementKey, element, currentPhase, config, onPatchElement, onFireCue, onEmitCue}: Props) {
     switch (registryId) {
         case 'widget:pick2':
             return <Pick2Settings channelId={channelId} onFireCue={onFireCue}/>
@@ -52,7 +53,7 @@ export default function ElementSettings({registryId, channelId, seriesId, elemen
         case 'widget:chasersLeft':
             return <CountSettings channelId={channelId} elementKey={elementKey} seriesId={seriesId} onFireCue={onFireCue}/>
         case 'cards':
-            return <CardsSettings channelId={channelId} elementKey={elementKey} onFireCue={onFireCue}/>
+            return <CardsSettings channelId={channelId} elementKey={elementKey} onFireCue={onFireCue} onEmitCue={onEmitCue}/>
         case 'board:cobra':
             return <CobraBoardSettings channelId={channelId} seriesId={seriesId} onFireCue={onFireCue}/>
         case 'frame:static':

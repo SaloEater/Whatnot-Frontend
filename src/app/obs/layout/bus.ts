@@ -2,7 +2,7 @@
 // Per §6: `e.detail` arrives as a plain object, order is NOT preserved, so every payload carries
 // a monotonically increasing `seq` and callers must drop anything with seq <= lastSeen.
 
-import type { BusPayload } from './schema'
+import type { BusPayload, CuePayload } from './schema'
 import { migrateConfig, migrateState, validateConfig, validateCue, validateState } from './config'
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
@@ -50,8 +50,31 @@ export function parseBusPayload(detail: unknown): BusPayload | null {
     }
 }
 
+/**
+ * The transient cue channel (schema.ts's BUS_CUE_EVENT_NAME): a cue and an ordering number, no
+ * state and no config. Same shape of validation as `parseBusPayload`, and the same contract —
+ * anything malformed is warned about and dropped rather than half-applied.
+ */
+export function parseCuePayload(detail: unknown): CuePayload | null {
+    if (!isPlainObject(detail)) {
+        console.warn('[layout/bus] cue payload is not an object', detail)
+        return null
+    }
+    if (typeof detail.n !== 'number' || !Number.isFinite(detail.n)) {
+        console.warn('[layout/bus] cue payload missing a numeric n', detail)
+        return null
+    }
+    const cueResult = validateCue(detail.cue)
+    if (!cueResult.ok) {
+        console.warn('[layout/bus] invalid cue payload', cueResult.errors)
+        return null
+    }
+    return { n: detail.n, cue: cueResult.cue }
+}
+
 // Order is not preserved across emits (obs-browser-event-bus.md §6.5), so the receiver must
 // track the highest seq seen and drop anything at or below it, regardless of arrival order.
+// Also used for the transient channel's `n` (same problem, different counter).
 export function makeSeqGuard(): { accept: (seq: number) => boolean } {
     let last = -Infinity
 

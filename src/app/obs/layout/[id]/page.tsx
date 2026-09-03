@@ -6,7 +6,7 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
 import {useSearchParams} from 'next/navigation'
 import {getEndpoints, post} from '@/app/lib/backend'
-import {BUS_EVENT_NAME, CANVAS, DEV_CHANNEL_NAME} from '../schema'
+import {BUS_CUE_EVENT_NAME, BUS_EVENT_NAME, CANVAS, DEV_CHANNEL_NAME, DEV_CUE_CHANNEL_NAME} from '../schema'
 import type {Box, BusPayload, LayoutConfig, OverlayState, Phase} from '../schema'
 import {
     defaultConfig,
@@ -19,7 +19,7 @@ import {
     validateState,
 } from '../config'
 import {REGISTRY, registryIdOf} from '../registry'
-import {makeSeqGuard, parseBusPayload} from '../bus'
+import {makeSeqGuard, parseBusPayload, parseCuePayload} from '../bus'
 import {CueBusProvider, useCueBus} from '../cueBus'
 import {LayoutDataProvider} from '../useLayoutData'
 import {ResolvedBoxesProvider} from '../resolvedBoxes'
@@ -142,6 +142,38 @@ function LayoutPageInner({channelId, devMode}: {channelId: number; devMode: bool
         }
         return () => channel.close()
     }, [devMode, applyBusPayload])
+
+    // Transient cue channel (schema.ts's BUS_CUE_EVENT_NAME): a cue on its own, carrying no state
+    // and no config, so it never touches `state`/`config`/`seq` — it is forwarded straight to the
+    // in-page cue bus for elements to pick up. Its own ordering guard, because `n` is a different
+    // counter from `seq` and the two must not interfere.
+    const cueGuardRef = useRef(makeSeqGuard())
+    const applyCuePayload = useCallback(
+        (payload: { n: number; cue: BusPayload['cue'] }) => {
+            if (!cueGuardRef.current.accept(payload.n)) return
+            if (payload.cue) cueBus.emit(payload.cue)
+        },
+        [cueBus]
+    )
+
+    useEffect(() => {
+        function onCue(e: Event) {
+            const payload = parseCuePayload((e as CustomEvent).detail)
+            if (payload) applyCuePayload(payload)
+        }
+        window.addEventListener(BUS_CUE_EVENT_NAME, onCue)
+        return () => window.removeEventListener(BUS_CUE_EVENT_NAME, onCue)
+    }, [applyCuePayload])
+
+    useEffect(() => {
+        if (!devMode || typeof BroadcastChannel === 'undefined') return
+        const channel = new BroadcastChannel(DEV_CUE_CHANNEL_NAME)
+        channel.onmessage = (e: MessageEvent) => {
+            const payload = parseCuePayload(e.data)
+            if (payload) applyCuePayload(payload)
+        }
+        return () => channel.close()
+    }, [devMode, applyCuePayload])
 
     // Mount fetch + 60s reconcile poll. Config has no version number, so it's always applied
     // fresh from the poll; state carries `seq` and goes through the same guard as bus payloads,

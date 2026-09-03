@@ -38,6 +38,9 @@ type Props = {
     canMoveUp: boolean
     canMoveDown: boolean
     onFireCue?: (cue: Cue) => void
+    /** Transient, backend-free cue emit (useControls.emitCue) — for signals fired by mouse
+     *  movement, where onFireCue's state write per emit would be absurd. */
+    onEmitCue?: (cue: Cue) => void
 }
 
 export default function ElementBlock({
@@ -57,6 +60,7 @@ export default function ElementBlock({
     canMoveUp,
     canMoveDown,
     onFireCue,
+    onEmitCue,
 }: Props) {
     // Folded/open is remembered per channel + stage in localStorage (useFoldState).
     const [open, setOpen] = useFoldState(channelId, currentPhase, elementKey)
@@ -345,6 +349,7 @@ export default function ElementBlock({
                             config={config}
                             onPatchElement={onPatchElement}
                             onFireCue={onFireCue}
+                            onEmitCue={onEmitCue}
                         />
                     </div>
                 </div>

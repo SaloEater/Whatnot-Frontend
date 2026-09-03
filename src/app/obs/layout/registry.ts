@@ -63,8 +63,9 @@ export type RegistryEntry = {
     // Every entry allows every stage — with per-channel configurable stages (schema.ts's `Stage`)
     // a static list can no longer express which stages an element is placeable in, so there is no
     // `allowedPhases` any more (config.ts's `validatePlacements` accepts any of the config's own
-    // stages, or 'all', for every registry entry).
-    defaultPhases: Phase[]
+    // stages, or 'all', for every registry entry). There is no `defaultPhases` either: the builder
+    // always knows which stage the operator is adding to, and seeding a default stage on top of it
+    // put every new element into `selling` as well as the stage it was added from.
     preload: string[]
     component: ComponentType<ElementProps>
     // false = schema-ready but not offered by the builder.
@@ -117,7 +118,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: true,
         singletonGroup: 'board',
         defaultBox: BOARD_BOX,
-        defaultPhases: ['selling'],
         // Just the static board background — the per-cell/per-tile skin art is combinatorial
         // (style x tier x piece x variant, resolved from manifest.json at runtime) and not worth
         // eagerly preloading here (obs-layout-plan.md §2.1).
@@ -136,7 +136,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: true,
         singletonGroup: 'board',
         defaultBox: BOARD_BOX,
-        defaultPhases: ['selling'],
         preload: [],
         component: Placeholder,
         available: true,
@@ -150,7 +149,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: true,
         singletonGroup: 'board',
         defaultBox: BOARD_BOX,
-        defaultPhases: ['selling'],
         preload: [],
         component: CobraBoard,
         available: true,
@@ -168,7 +166,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: false,
         singletonGroup: 'widget:pick2',
         defaultBox: widgetDefaultBox(0),
-        defaultPhases: ['selling'],
         preload: [],
         component: CircleWidget,
         available: true,
@@ -182,7 +179,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: false,
         singletonGroup: 'widget:stashorpass',
         defaultBox: widgetDefaultBox(1),
-        defaultPhases: ['selling'],
         preload: [],
         component: CircleWidget,
         available: true,
@@ -196,7 +192,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: false,
         singletonGroup: 'widget:name',
         defaultBox: widgetDefaultBox(2),
-        defaultPhases: ['selling'],
         preload: [],
         component: CircleWidget,
         available: true,
@@ -210,7 +205,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: false,
         singletonGroup: 'widget:boxesPerBreak',
         defaultBox: widgetDefaultBox(3),
-        defaultPhases: ['selling'],
         preload: [],
         component: CircleWidget,
         available: true,
@@ -224,7 +218,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: false,
         singletonGroup: 'widget:boxesLeft',
         defaultBox: widgetDefaultBox(4),
-        defaultPhases: ['selling'],
         preload: [],
         component: CircleWidget,
         available: true,
@@ -238,7 +231,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: false,
         singletonGroup: 'widget:chasersLeft',
         defaultBox: widgetDefaultBox(5),
-        defaultPhases: ['selling'],
         preload: [],
         component: CircleWidget,
         available: true,
@@ -252,7 +244,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: true,
         singletonGroup: 'results',
         defaultBox: FULL_BOX,
-        defaultPhases: ['results'],
         preload: [],
         component: ResultsElement,
         available: true,
@@ -275,7 +266,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         // Interpretation: the plan's use case is "alongside a board, or during ripping" — full
         // `results` already owns the `results` phase by default, so this defaults to `ripping`
         // rather than competing with it. The operator can add it to any phase either way.
-        defaultPhases: ['ripping'],
         preload: [],
         component: ThinResults,
         available: true,
@@ -291,7 +281,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: true,
         singletonGroup: 'cards',
         defaultBox: FULL_BOX,
-        defaultPhases: ['selling'],
         preload: [],
         component: CardsElement,
         available: true,
@@ -306,7 +295,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: true,
         singletonGroup: 'ripbar',
         defaultBox: RIPBAR_BOX,
-        defaultPhases: ['ripping'],
         preload: [],
         component: Placeholder,
         available: true,
@@ -320,7 +308,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: true,
         singletonGroup: 'reserved',
         defaultBox: RESERVED_BOX,
-        defaultPhases: ['selling'],
         preload: [],
         component: Placeholder,
         available: true,
@@ -340,7 +327,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singletonGroup: 'frame',
         defaultBox: FULL_BOX,
         // Irrelevant for frame — makeElement() below always places it via `all` instead.
-        defaultPhases: [],
         preload: [],
         component: FrameElement,
         available: true,
@@ -361,7 +347,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singletonGroup: 'animation:stashOrPassWrap',
         defaultBox: FULL_BOX,
         // Irrelevant here too — makeElement() always places it via `all`, same as frame.
-        defaultPhases: [],
         // Self-hosted font (public/fonts/Grechka SHA_0.otf) — see StashOrPassWrap.css.
         preload: ['/fonts/Grechka SHA_0.otf'],
         component: StashOrPassWrap,
@@ -382,7 +367,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: false,
         singletonGroup: 'animation:stashOrPassWrapTl',
         defaultBox: FULL_BOX,
-        defaultPhases: [],
         preload: ['/fonts/Grechka SHA_0.otf'],
         component: StashOrPassTl,
         available: true,
@@ -399,7 +383,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: false,
         singletonGroup: 'animation:stashOrPassWrapRing',
         defaultBox: FULL_BOX,
-        defaultPhases: [],
         preload: ['/fonts/Grechka SHA_0.otf'],
         component: StashOrPassRing,
         available: true,
@@ -415,7 +398,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: false,
         singletonGroup: 'text',
         defaultBox: TEXT_BOX,
-        defaultPhases: ['selling'],
         preload: [],
         component: TextElement,
         available: true,
@@ -504,10 +486,10 @@ export function makeElement(registryId: RegistryId): Element {
         }
     }
 
+    // Deliberately EMPTY. The caller (controls' ElementsPanel) decides the placement — "this
+    // stage" or "all stages" — and assigns it immediately. Seeding a default stage here meant an
+    // element added while on a custom stage landed in that stage AND in the seeded one.
     const placements: Partial<Record<Phase, Box>> = {}
-    for (const phase of entry.defaultPhases) {
-        placements[phase] = { ...entry.defaultBox }
-    }
     switch (entry.kind) {
         case 'board':
             return { kind: 'board', variant: registryId.split(':')[1] as BoardVariant, placements }

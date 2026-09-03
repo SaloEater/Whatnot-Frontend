@@ -28,6 +28,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { NoCustomer, Photo } from '@/app/entity/entities'
 import type { ElementProps } from '../../registry'
 import { useLayoutData } from '../../useLayoutData'
+import { useCueBus } from '../../cueBus'
 import { centerByPrice, packList, PackedRow } from './packing'
 import './CardsElement.css'
 
@@ -42,6 +43,13 @@ const CARD_AREA_W_FRACTION = 0.85
 const CARD_AREA_H_FRACTION = 0.6
 const GALLERY_BASE_W_FRACTION = 0.277778
 const GALLERY_GAP_FRACTION = 0.022222
+
+// How long a remote highlight survives without being renewed. The controls page re-sends the cue
+// it is holding every second (CardsSettings' HIGHLIGHT_HEARTBEAT_MS), so this is the backstop for
+// every way a "highlight off" can fail to arrive: the operator alt-tabs with the pointer still on a
+// card and no mouseleave ever fires, the controls page is closed or crashes, the clear is simply
+// lost on the bus. Comfortably more than two heartbeats so a single missed renewal is not a flicker.
+const HIGHLIGHT_TTL_MS = 1000
 
 /** Nearest equivalent rotation in (-180, 180], so a hovered card unwinds the short way round. */
 function shortestRotation(deg: number): number {
@@ -77,6 +85,12 @@ export function CardsElement({ box }: ElementProps) {
     const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const elevationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+    // Which side is driving the current zoom. The operator hovering the controls page's card grid
+    // raises the same zoom remotely (see the `highlight-photo` effect below), and without this tag
+    // a stray mouseleave on the layout page would cancel a highlight the operator is still holding
+    // — and vice versa.
+    const hoverSourceRef = useRef<'local' | 'remote' | null>(null)
+
     useEffect(() => {
         return () => {
             if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
@@ -84,11 +98,84 @@ export function CardsElement({ box }: ElementProps) {
         }
     }, [])
 
-    function handleMouseEnter(e: React.MouseEvent<HTMLDivElement>, photo: Photo, alreadyRotated: boolean) {
+    // Remote highlight (obs-layout-plan.md §2.8): the operator hovers a card in the controls
+    // page's grid, and the same card grows here — the point being that the layout page usually IS
+    // a browser source, where there is no mouse to hover with.
+    //
+    // The 500ms dwell lives on the CONTROLS side, so by the time a cue arrives the operator has
+    // already committed to that card; reacting instantly here is the whole point. `cardNodes` maps
+    // photo id -> the rendered card, because a cue has no mouse event to read a rect from.
+    const cueBus = useCueBus()
+    const cardNodes = useRef(new Map<number, { el: HTMLDivElement; rotated: boolean }>())
+    const [remoteId, setRemoteId] = useState<number | null>(null)
+
+    // The TTL is refreshed here rather than in the effect below because a renewal carries the SAME
+    // photo id: `setRemoteId` bails out on an unchanged value, so the effect would never re-run and
+    // a held highlight would expire mid-hover.
+    const remoteExpiryRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    useEffect(() => {
+        const unsubscribe = cueBus.subscribe((cue) => {
+            if (cue.kind !== 'highlight-photo') return
+            if (remoteExpiryRef.current) {
+                clearTimeout(remoteExpiryRef.current)
+                remoteExpiryRef.current = null
+            }
+            setRemoteId(cue.photoId)
+            if (cue.photoId !== null) {
+                remoteExpiryRef.current = setTimeout(() => {
+                    remoteExpiryRef.current = null
+                    setRemoteId(null)
+                }, HIGHLIGHT_TTL_MS)
+            }
+        })
+        return () => {
+            unsubscribe()
+            if (remoteExpiryRef.current) clearTimeout(remoteExpiryRef.current)
+        }
+    }, [cueBus])
+
+    // Re-runs when the board relayouts (new photos, new measured aspect ratios, a resized box) so a
+    // held highlight keeps pointing at where its card actually is now.
+    useEffect(() => {
+        if (remoteId === null) {
+            if (hoverSourceRef.current === 'remote') {
+                hoverSourceRef.current = null
+                setHoveredId(null)
+                if (elevationTimerRef.current) clearTimeout(elevationTimerRef.current)
+                elevationTimerRef.current = setTimeout(() => {
+                    setElevatedId(null)
+                    elevationTimerRef.current = null
+                }, 220)
+            }
+            return
+        }
+        const node = cardNodes.current.get(remoteId)
+        const photo = displayPhotos.find((p) => p.id === remoteId)
+        // A card that is sold, filtered out by "only available teams", or simply not on this board
+        // has nothing to zoom — ignore rather than clearing whatever is up.
+        if (!node || !photo) return
+        const zoom = zoomFor(node.el, photo, node.rotated)
+        if (!zoom) return
+        hoverData.current = zoom
+        hoverSourceRef.current = 'remote'
+        if (elevationTimerRef.current) {
+            clearTimeout(elevationTimerRef.current)
+            elevationTimerRef.current = null
+        }
+        setElevatedId(remoteId)
+        setHoveredId(remoteId)
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- zoomFor closes over refs and box
+    }, [remoteId, displayPhotos, cardDims, box.w, box.h])
+
+    /**
+     * Zoom transform for one card, in CANVAS units. Shared by the local mouse hover and the remote
+     * highlight cue, which differ only in how they find the card element.
+     */
+    function zoomFor(cardEl: HTMLElement, photo: Photo, alreadyRotated: boolean): { scale: number; dx: number; dy: number } | null {
         const root = rootRef.current
-        if (!root) return
+        if (!root) return null
         const rootRect = root.getBoundingClientRect()
-        const rect = e.currentTarget.getBoundingClientRect()
+        const rect = cardEl.getBoundingClientRect()
         // Viewport px per canvas px. Guarded: a zero-width root (never laid out) would divide by 0.
         const stageScale = rootRect.width > 0 ? rootRect.width / box.w : 1
 
@@ -102,11 +189,21 @@ export function CardsElement({ box }: ElementProps) {
 
         const dx = (rootRect.left + rootRect.width / 2 - (rect.left + rect.width / 2)) / stageScale
         const dy = (rootRect.top + rootRect.height / 2 - (rect.top + rect.height / 2)) / stageScale
-        hoverData.current = { scale, dx, dy }
+        return { scale, dx, dy }
+    }
+
+    function handleMouseEnter(e: React.MouseEvent<HTMLDivElement>, photo: Photo, alreadyRotated: boolean) {
+        const zoom = zoomFor(e.currentTarget, photo, alreadyRotated)
+        if (!zoom) return
 
         if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
         hoverTimerRef.current = setTimeout(() => {
             hoverTimerRef.current = null
+            // Read the geometry at fire time, not at enter time: the board may have relaid out
+            // during the dwell.
+            const fresh = zoomFor(e.currentTarget, photo, alreadyRotated) ?? zoom
+            hoverData.current = fresh
+            hoverSourceRef.current = 'local'
             setElevatedId(photo.id)
             setHoveredId(photo.id)
         }, 500)
@@ -117,6 +214,10 @@ export function CardsElement({ box }: ElementProps) {
             clearTimeout(hoverTimerRef.current)
             hoverTimerRef.current = null
         }
+        // A highlight the operator is holding from the controls page outlives a mouse leaving a
+        // card here.
+        if (hoverSourceRef.current === 'remote') return
+        hoverSourceRef.current = null
         setHoveredId(null)
         if (elevationTimerRef.current) clearTimeout(elevationTimerRef.current)
         // Held briefly after the zoom releases so the full-res image is not swapped back to the
@@ -291,6 +392,10 @@ export function CardsElement({ box }: ElementProps) {
                                         width: `${row.widths[ci]}px`,
                                         height: `${row.cardHeights[ci]}px`,
                                         ...(isElevated ? { zIndex: 10 } : {}),
+                                    }}
+                                    ref={(el) => {
+                                        if (el) cardNodes.current.set(photo.id, {el, rotated: !!row.rotated})
+                                        else cardNodes.current.delete(photo.id)
                                     }}
                                     onMouseEnter={(e) => handleMouseEnter(e, photo, !!row.rotated)}
                                     onMouseLeave={handleMouseLeave}

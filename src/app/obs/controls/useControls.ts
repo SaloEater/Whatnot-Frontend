@@ -7,8 +7,8 @@
 import {useCallback, useEffect, useRef, useState} from 'react'
 import {getEndpoints, post} from '@/app/lib/backend'
 import {MyOBSWebsocket} from '@/app/entity/my_obs_websocket'
-import type {BusPayload, LayoutConfig, OverlayState} from '@/app/obs/layout/schema'
-import {BUS_EVENT_NAME, DEV_CHANNEL_NAME} from '@/app/obs/layout/schema'
+import type {BusPayload, Cue, CuePayload, LayoutConfig, OverlayState} from '@/app/obs/layout/schema'
+import {BUS_CUE_EVENT_NAME, BUS_EVENT_NAME, DEV_CHANNEL_NAME, DEV_CUE_CHANNEL_NAME} from '@/app/obs/layout/schema'
 import {defaultConfig, defaultState, migrateConfig, migrateState, validateConfig, validateState} from '@/app/obs/layout/config'
 
 export type ConnectionStatus = 'connected' | 'reconnecting' | 'disconnected'
@@ -49,6 +49,16 @@ function describeError(e: unknown): string {
 function broadcastDev(payload: BusPayload) {
     try {
         const bc = new BroadcastChannel(DEV_CHANNEL_NAME)
+        bc.postMessage(payload)
+        bc.close()
+    } catch (e) {
+        console.warn('[useControls] BroadcastChannel unavailable', e)
+    }
+}
+
+function broadcastDevCue(payload: CuePayload) {
+    try {
+        const bc = new BroadcastChannel(DEV_CUE_CHANNEL_NAME)
         bc.postMessage(payload)
         bc.close()
     } catch (e) {
@@ -240,6 +250,32 @@ export function useControls(channelId: number, obs: MyOBSWebsocket | null, isCon
         return emit({seq: seqRef.current, state: stateRef.current, config: configRef.current})
     }, [emit])
 
+    /**
+     * Fire-and-forget cue on the TRANSIENT channel (schema.ts's BUS_CUE_EVENT_NAME): no backend
+     * write, no `seq` bump, no state or config in the payload. For signals that are meaningless a
+     * moment later — today the card-hover highlight (obs-layout-plan.md §2.8) — where routing
+     * through `apply()` would mean a database row per mouse move.
+     *
+     * Deliberately does NOT touch `lastEmitAt` or `undelivered`. Those describe whether the
+     * layout's durable state is in sync; a hover that missed OBS is not a change anyone needs to
+     * be warned about, and raising the sticky banner for one would make it meaningless.
+     */
+    const cueSeqRef = useRef<number | null>(null)
+    const emitCue = useCallback(async (cue: Cue): Promise<void> => {
+        // Seeded from the clock on first use, not at module scope: it must not run during SSR, and
+        // it has to sit above whatever a previous life of this page sent (see schema.ts).
+        if (cueSeqRef.current === null) cueSeqRef.current = Date.now()
+        const payload: CuePayload = {n: ++cueSeqRef.current, cue}
+
+        broadcastDevCue(payload)
+        if (!obs || !isConnected) return
+        try {
+            await obs.emitBrowserEvent(BUS_CUE_EVENT_NAME, payload)
+        } catch (e) {
+            console.warn('[useControls] cue emit failed', e)
+        }
+    }, [obs, isConnected])
+
     const setConfigLocal = useCallback((nextConfig: LayoutConfig) => {
         setConfig(nextConfig)
         configRef.current = nextConfig
@@ -304,6 +340,7 @@ export function useControls(channelId: number, obs: MyOBSWebsocket | null, isCon
         undelivered,
         setConfigLocal,
         apply,
+        emitCue,
         pushConfig,
         resendCurrent,
         reload,
