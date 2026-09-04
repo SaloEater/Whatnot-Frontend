@@ -86,6 +86,9 @@ export default function ImageBoxSettings({elementKey, element, channelId, curren
         startY: number
         slackX: number
         slackY: number
+        // Latest computed position — read on release instead of `dragPos`, so the commit never
+        // has to happen inside a state updater (which React may run twice in strict mode).
+        current: Position
     } | null>(null)
 
     if (!img) return null
@@ -148,6 +151,7 @@ export default function ImageBoxSettings({elementKey, element, channelId, curren
             startY: position.y,
             slackX: slack.slackX,
             slackY: slack.slackY,
+            current: {x: position.x, y: position.y},
         }
         setDragPos({x: position.x, y: position.y})
     }
@@ -159,7 +163,8 @@ export default function ImageBoxSettings({elementKey, element, channelId, curren
         const deltaY = e.clientY - drag.startClientY
         const nextX = Math.abs(drag.slackX) < 1 ? drag.startX : clamp(drag.startX - (deltaX / drag.slackX) * 100, 0, 100)
         const nextY = Math.abs(drag.slackY) < 1 ? drag.startY : clamp(drag.startY - (deltaY / drag.slackY) * 100, 0, 100)
-        setDragPos({x: nextX, y: nextY})
+        drag.current = {x: nextX, y: nextY}
+        setDragPos(drag.current)
     }
 
     function endDrag(e: React.PointerEvent<HTMLDivElement>) {
@@ -171,12 +176,8 @@ export default function ImageBoxSettings({elementKey, element, channelId, curren
             // pointer capture already released (e.g. by a pointercancel) — nothing to clean up
         }
         dragRef.current = null
-        setDragPos((current) => {
-            if (current) {
-                patchPosition({x: Math.round(current.x), y: Math.round(current.y)})
-            }
-            return null
-        })
+        setDragPos(null)
+        patchPosition({x: Math.round(drag.current.x), y: Math.round(drag.current.y)})
     }
 
     return (
@@ -197,6 +198,10 @@ export default function ImageBoxSettings({elementKey, element, channelId, curren
                                 position: 'relative',
                                 overflow: 'hidden',
                                 cursor: canDrag ? (dragPos ? 'grabbing' : 'grab') : 'default',
+                                // On the element that receives the pointer events, so a touch drag
+                                // pans the image instead of scrolling the page.
+                                touchAction: 'none',
+                                userSelect: 'none',
                             }}
                         >
                             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -211,8 +216,7 @@ export default function ImageBoxSettings({elementKey, element, channelId, curren
                                     display: 'block',
                                     objectFit: OBJECT_FIT[fit],
                                     objectPosition: `${displayed.x}% ${displayed.y}%`,
-                                    userSelect: 'none',
-                                    touchAction: 'none',
+                                    pointerEvents: 'none',
                                 }}
                             />
                         </div>
