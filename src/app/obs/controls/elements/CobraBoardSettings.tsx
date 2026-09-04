@@ -30,7 +30,7 @@
 import {useEffect, useState} from 'react'
 import {getEndpoints, post} from '@/app/lib/backend'
 import {PriceRange, Series, WidgetPreset} from '@/app/entity/entities'
-import type {Cue} from '@/app/obs/layout/schema'
+import type {DurableCue} from '@/app/obs/layout/schema'
 import {useSettingWrite} from './useSettingWrite'
 
 const TIER_ALIASES: Record<string, string> = {best: 'God', good: 'Giant', mid: 'Chaser'}
@@ -58,7 +58,7 @@ interface PresetValue {
 export default function CobraBoardSettings({channelId, seriesId, onFireCue}: {
     channelId: number
     seriesId?: number | null
-    onFireCue?: (cue: Cue) => void
+    onFireCue?: (cue: DurableCue) => void
 }) {
     // ---- Board: Price Ranges (unchanged) -------------------------------------------------------
 

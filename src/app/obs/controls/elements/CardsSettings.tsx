@@ -24,7 +24,7 @@
 import {useCallback, useEffect, useRef, useState} from 'react'
 import {getEndpoints, post} from '@/app/lib/backend'
 import {Photo} from '@/app/entity/entities'
-import type {Cue} from '@/app/obs/layout/schema'
+import type {DurableCue, TransientCue} from '@/app/obs/layout/schema'
 import {usePhotoBoard} from '@/app/channel/[id]/photos/usePhotoBoard'
 import {splitName, nameFontSize} from '@/app/common/cardName'
 import {TeamIconSrc} from '@/app/common/teams'
@@ -60,8 +60,8 @@ const HIGHLIGHT_HEARTBEAT_MS = 1000
 export default function CardsSettings({channelId, elementKey, onFireCue, onEmitCue}: {
     channelId: number
     elementKey: string
-    onFireCue?: (cue: Cue) => void
-    onEmitCue?: (cue: Cue) => void
+    onFireCue?: (cue: DurableCue) => void
+    onEmitCue?: (cue: TransientCue) => void
 }) {
     const [orientation, setOrientation] = useState<string | null>(null)
     const [showHorizontalRow, setShowHorizontalRow] = useState(false)

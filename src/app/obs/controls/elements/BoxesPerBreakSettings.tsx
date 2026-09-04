@@ -8,12 +8,12 @@
 
 import {useEffect, useState} from 'react'
 import {getEndpoints, post} from '@/app/lib/backend'
-import type {Cue} from '@/app/obs/layout/schema'
+import type {DurableCue} from '@/app/obs/layout/schema'
 import {useSettingWrite} from './useSettingWrite'
 
 export default function BoxesPerBreakSettings({seriesId, onFireCue}: {
     seriesId?: number | null
-    onFireCue?: (cue: Cue) => void
+    onFireCue?: (cue: DurableCue) => void
 }) {
     const [amount, setAmount] = useState<number | null>(null)
     const {save: writeSetting, saving, status, reset} = useSettingWrite(onFireCue)

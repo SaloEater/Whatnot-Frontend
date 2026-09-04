@@ -3,7 +3,7 @@
 // so everything that touches a config/state coming off the network must go through `migrateConfig`
 // / `migrateState` and then `validateConfig` / `validateState` before it is trusted.
 
-import type { Box, Cue, Element, LayoutConfig, OverlayState, Phase, PlacementKey, Sides, Stage } from './schema'
+import type { Box, Cue, DurableCue, Element, LayoutConfig, OverlayState, Phase, PlacementKey, Sides, Stage, TransientCue } from './schema'
 import {
     ANIMATION_IDS,
     BOARD_VARIANTS,
@@ -770,4 +770,63 @@ export function validateCue(input: unknown): { ok: true; cue: Cue } | { ok: fals
                 `got ${JSON.stringify(kind)}`,
         ],
     }
+}
+
+// Channel-narrowing validators on top of `validateCue`: they enforce which of the two buses
+// (schema.ts's DurableCue/TransientCue split) a given cue is actually allowed to ride, so
+// `parseBusPayload`/`parseCuePayload` (bus.ts) reject a cue built for the other channel instead of
+// letting it through as a plain `Cue`.
+//
+// Both narrowing functions are written as an EXHAUSTIVE `switch` over `cue.kind` with a `default`
+// that assigns to `const _exhaustive: never = cue` (same idiom as registryIdOf/makeElement in
+// registry.ts) rather than a string array of "durable kinds"/"transient kinds": an array is data,
+// not a type, so it can silently drift from the union as cue kinds are added — exactly the bug
+// class (naming/comments as the only enforcement) this whole split exists to close. The `switch`
+// instead fails to COMPILE the moment a new cue kind isn't classified into one of the two.
+
+function isDurableCue(cue: Cue): cue is DurableCue {
+    switch (cue.kind) {
+        case 'event':
+        case 'photos-changed':
+        case 'refetch':
+            return true
+        case 'highlight-photo':
+            return false
+        default: {
+            const _exhaustive: never = cue
+            throw new Error(`isDurableCue: unhandled cue ${JSON.stringify(_exhaustive)}`)
+        }
+    }
+}
+
+/** Narrows `validateCue`'s result to the DURABLE channel (BusPayload) — used by bus.ts's
+ *  `parseBusPayload`. Rejects a well-formed cue that belongs to the TRANSIENT channel instead of
+ *  silently letting it ride a BusPayload, which would write a backend state row (and bump `seq`)
+ *  for something meant to be fire-and-forget. */
+export function validateDurableCue(input: unknown): { ok: true; cue: DurableCue } | { ok: false; errors: string[] } {
+    const result = validateCue(input)
+    if (!result.ok) return result
+    if (!isDurableCue(result.cue)) {
+        return {
+            ok: false,
+            errors: [`cue.kind "${result.cue.kind}" rides the TRANSIENT channel (CuePayload), not the durable BusPayload`],
+        }
+    }
+    return { ok: true, cue: result.cue }
+}
+
+/** Narrows `validateCue`'s result to the TRANSIENT channel (CuePayload) — used by bus.ts's
+ *  `parseCuePayload`. Rejects a well-formed cue that belongs to the DURABLE channel instead of
+ *  silently letting it ride the transient bus, which would skip the backend state write that
+ *  makes it survive a browser-source refresh. */
+export function validateTransientCue(input: unknown): { ok: true; cue: TransientCue } | { ok: false; errors: string[] } {
+    const result = validateCue(input)
+    if (!result.ok) return result
+    if (isDurableCue(result.cue)) {
+        return {
+            ok: false,
+            errors: [`cue.kind "${result.cue.kind}" rides the DURABLE channel (BusPayload), not the transient CuePayload`],
+        }
+    }
+    return { ok: true, cue: result.cue }
 }

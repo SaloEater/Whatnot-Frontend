@@ -7,7 +7,7 @@ import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
 import {useSearchParams} from 'next/navigation'
 import {getEndpoints, post} from '@/app/lib/backend'
 import {BUS_CUE_EVENT_NAME, BUS_EVENT_NAME, CANVAS, DEV_CHANNEL_NAME, DEV_CUE_CHANNEL_NAME} from '../schema'
-import type {Box, BusPayload, LayoutConfig, OverlayState, Phase} from '../schema'
+import type {Box, BusPayload, CuePayload, LayoutConfig, OverlayState, Phase} from '../schema'
 import {
     defaultConfig,
     defaultState,
@@ -20,6 +20,7 @@ import {
 } from '../config'
 import {REGISTRY, registryIdOf} from '../registry'
 import {makeSeqGuard, parseBusPayload, parseCuePayload} from '../bus'
+import {useBusChannel} from '../useBusChannel'
 import {CueBusProvider, useCueBus} from '../cueBus'
 import {LayoutDataProvider} from '../useLayoutData'
 import {ResolvedBoxesProvider} from '../resolvedBoxes'
@@ -121,27 +122,9 @@ function LayoutPageInner({channelId, devMode}: {channelId: number; devMode: bool
         [cueBus]
     )
 
-    // Real OBS browser-source bus: window CustomEvent dispatched by the obs-browser plugin.
-    useEffect(() => {
-        function onTrigger(e: Event) {
-            const payload = parseBusPayload((e as CustomEvent).detail)
-            if (payload) applyBusPayload(payload)
-        }
-        window.addEventListener(BUS_EVENT_NAME, onTrigger)
-        return () => window.removeEventListener(BUS_EVENT_NAME, onTrigger)
-    }, [applyBusPayload])
-
-    // Dev shim: outside OBS there is no obs-browser plugin, so mirror the same payloads over a
-    // BroadcastChannel instead (obs-browser-event-bus.md §3.3).
-    useEffect(() => {
-        if (!devMode || typeof BroadcastChannel === 'undefined') return
-        const channel = new BroadcastChannel(DEV_CHANNEL_NAME)
-        channel.onmessage = (e: MessageEvent) => {
-            const payload = parseBusPayload(e.data)
-            if (payload) applyBusPayload(payload)
-        }
-        return () => channel.close()
-    }, [devMode, applyBusPayload])
+    // Durable channel. Both its listeners — the real obs-browser window event and the dev
+    // BroadcastChannel mirror — live in useBusChannel.ts, which documents them.
+    useBusChannel(BUS_EVENT_NAME, DEV_CHANNEL_NAME, devMode, parseBusPayload, applyBusPayload)
 
     // Transient cue channel (schema.ts's BUS_CUE_EVENT_NAME): a cue on its own, carrying no state
     // and no config, so it never touches `state`/`config`/`seq` — it is forwarded straight to the
@@ -149,31 +132,14 @@ function LayoutPageInner({channelId, devMode}: {channelId: number; devMode: bool
     // counter from `seq` and the two must not interfere.
     const cueGuardRef = useRef(makeSeqGuard())
     const applyCuePayload = useCallback(
-        (payload: { n: number; cue: BusPayload['cue'] }) => {
+        (payload: CuePayload) => {
             if (!cueGuardRef.current.accept(payload.n)) return
-            if (payload.cue) cueBus.emit(payload.cue)
+            cueBus.emit(payload.cue)
         },
         [cueBus]
     )
 
-    useEffect(() => {
-        function onCue(e: Event) {
-            const payload = parseCuePayload((e as CustomEvent).detail)
-            if (payload) applyCuePayload(payload)
-        }
-        window.addEventListener(BUS_CUE_EVENT_NAME, onCue)
-        return () => window.removeEventListener(BUS_CUE_EVENT_NAME, onCue)
-    }, [applyCuePayload])
-
-    useEffect(() => {
-        if (!devMode || typeof BroadcastChannel === 'undefined') return
-        const channel = new BroadcastChannel(DEV_CUE_CHANNEL_NAME)
-        channel.onmessage = (e: MessageEvent) => {
-            const payload = parseCuePayload(e.data)
-            if (payload) applyCuePayload(payload)
-        }
-        return () => channel.close()
-    }, [devMode, applyCuePayload])
+    useBusChannel(BUS_CUE_EVENT_NAME, DEV_CUE_CHANNEL_NAME, devMode, parseCuePayload, applyCuePayload)
 
     // Mount fetch + 60s reconcile poll. Config has no version number, so it's always applied
     // fresh from the poll; state carries `seq` and goes through the same guard as bus payloads,

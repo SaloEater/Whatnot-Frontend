@@ -4,7 +4,7 @@
 // (see obs-layout-plan.md §1.6/§1.7, now folded into the controls page). Replaces the table row
 // this element used to be in the old channel/[id]/widgets LayoutBuilder.
 
-import type {Box, Cue, Element, LayoutConfig, PlacementKey, Phase} from '@/app/obs/layout/schema'
+import type {Box, DurableCue, Element, LayoutConfig, PlacementKey, Phase, TransientCue} from '@/app/obs/layout/schema'
 import {CANVAS} from '@/app/obs/layout/schema'
 import {REGISTRY, registryIdOf} from '@/app/obs/layout/registry'
 import {resolveBox} from '@/app/obs/layout/config'
@@ -37,10 +37,10 @@ type Props = {
     onMove: (key: string, direction: -1 | 1) => void
     canMoveUp: boolean
     canMoveDown: boolean
-    onFireCue?: (cue: Cue) => void
+    onFireCue?: (cue: DurableCue) => void
     /** Transient, backend-free cue emit (useControls.emitCue) — for signals fired by mouse
      *  movement, where onFireCue's state write per emit would be absurd. */
-    onEmitCue?: (cue: Cue) => void
+    onEmitCue?: (cue: TransientCue) => void
 }
 
 export default function ElementBlock({

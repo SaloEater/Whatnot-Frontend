@@ -22,7 +22,7 @@
 import {useCallback, useEffect, useState} from 'react'
 import {getEndpoints, post} from '@/app/lib/backend'
 import type {SeriesWithCount} from '@/app/entity/entities'
-import type {Cue} from '@/app/obs/layout/schema'
+import type {DurableCue} from '@/app/obs/layout/schema'
 import {useSettingWrite} from './useSettingWrite'
 
 const DELTAS = [1, 2, 3, 4]
@@ -36,7 +36,7 @@ export default function CountSettings({
     channelId: number
     elementKey: string
     seriesId?: number | null
-    onFireCue?: (cue: Cue) => void
+    onFireCue?: (cue: DurableCue) => void
 }) {
     const [showPct, setShowPct] = useState(false)
     const [loaded, setLoaded] = useState(false)

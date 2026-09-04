@@ -197,24 +197,39 @@ export type OverlayState = {
     active?: Partial<Record<SceneEventName, boolean>>
 }
 
-// Discriminated cue union (obs-layout-plan.md §1.9). `event` carries a semantic scene event
-// (see sceneEvents.ts); `photos-changed` and `refetch` are the pre-existing data-spine cues
-// (useLayoutData.tsx), formalized here instead of the previous open `{kind: string, ...}` shape.
-export type Cue =
+// Discriminated cue union (obs-layout-plan.md §1.9), split into the two channels it can ride
+// (see the DURABLE/TRANSIENT split below `BUS_EVENT_NAME`) so the type system — not just naming
+// and comments — enforces which cue can go on which bus.
+
+// Rides the DURABLE bus (BusPayload, BUS_EVENT_NAME below). Every emit is preceded by a backend
+// state write that bumps `seq`, which is what lets a reloaded browser source catch up: state is
+// re-read on mount, so a durable cue's effects survive a refresh even though the cue itself is
+// long gone by then.
+export type DurableCue =
+    // `event` carries a semantic scene event (see sceneEvents.ts); `photos-changed` and `refetch`
+    // are the pre-existing data-spine cues (useLayoutData.tsx), formalized here instead of the
+    // previous open `{kind: string, ...}` shape.
     | { kind: 'event'; name: SceneEventName; params?: Record<string, unknown> }
     | { kind: 'photos-changed' }
     | { kind: 'refetch'; key: string }
+
+// Rides the TRANSIENT bus (CuePayload, BUS_CUE_EVENT_NAME below). No backend write, no `seq` —
+// meaningless a moment after it fires, so nothing here needs to (or could safely) survive a
+// browser-source refresh.
+export type TransientCue =
     // The operator hovering a card in the controls page's card grid; the `cards` element zooms
     // that card the same way a local hover does. `photoId: null` means "nothing highlighted".
     // Rides the TRANSIENT bus (BUS_CUE_EVENT_NAME below), never a BusPayload: it fires on mouse
     // movement, and the BusPayload path writes state to the backend and bumps `seq` on every emit.
     | { kind: 'highlight-photo'; photoId: number | null }
 
+export type Cue = DurableCue | TransientCue
+
 export type BusPayload = {
     seq: number
     state: OverlayState
     config: LayoutConfig
-    cue?: Cue
+    cue?: DurableCue
 }
 
 // The three stages every config is born with and can never fully lose — deleting one is refused
@@ -271,7 +286,12 @@ export const DEV_CHANNEL_NAME = 'mob:bus'
 // on stream. Unlike `seq`, `n` is client-assigned (no backend is involved), so it is seeded from
 // the wall clock at first use — a reloaded controls page then resumes ABOVE whatever its previous
 // life sent, instead of restarting at 1 and having every cue dropped as stale.
+//
+// Accepted limitation (confirmed fine, documented rather than fixed): this assumes ONE controls
+// page per channel at a time. With two concurrent controls tabs, the older tab's `n` is seeded
+// from an earlier wall-clock read than the newer tab's, so its cues sit below the newer tab's
+// seed and are dropped by the receiver's single high-water mark.
 export const BUS_CUE_EVENT_NAME = 'mob:cue'
 export const DEV_CUE_CHANNEL_NAME = 'mob:cue-bus'
 
-export type CuePayload = { n: number; cue: Cue }
+export type CuePayload = { n: number; cue: TransientCue }

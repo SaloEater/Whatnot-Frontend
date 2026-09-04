@@ -7,7 +7,7 @@
 import {useCallback, useEffect, useRef, useState} from 'react'
 import {getEndpoints, post} from '@/app/lib/backend'
 import {MyOBSWebsocket} from '@/app/entity/my_obs_websocket'
-import type {BusPayload, Cue, CuePayload, LayoutConfig, OverlayState} from '@/app/obs/layout/schema'
+import type {BusPayload, CuePayload, DurableCue, LayoutConfig, OverlayState, TransientCue} from '@/app/obs/layout/schema'
 import {BUS_CUE_EVENT_NAME, BUS_EVENT_NAME, DEV_CHANNEL_NAME, DEV_CUE_CHANNEL_NAME} from '@/app/obs/layout/schema'
 import {defaultConfig, defaultState, migrateConfig, migrateState, validateConfig, validateState} from '@/app/obs/layout/config'
 
@@ -46,26 +46,6 @@ function describeError(e: unknown): string {
     }
 }
 
-function broadcastDev(payload: BusPayload) {
-    try {
-        const bc = new BroadcastChannel(DEV_CHANNEL_NAME)
-        bc.postMessage(payload)
-        bc.close()
-    } catch (e) {
-        console.warn('[useControls] BroadcastChannel unavailable', e)
-    }
-}
-
-function broadcastDevCue(payload: CuePayload) {
-    try {
-        const bc = new BroadcastChannel(DEV_CUE_CHANNEL_NAME)
-        bc.postMessage(payload)
-        bc.close()
-    } catch (e) {
-        console.warn('[useControls] BroadcastChannel unavailable', e)
-    }
-}
-
 export function useControls(channelId: number, obs: MyOBSWebsocket | null, isConnected: boolean) {
     const [config, setConfig] = useState<LayoutConfig>(() => defaultConfig())
     const [state, setState] = useState<OverlayState>(() => defaultState())
@@ -84,6 +64,34 @@ export function useControls(channelId: number, obs: MyOBSWebsocket | null, isCon
     configRef.current = config
     stateRef.current = state
     seqRef.current = seq
+
+    // Dev BroadcastChannels, keyed by channel name and lazily opened on first use: the transient
+    // cue channel fires on a 1Hz heartbeat for as long as a card highlight is held (CardsSettings'
+    // HIGHLIGHT_HEARTBEAT_MS), so opening/closing a channel per emit would churn one every second.
+    // Closed on unmount below — a channel never delivers a sender's own messages back to itself,
+    // and nothing here attaches an onmessage handler, so holding one open in the meantime is safe.
+    const channelsRef = useRef<Map<string, BroadcastChannel>>(new Map())
+
+    const broadcastDev = useCallback((channelName: string, payload: BusPayload | CuePayload) => {
+        try {
+            let bc = channelsRef.current.get(channelName)
+            if (!bc) {
+                bc = new BroadcastChannel(channelName)
+                channelsRef.current.set(channelName, bc)
+            }
+            bc.postMessage(payload)
+        } catch (e) {
+            console.warn('[useControls] BroadcastChannel unavailable', e)
+        }
+    }, [])
+
+    useEffect(() => {
+        const channels = channelsRef.current
+        return () => {
+            channels.forEach((bc) => bc.close())
+            channels.clear()
+        }
+    }, [])
 
     const loadAll = useCallback(async () => {
         setLoading(true)
@@ -158,7 +166,7 @@ export function useControls(channelId: number, obs: MyOBSWebsocket | null, isCon
     // always post to the dev BroadcastChannel, and additionally go over obs-websocket when
     // connected. Never the sole source of truth on the layout side — it always also polls.
     const emit = useCallback(async (payload: BusPayload): Promise<ApplyResult> => {
-        broadcastDev(payload)
+        broadcastDev(DEV_CHANNEL_NAME, payload)
         setLastEmitAt(new Date())
 
         // `undelivered` is sticky: it is raised by any emit that does not reach OBS and cleared by
@@ -180,9 +188,9 @@ export function useControls(channelId: number, obs: MyOBSWebsocket | null, isCon
             setUndelivered(warning)
             return {ok: true, warning}
         }
-    }, [obs, isConnected])
+    }, [obs, isConnected, broadcastDev])
 
-    const apply = useCallback(async (nextState: OverlayState, cue?: BusPayload['cue']): Promise<ApplyResult> => {
+    const apply = useCallback(async (nextState: OverlayState, cue?: DurableCue): Promise<ApplyResult> => {
         const validated = validateState(nextState)
         if (!validated.ok) {
             return {ok: false, error: `Invalid state: ${validated.errors.join('; ')}`}
@@ -261,20 +269,18 @@ export function useControls(channelId: number, obs: MyOBSWebsocket | null, isCon
      * be warned about, and raising the sticky banner for one would make it meaningless.
      */
     const cueSeqRef = useRef<number | null>(null)
-    const emitCue = useCallback(async (cue: Cue): Promise<void> => {
+    const emitCue = useCallback((cue: TransientCue): void => {
         // Seeded from the clock on first use, not at module scope: it must not run during SSR, and
         // it has to sit above whatever a previous life of this page sent (see schema.ts).
         if (cueSeqRef.current === null) cueSeqRef.current = Date.now()
         const payload: CuePayload = {n: ++cueSeqRef.current, cue}
 
-        broadcastDevCue(payload)
+        broadcastDev(DEV_CUE_CHANNEL_NAME, payload)
         if (!obs || !isConnected) return
-        try {
-            await obs.emitBrowserEvent(BUS_CUE_EVENT_NAME, payload)
-        } catch (e) {
+        obs.emitBrowserEvent(BUS_CUE_EVENT_NAME, payload).catch((e) => {
             console.warn('[useControls] cue emit failed', e)
-        }
-    }, [obs, isConnected])
+        })
+    }, [obs, isConnected, broadcastDev])
 
     const setConfigLocal = useCallback((nextConfig: LayoutConfig) => {
         setConfig(nextConfig)

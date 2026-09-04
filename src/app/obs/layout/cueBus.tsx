@@ -1,18 +1,19 @@
 'use client'
 
-// Small in-page pub/sub so a `cue` riding a validated BusPayload (see bus.ts / schema.ts) can
-// reach subscribers other than the layout page itself — today that's just the data spine
-// (useLayoutData.tsx maps `photos-changed` / `refetch` cues to `refetch(key)`), but it's a
-// generic subscribe/emit pair so Phase 2 elements can listen for their own cue kinds too.
+// Small in-page pub/sub so a `cue` — arriving over either bus transport, a validated BusPayload
+// or a validated CuePayload (see bus.ts / schema.ts) — can reach subscribers other than the
+// layout page itself. Subscribers today: useLayoutData.tsx (maps `photos-changed` / `refetch`
+// cues to `refetch(key)`), sceneEventBus, and CardsElement; it's a generic subscribe/emit pair so
+// further Phase 2 elements can listen for their own cue kinds too.
 //
-// Deliberately separate from LayoutDataProvider: the layout page's bus listener (which knows
-// about `parseBusPayload`/the seq guard) is the only thing that should call `emit`, while
+// Deliberately separate from LayoutDataProvider: `emit` is called by the layout page's bus
+// listeners (which know about `parseBusPayload`/`parseCuePayload` and the seq guards) and,
+// deliberately, by DevPanel.tsx (to fire cues locally for testing without a controls page);
 // anything downstream (starting with the data spine) only ever needs `subscribe`.
 
 import {createContext, ReactNode, useCallback, useContext, useMemo, useRef} from 'react'
-import type {BusPayload} from './schema'
+import type {Cue} from './schema'
 
-export type Cue = NonNullable<BusPayload['cue']>
 export type CueListener = (cue: Cue) => void
 
 export type CueBusApi = {

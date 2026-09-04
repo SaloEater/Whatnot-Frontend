@@ -3,7 +3,7 @@
 // a monotonically increasing `seq` and callers must drop anything with seq <= lastSeen.
 
 import type { BusPayload, CuePayload } from './schema'
-import { migrateConfig, migrateState, validateConfig, validateCue, validateState } from './config'
+import { migrateConfig, migrateState, validateConfig, validateDurableCue, validateState, validateTransientCue } from './config'
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
     return typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -34,7 +34,7 @@ export function parseBusPayload(detail: unknown): BusPayload | null {
 
     let cue: BusPayload['cue']
     if (detail.cue !== undefined) {
-        const cueResult = validateCue(detail.cue)
+        const cueResult = validateDurableCue(detail.cue)
         if (!cueResult.ok) {
             console.warn('[layout/bus] invalid cue in payload', cueResult.errors)
             return null
@@ -64,7 +64,7 @@ export function parseCuePayload(detail: unknown): CuePayload | null {
         console.warn('[layout/bus] cue payload missing a numeric n', detail)
         return null
     }
-    const cueResult = validateCue(detail.cue)
+    const cueResult = validateTransientCue(detail.cue)
     if (!cueResult.ok) {
         console.warn('[layout/bus] invalid cue payload', cueResult.errors)
         return null

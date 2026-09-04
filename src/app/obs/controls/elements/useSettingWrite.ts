@@ -21,7 +21,7 @@
 // is a compile error rather than a cue nobody ever receives.
 
 import {useCallback, useState} from 'react'
-import type {Cue} from '@/app/obs/layout/schema'
+import type {DurableCue} from '@/app/obs/layout/schema'
 import type {LayoutDataSourceKey} from '@/app/obs/layout/useLayoutData'
 
 export type SettingWriteStatus = 'idle' | 'ok' | 'error'
@@ -43,7 +43,7 @@ function isErrorResponse(v: unknown): boolean {
  * source immediately instead of waiting for its next poll. Pass `key: null` to opt out of the push
  * entirely (the write still happens).
  */
-export function useSettingWrite(onFireCue?: (cue: Cue) => void) {
+export function useSettingWrite(onFireCue?: (cue: DurableCue) => void) {
     const [saving, setSaving] = useState(false)
     const [status, setStatus] = useState<SettingWriteStatus>('idle')
 

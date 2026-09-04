@@ -5,7 +5,7 @@
 // src/app/channel/[id]/widgets/page.tsx did before this builder replaced it.
 
 import type {RegistryId} from '@/app/obs/layout/registry'
-import type {Cue, Element, LayoutConfig, Phase} from '@/app/obs/layout/schema'
+import type {DurableCue, Element, LayoutConfig, Phase, TransientCue} from '@/app/obs/layout/schema'
 import type {PatchElement} from './ElementBlock'
 import Pick2Settings from './Pick2Settings'
 import StashOrPassSettings from './StashOrPassSettings'
@@ -33,8 +33,8 @@ type Props = {
     // (obs-layout-plan.md §2.8). Every panel that writes to the backend gets this so it can push
     // an immediate spine refetch as part of saving (see useSettingWrite.ts) rather than leaving
     // OBS to catch up on the spine's own poll.
-    onFireCue?: (cue: Cue) => void
-    onEmitCue?: (cue: Cue) => void
+    onFireCue?: (cue: DurableCue) => void
+    onEmitCue?: (cue: TransientCue) => void
 }
 
 export default function ElementSettings({registryId, channelId, seriesId, elementKey, element, currentPhase, config, onPatchElement, onFireCue, onEmitCue}: Props) {

@@ -5,7 +5,7 @@
 // config.elements and auto-saves every change through controls.pushConfig().
 
 import {useEffect, useRef, useState} from 'react'
-import type {Box, Cue, Element, LayoutConfig, PlacementKey} from '@/app/obs/layout/schema'
+import type {Box, DurableCue, Element, LayoutConfig, PlacementKey} from '@/app/obs/layout/schema'
 import {REGISTRY, makeElement, registryIdOf} from '@/app/obs/layout/registry'
 import type {RegistryId} from '@/app/obs/layout/registry'
 import {defaultConfig, isVisible, resolveBox} from '@/app/obs/layout/config'
@@ -37,7 +37,7 @@ export default function ElementsPanel({controls, channelId, seriesId, onPushResu
     // Actions strip uses (obs-layout-plan.md §2.8's cards mark-sold cue is the first caller).
     // State itself is unchanged — only the cue rides along — so this never touches the stage or
     // any override.
-    async function fireCue(cue: Cue) {
+    async function fireCue(cue: DurableCue) {
         onPushResult?.(await apply(state, cue))
     }
 
