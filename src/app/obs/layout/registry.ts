@@ -15,6 +15,7 @@ import { ThinResults } from './elements/results-thin/ThinResults'
 import { CircleWidget } from './elements/circle/CircleWidget'
 import { CardsElement } from './elements/cards/CardsElement'
 import { TextElement } from './elements/text/TextElement'
+import { ImageBoxElement } from './elements/image-box/ImageBoxElement'
 import type { AnimationId, BoardVariant, Box, Element, ElementKind, FrameVariant, Phase, WidgetId } from './schema'
 import { ANIMATION_IDS, DEFAULT_FRAME_BORDERS, DEFAULT_FRAME_WIDTH } from './schema'
 import type { SceneEventName } from './sceneEvents'
@@ -39,6 +40,7 @@ export type RegistryId =
     | 'animation:stashOrPassWrapTl'
     | 'animation:stashOrPassWrapRing'
     | 'text'
+    | 'image-box'
 
 // Shared prop contract every registry component (placeholder now, real components in Phase 2)
 // implements.
@@ -109,6 +111,9 @@ const RESULTS_THIN_BOX: Box = { x: 1080 - 340, y: 300, w: 340, h: 1300 }
 // a freshly-added text element doesn't spawn already overlapping the camera hole, the rip bar, or
 // the board — purely a starting point, the operator repositions/resizes it like anything else.
 const TEXT_BOX: Box = { x: 40, y: 130, w: 560, h: 160 }
+// Centred square — an image box has no natural home on the canvas (it is whatever the operator
+// wants to show), so it spawns where it is easiest to see and gets moved from there.
+const IMAGE_BOX: Box = { x: 300, y: 720, w: 480, h: 480 }
 
 export const REGISTRY: Record<RegistryId, RegistryEntry> = {
     'board:flat': {
@@ -404,6 +409,23 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         hasBox: true,
         reactsTo: [],
     },
+    'image-box': {
+        id: 'image-box',
+        kind: 'imageBox',
+        label: 'Image',
+        // Several may be placed — each instance holds its own uploaded image.
+        singleton: false,
+        singletonGroup: 'image-box',
+        defaultBox: IMAGE_BOX,
+        // Empty: the image URL is per element, not a static registry-level asset, so it can't be
+        // listed here. The layout page's mount-time preload instead walks `config.elements` itself
+        // and preloads every `imageBox`'s `url` — see `[id]/page.tsx`.
+        preload: [],
+        component: ImageBoxElement,
+        available: true,
+        hasBox: true,
+        reactsTo: [],
+    },
 }
 
 export function registryIdOf(element: Element): RegistryId {
@@ -428,6 +450,8 @@ export function registryIdOf(element: Element): RegistryId {
             return `animation:${element.animation}` as RegistryId
         case 'text':
             return 'text'
+        case 'imageBox':
+            return 'image-box'
         default: {
             const _exhaustive: never = element
             throw new Error(`registryIdOf: unhandled element ${JSON.stringify(_exhaustive)}`)
@@ -511,6 +535,10 @@ export function makeElement(registryId: RegistryId): Element {
             // text/fontSize left unset — the component's own default applies (TextElement.tsx's
             // DEFAULT_FONT_SIZE), same convention as resultsThin's columns/textSize/iconSize/sort.
             return { kind: 'text', placements }
+        case 'imageBox':
+            // url/fit left unset — the operator uploads an image in ImageBoxSettings, and the
+            // element applies 'contain' until `fit` is chosen (ImageBoxElement.tsx DEFAULT_IMAGE_FIT).
+            return { kind: 'imageBox', placements }
         default: {
             const _exhaustive: never = entry.kind
             throw new Error(`makeElement: unhandled kind ${JSON.stringify(_exhaustive)}`)

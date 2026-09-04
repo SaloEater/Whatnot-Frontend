@@ -41,6 +41,7 @@ export type ElementKind =
     | 'frame'
     | 'animation'
     | 'text'
+    | 'imageBox'
 
 export const BOARD_VARIANTS = ['flat', 'classic', 'cobra'] as const
 export type BoardVariant = (typeof BOARD_VARIANTS)[number]
@@ -61,6 +62,18 @@ export type FrameVariant = (typeof FRAME_VARIANTS)[number]
 // other is deleted and this union goes back to one member.
 export const ANIMATION_IDS = ['stashOrPassWrap', 'stashOrPassWrapTl', 'stashOrPassWrapRing'] as const
 export type AnimationId = (typeof ANIMATION_IDS)[number]
+
+// How an `imageBox`'s uploaded image fits its box — maps 1:1 onto CSS `object-fit`: contain =
+// `contain` (whole image visible, letterboxed), cover = `cover` (box filled, overflow cropped),
+// stretch = `fill` (ignores aspect ratio). See elements/image-box/ImageBoxElement.tsx.
+export const IMAGE_FITS = ['contain', 'cover', 'stretch'] as const
+export type ImageFit = (typeof IMAGE_FITS)[number]
+
+// `imageBox.position` — a percentage pair (each 0..100) mapped straight onto CSS
+// `object-position` (obs-image-box-plan.md §5): 50/50 = centred (the default), 0/0 = the image's
+// top-left corner pinned to the box's top-left, 100/100 = its bottom-right corner pinned to the
+// box's bottom-right. Meaningless for `fit: 'stretch'` (a stretched image has no slack to pan).
+export const DEFAULT_IMAGE_POSITION = { x: 50, y: 50 }
 
 // Sort mode shared by `results` (§2.3, always 'alphabetical') and `resultsThin` (§2.4, operator
 // choice) — see elements/results/orderResults.ts.
@@ -161,6 +174,22 @@ export type Element =
           kind: 'text'
           text?: string
           fontSize?: number
+          placements: Partial<Record<PlacementKey, Box>>
+          z?: number
+          reactions?: Reactions
+      }
+    // An operator-uploaded picture rendered inside the layout itself (obs-image-box-plan.md): the
+    // controls page uploads a file to `/api/layout/image/upload`, the backend stores it on
+    // DigitalOcean Spaces and returns a public URL, and that URL is stored here. The layout page
+    // renders an `<img>` at the element's box/layer like any other element — no OBS involvement.
+    // `fit` picks how the image fills its box (default 'contain', see IMAGE_FITS above).
+    | {
+          kind: 'imageBox'
+          url?: string
+          fit?: ImageFit
+          // Which part of the image shows when `fit` crops or letterboxes it (obs-image-box-plan.md
+          // §5) — a percentage pair, default DEFAULT_IMAGE_POSITION (centred). Ignored by `stretch`.
+          position?: { x: number; y: number }
           placements: Partial<Record<PlacementKey, Box>>
           z?: number
           reactions?: Reactions

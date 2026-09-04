@@ -13,6 +13,7 @@ import {
     DEFAULT_FRAME_WIDTH,
     DEFAULT_STAGES,
     FRAME_VARIANTS,
+    IMAGE_FITS,
     MAX_TEXT_LENGTH,
     RESULTS_SORTS,
     WIDGET_IDS,
@@ -337,6 +338,40 @@ function validateTextFields(key: string, rawEl: Record<string, unknown>): string
     return errors
 }
 
+// `imageBox` field validation: `url` is the public image URL returned by
+// `/api/layout/image/upload` (a plain string, capped well above any realistic Spaces URL length),
+// `fit` one of IMAGE_FITS (schema.ts).
+const MAX_IMAGE_URL_LENGTH = 2048
+
+function validateImageBoxFields(key: string, rawEl: Record<string, unknown>): string[] {
+    const errors: string[] = []
+    if (rawEl.url !== undefined) {
+        if (typeof rawEl.url !== 'string') {
+            errors.push(`element "${key}": url must be a string`)
+        } else if (rawEl.url.length > MAX_IMAGE_URL_LENGTH) {
+            errors.push(`element "${key}": url must be at most ${MAX_IMAGE_URL_LENGTH} characters`)
+        }
+    }
+    if (rawEl.fit !== undefined && (typeof rawEl.fit !== 'string' || !(IMAGE_FITS as readonly string[]).includes(rawEl.fit))) {
+        errors.push(`element "${key}": fit must be one of ${IMAGE_FITS.join(', ')}`)
+    }
+    if (rawEl.position !== undefined) {
+        const pos = rawEl.position
+        if (
+            !isPlainObject(pos) ||
+            !isFiniteNumber(pos.x) ||
+            pos.x < 0 ||
+            pos.x > 100 ||
+            !isFiniteNumber(pos.y) ||
+            pos.y < 0 ||
+            pos.y > 100
+        ) {
+            errors.push(`element "${key}": position must be {x, y} with each in [0, 100]`)
+        }
+    }
+    return errors
+}
+
 // `config.stages`: non-empty, every entry `{id: non-empty string, label: non-empty string}`,
 // unique ids, 'all' reserved (it's the persistent-placement key, not a real stage), and every
 // built-in id (BUILT_IN_STAGES) present — order among them is free, since reordering built-ins is
@@ -523,6 +558,10 @@ export function validateConfig(
                 regId = 'text'
                 elErrors.push(...validatePlacements(key, rawEl.placements, regId, stages))
                 elErrors.push(...validateTextFields(key, rawEl))
+            } else if (kind === 'imageBox') {
+                regId = 'image-box'
+                elErrors.push(...validatePlacements(key, rawEl.placements, regId, stages))
+                elErrors.push(...validateImageBoxFields(key, rawEl))
             } else {
                 elErrors.push(`element "${key}": unknown kind ${JSON.stringify(kind)}`)
             }

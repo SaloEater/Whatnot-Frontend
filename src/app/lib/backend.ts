@@ -85,6 +85,7 @@ export function getEndpoints()  {
         layout_config_update: "/api/layout/config/update",
         layout_state_get:     "/api/layout/state",
         layout_state_update:  "/api/layout/state/update",
+        layout_image_upload:  "/api/layout/image/upload",
     }
 }
 
@@ -114,6 +115,30 @@ export async function post(endpoint: string, data: {}) {
             body: JSON.stringify(data),
         })
 
+
+        return await handleResponse(response)
+    } catch (error: any) {
+        console.log('An error during request: ' + error.toString())
+        return {error: error}
+    }
+}
+
+// Identical to post() except the body is a caller-built FormData and no Content-Type header is
+// set — the browser fills in the multipart boundary itself. Same Authorization header, same
+// handleResponse, same {error} catch shape. handleResponse returns `data.data`, so a backend
+// error comes back as `undefined` — callers treat "no `url` string in the result" as failure.
+export async function postMultipart(endpoint: string, form: FormData) {
+    const host = await getEnvVar()
+    let url = getUrl(host, endpoint)
+    let auth = getBasicAuth()
+    try {
+        const response = await fetch(url, {
+            method: "POST",
+            headers: {
+                "Authorization": auth,
+            },
+            body: form,
+        })
 
         return await handleResponse(response)
     } catch (error: any) {

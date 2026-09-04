@@ -146,9 +146,14 @@ export class MyOBSWebsocket {
 
     /** Names of every media (ffmpeg_source) input in OBS, regardless of scene. */
     getMediaInputNames(): Promise<string[]> {
+        return this.getInputNames('ffmpeg_source')
+    }
+
+    /** Names of every input of one kind (`GetInputList`'s `inputKind`), regardless of scene. */
+    getInputNames(inputKind: string): Promise<string[]> {
         this.guardIsConnected()
 
-        return this.webSocket.call('GetInputList', {inputKind: 'ffmpeg_source'})
+        return this.webSocket.call('GetInputList', {inputKind})
             .then(r => r.inputs.map(i => (i.inputName ?? '').toString()).filter(n => n !== ''))
     }
 
