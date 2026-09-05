@@ -85,7 +85,9 @@ export default function Page({params}: { params: { id: string } }) {
             post(getEndpoints().break_get, {id: breakId}).then((b: WNBreak) => setBreakObj(b))
         }
         fetchBreak()
-        const id = setInterval(fetchBreak, 30000)
+        // 10s, matching the boards: `breakObj.series_id` is what every series-scoped settings
+        // panel keys off, so a stale break shows the operator the previous break's settings.
+        const id = setInterval(fetchBreak, 10000)
         return () => clearInterval(id)
     }, [stream?.active_break_id])
 

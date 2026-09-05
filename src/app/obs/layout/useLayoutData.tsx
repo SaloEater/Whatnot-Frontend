@@ -5,7 +5,8 @@
 //
 // Always-on chain (mirrors obs/[id]/page.tsx + hooks/useActiveStream.ts, written fresh — those
 // hooks leak intervals / don't re-arm cleanly for this use):
-//   channel_get -> stream_get -> break_get on POLL_MS (60s); break_events on EVENTS_POLL_MS (5s)
+//   channel_get -> stream_get on POLL_MS (60s); break_get on BREAK_POLL_MS (10s);
+//   break_events on EVENTS_POLL_MS (5s)
 // On-demand sources are enabled only when `config.elements` contains something that needs them,
 // so mounting more registry components never adds more network traffic than the config declares.
 
@@ -58,6 +59,13 @@ const PHOTOS_POLL_MS = 120000
 // them. It stays fast for that reason — at POLL_MS a sale could take a minute to reach the board
 // mid-break. Retire this back to POLL_MS only once the sold webhook notifies the layout directly.
 const EVENTS_POLL_MS = 5000
+
+// `breakObject` is the hinge the rest of the break-scoped chain hangs off: `series_id` (prices,
+// name, count widgets), the box counts, and the events fetcher's own re-arm all key off it. At
+// POLL_MS a break that had just started could sit unnoticed for a minute while `events` polled
+// happily against the previous break id, which reads as "the board is stuck" rather than "one
+// field is stale". Cheap to poll — a single row by id.
+const BREAK_POLL_MS = 10000
 
 const qPost = (endpoint: string, body: object) => enqueue(() => post(endpoint, body))
 const qGet = (endpoint: string) => enqueue(() => get(endpoint))
@@ -259,7 +267,7 @@ export function LayoutDataProvider({
         }
     }, [activeStreamId, touch])
 
-    // break_get, 30s — re-armed whenever the stream's active break changes
+    // break_get, BREAK_POLL_MS — re-armed whenever the stream's active break changes
     useEffect(() => {
         const fetchers = fetchersRef.current
         if (!activeBreakId) {
@@ -276,7 +284,7 @@ export function LayoutDataProvider({
         }
         fetchers['breakObject'] = fetchBreak
         fetchBreak()
-        const id = setInterval(fetchBreak, POLL_MS)
+        const id = setInterval(fetchBreak, BREAK_POLL_MS)
         return () => {
             cancelled = true
             clearInterval(id)

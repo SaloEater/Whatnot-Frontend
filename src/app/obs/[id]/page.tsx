@@ -57,7 +57,7 @@ export default function Page({params}: {params: {id: string}}) {
         }, 5000)
         let idBreak = setInterval(() => {
             refreshBreak(stream)
-        }, 30000)
+        }, 10000)
 
         return () => {
             clearInterval(idEvents)
