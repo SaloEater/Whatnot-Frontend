@@ -183,14 +183,18 @@ export default function Page({params}: { params: { id: string } }) {
      * running) `lastConnectError` is empty and there is nothing to relay, which is why the hint
      * below is generated rather than reported.
      *
-     * The mixed-content case is the exception worth calling out by name: an https page may not open
-     * a ws:// socket, the failure is instant, permanent and completely silent, and it is the one
-     * failure whose cause we can determine with certainty rather than guess at.
+     * The mixed-content case is worth naming when it applies — but it does NOT apply to loopback.
+     * Browsers treat localhost/127.0.0.1 as a "potentially trustworthy" origin and exempt it from
+     * mixed-content blocking, so an https page CAN open ws://localhost, which is the normal setup
+     * here (hosted page, OBS on the operator's own machine). Verified in production: that page
+     * connects to ws://localhost:4455 and logs OBS's own "Server stopping." on shutdown. Warning
+     * about it unconditionally would send the operator chasing a problem they do not have.
      */
+    const isLoopbackWs = /^wss?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/.test(url)
     const connectionHint = isConnected
         ? null
-        : pageIsHttps && url.startsWith('ws://')
-            ? `Blocked: this page is on https and cannot open a ws:// socket. Open the controls on http://localhost:3000, or point OBS at wss://.`
+        : pageIsHttps && url.startsWith('ws://') && !isLoopbackWs
+            ? `Blocked: this page is on https and cannot open a ws:// socket to a non-local host. Point OBS at wss://, or open the controls over http.`
             : controls.lastConnectError || `No response from ${url} — is OBS running with obs-websocket enabled on that port?`
 
     // Border of the stage dropdown: green = stage changes reach OBS (connected and the last send
