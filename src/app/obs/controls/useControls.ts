@@ -357,11 +357,31 @@ export function useControls(
         let stopped = false
         let timer: ReturnType<typeof setTimeout> | null = null
 
+        // Exactly one attempt in flight and at most one timer pending, always. Both invariants are
+        // load-bearing: a single FAILED attempt triggers scheduleRetry() twice — once from the
+        // finally below, and once from `ConnectionClosed`, which obs-websocket emits for a failed
+        // connection attempt and not only for an established one dropping. Without the guards each
+        // failure left two pending timers instead of one, so attempts doubled every RETRY_MS: the
+        // countdown never landed and the failure counter ran to six figures within a couple of
+        // minutes.
+        let inFlight = false
+
+        function clearTimer() {
+            if (timer) {
+                clearTimeout(timer)
+                timer = null
+            }
+        }
+
         function attempt() {
-            if (stopped || !obs) return
-            setConnectionStatus((prev) => (prev === 'connected' ? prev : 'connecting'))
+            if (stopped || !obs || inFlight) return
+            clearTimer()
+            if (obs.isConnected()) return
+            inFlight = true
+            setConnectionStatus('connecting')
             setNextRetryAt(null)
             obs.connect().finally(() => {
+                inFlight = false
                 if (stopped || !obs) return
                 if (obs.isConnected()) return // the isConnected effect above owns the happy path
                 setAttempts((n) => n + 1)
@@ -371,7 +391,10 @@ export function useControls(
         }
 
         function scheduleRetry() {
-            if (stopped) return
+            // While an attempt is in flight its own finally() will schedule the next wait; a
+            // ConnectionClosed arriving mid-attempt must not add a second one.
+            if (stopped || inFlight) return
+            clearTimer()
             setConnectionStatus('reconnecting')
             setNextRetryAt(Date.now() + RETRY_MS)
             timer = setTimeout(attempt, RETRY_MS)
@@ -388,7 +411,7 @@ export function useControls(
 
         return () => {
             stopped = true
-            if (timer) clearTimeout(timer)
+            clearTimer()
             obs.webSocket.off('ConnectionClosed', onClosed)
         }
     }, [obs, canConnect, retryEnabled, retryNonce])
