@@ -12,7 +12,8 @@
 import {useCallback, useEffect, useRef, useState} from 'react'
 import {getEndpoints, post} from '@/app/lib/backend'
 import type {LayoutConfig, LayoutPreset} from '@/app/obs/layout/schema'
-import {applyPreset} from '@/app/obs/layout/config'
+import type {PresetOverrides} from '@/app/obs/layout/config'
+import {applyPreset, makePresetPayload, summarizePreset} from '@/app/obs/layout/config'
 import type {useControls} from '@/app/obs/controls/useControls'
 
 const MAX_PRESET_NAME_LENGTH = 60
@@ -24,18 +25,13 @@ function isErrorResponse(v: unknown): v is {error: string} {
     return typeof v === 'object' && v !== null && 'error' in (v as Record<string, unknown>)
 }
 
-// "N elements · M stages", read straight off the stored blob without running it through
-// migrate+validate — this is just a list-row summary, not a load, and a preset saved under an
-// older schema should still show a count instead of forcing a load attempt to find out. Anything
-// that doesn't look like a plausible config shape renders as "unreadable" instead of guessing.
-function summarize(config: unknown): string {
-    if (typeof config !== 'object' || config === null || Array.isArray(config)) return 'unreadable'
-    const c = config as Record<string, unknown>
-    const {elements, stages} = c
-    if (typeof elements !== 'object' || elements === null || Array.isArray(elements)) return 'unreadable'
-    if (!Array.isArray(stages)) return 'unreadable'
-    const elementCount = Object.keys(elements as Record<string, unknown>).length
-    return `${elementCount} elements · ${stages.length} stages`
+// "N elements · M stages", read off the stored blob without running it through migrate+validate —
+// this is a list-row summary, not a load, and a preset saved under an older schema should still
+// show a count instead of forcing a load attempt to find out. `summarizePreset` understands both
+// stored shapes (the v2 envelope and the bare LayoutConfig written before it).
+function summarize(stored: unknown): string {
+    const counts = summarizePreset(stored)
+    return counts ? `${counts.elements} elements · ${counts.stages} stages` : 'unreadable'
 }
 
 type Controls = ReturnType<typeof useControls>
@@ -65,7 +61,7 @@ export default function PresetsPanel({controls, channelId, onPushResult}: Props)
     // out of the common "loaded the wrong thing" mistake with no dialog, without building a real
     // history stack for a case that isn't asked for yet. If a third panel ever needs undo, lift
     // ElementsPanel's stack into a shared hook then.
-    const prevLiveRef = useRef<LayoutConfig | null>(null)
+    const prevLiveRef = useRef<{config: LayoutConfig; overrides: PresetOverrides} | null>(null)
     const [undoAvailable, setUndoAvailable] = useState(false)
 
     const fetchPresets = useCallback(async () => {
@@ -92,12 +88,30 @@ export default function PresetsPanel({controls, channelId, onPushResult}: Props)
         }
     }, [channelId])
 
-    async function reconcileAndPush(next: LayoutConfig) {
-        // Mirrors StagesPanel.deleteStage: pushConfig() re-applies the CURRENT state to give OBS a
-        // fresh seq, and that must not hand OBS a phase the new config has no placement for.
-        if (!next.stages.some((s) => s.id === controls.state.phase)) {
-            await controls.apply({...controls.state, phase: next.stages[0].id, phaseData: undefined})
-        }
+    /**
+     * Push a saved layout back: its config AND the per-element visibility that went with it.
+     *
+     * Visibility is state, not config, so it takes a separate `apply()` — done FIRST, because
+     * `pushConfig()` re-applies whatever state is current in order to give OBS a fresh seq, so
+     * anything applied here rides out on that same final emit rather than needing one of its own.
+     *
+     * `overrides` REPLACES rather than merges: a preset is "the layout as it looked", and merging
+     * would leave an element the operator hid a moment ago still hidden after loading a preset that
+     * had it visible — the one thing a restore must not do. Dropping keys for elements outside the
+     * preset is safe; `isVisible` reads by key and defaults to visible.
+     */
+    async function reconcileAndPush(next: LayoutConfig, overrides: PresetOverrides) {
+        // Mirrors StagesPanel.deleteStage: pushConfig() must not hand OBS a phase the new config
+        // has no placement for, so move off it before the push if the preset lacks it.
+        const phase = next.stages.some((s) => s.id === controls.state.phase)
+            ? controls.state.phase
+            : next.stages[0].id
+        await controls.apply({
+            ...controls.state,
+            phase,
+            ...(phase === controls.state.phase ? {} : {phaseData: undefined}),
+            overrides,
+        })
         const r = await controls.pushConfig(next)
         onPushResult?.(r)
         return r
@@ -111,13 +125,12 @@ export default function PresetsPanel({controls, channelId, onPushResult}: Props)
         }
         setActionError(null)
 
-        // Stash the live config BEFORE pushing, so "Undo load" below restores exactly what was
-        // live a moment ago. Stale `state.overrides` keys for elements the new config doesn't have
-        // are harmless (`isVisible` reads by key and never enumerates) — left alone here, same as
-        // `removeElement` already leaves them.
-        prevLiveRef.current = controls.config
+        // Stash the live layout BEFORE pushing, so "Undo load" restores exactly what was live a
+        // moment ago — visibility included, or undo would hand back the config with every element
+        // shown.
+        prevLiveRef.current = {config: controls.config, overrides: controls.state.overrides ?? {}}
 
-        const r = await reconcileAndPush(result.config)
+        const r = await reconcileAndPush(result.config, result.overrides)
         if (r.error) {
             // The push was refused, so the live layout was never replaced — offering "Undo load"
             // here would just re-push the config that is already live.
@@ -137,13 +150,16 @@ export default function PresetsPanel({controls, channelId, onPushResult}: Props)
         prevLiveRef.current = null
         setUndoAvailable(false)
         setActionError(null)
-        const r = await reconcileAndPush(prev)
+        const r = await reconcileAndPush(prev.config, prev.overrides)
         if (r.error) setActionError(r.error)
     }
 
     async function overwrite(preset: LayoutPreset) {
         if (!window.confirm(`Overwrite preset "${preset.name}" with the current layout?`)) return
-        const resp = await post(getEndpoints().layout_preset_update, {id: preset.id, config: controls.config})
+        const resp = await post(getEndpoints().layout_preset_update, {
+            id: preset.id,
+            config: makePresetPayload(controls.config, controls.state),
+        })
         if (isErrorResponse(resp)) {
             setActionError(resp.error ?? 'Failed to overwrite preset')
             return
@@ -170,7 +186,7 @@ export default function PresetsPanel({controls, channelId, onPushResult}: Props)
         const resp = await post(getEndpoints().layout_preset_create, {
             channel_id: channelId,
             name,
-            config: controls.config,
+            config: makePresetPayload(controls.config, controls.state),
         })
         if (isErrorResponse(resp)) {
             // This is how a duplicate name or the 30-preset cap surfaces — the backend's own

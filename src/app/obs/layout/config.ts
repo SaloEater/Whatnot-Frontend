@@ -650,13 +650,79 @@ export function validateConfig(
 //       physical OBS scene items (the transition source, the camera item) — not part of "the
 //       layout" the way stages/elements are — and a preset from weeks ago silently repointing them
 //       out from under the operator is exactly the surprise this guards against.
+export type PresetOverrides = Record<string, { visible?: boolean }>
+
+/**
+ * What a preset actually stores. A preset is "the layout as it looked", and two of the three things
+ * the operator sets per element live in different objects:
+ *   - "Persistent" is `placements.all` — part of `elements`, so the config alone already carries it.
+ *   - "Visible" is `state.overrides[key].visible` — OverlayState, which a config does not include.
+ * Storing the bare config therefore lost every hidden element on load: they came back visible.
+ *
+ * `version` distinguishes this envelope from the bare `LayoutConfig` presets saved before it. Both
+ * are read (see `readPresetBlob`); everything written from now on is an envelope.
+ */
+export type PresetPayload = {
+    version: 2
+    config: LayoutConfig
+    overrides: PresetOverrides
+}
+
+/** The blob to store for a preset: the config plus the visibility half of the live state. */
+export function makePresetPayload(config: LayoutConfig, state: OverlayState): PresetPayload {
+    const overrides: PresetOverrides = {}
+    for (const [key, override] of Object.entries(state.overrides ?? {})) {
+        // Only `visible` is kept, and only when it is actually set. `overrides` accumulates keys
+        // for elements that have since been deleted, and an entry of `{}` means nothing — copying
+        // either into a preset would just be noise that outlives the layout it came from.
+        if (typeof override?.visible === 'boolean' && config.elements[key]) {
+            overrides[key] = { visible: override.visible }
+        }
+    }
+    return { version: 2, config, overrides }
+}
+
+/**
+ * Accepts either shape a preset may have been stored in: the v2 envelope, or a bare `LayoutConfig`
+ * from before overrides were carried. Detection is on `version`/`config` rather than on the absence
+ * of `elements`, so a malformed blob falls through to config validation and is reported there
+ * instead of being silently read as "legacy, no overrides".
+ */
+function readPresetBlob(stored: unknown): { rawConfig: unknown; overrides: PresetOverrides } {
+    if (isPlainObject(stored) && stored.version === 2 && 'config' in stored) {
+        const raw = stored.overrides
+        const overrides: PresetOverrides = {}
+        if (isPlainObject(raw)) {
+            for (const [key, override] of Object.entries(raw)) {
+                // Stored blobs are untrusted: anything that is not a boolean `visible` is dropped
+                // rather than passed on to validateState, which would reject the whole load.
+                if (isPlainObject(override) && typeof override.visible === 'boolean') {
+                    overrides[key] = { visible: override.visible }
+                }
+            }
+        }
+        return { rawConfig: stored.config, overrides }
+    }
+    return { rawConfig: stored, overrides: {} }
+}
+
+/** Element count and stage count for a preset row, without running a full validation. */
+export function summarizePreset(stored: unknown): { elements: number; stages: number } | null {
+    const { rawConfig } = readPresetBlob(stored)
+    if (!isPlainObject(rawConfig)) return null
+    const { elements, stages } = rawConfig
+    if (!isPlainObject(elements) || !Array.isArray(stages)) return null
+    return { elements: Object.keys(elements).length, stages: stages.length }
+}
+
 export function applyPreset(
     stored: unknown,
     live: LayoutConfig
-): { ok: true; config: LayoutConfig } | { ok: false; errors: string[] } {
-    const validated = validateConfig(migrateConfig(stored))
+): { ok: true; config: LayoutConfig; overrides: PresetOverrides } | { ok: false; errors: string[] } {
+    const { rawConfig, overrides } = readPresetBlob(stored)
+    const validated = validateConfig(migrateConfig(rawConfig))
     if (!validated.ok) return validated
-    return { ok: true, config: { ...validated.config, obsBindings: live.obsBindings } }
+    return { ok: true, config: { ...validated.config, obsBindings: live.obsBindings }, overrides }
 }
 
 export function validateState(
