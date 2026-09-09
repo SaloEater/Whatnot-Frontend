@@ -30,7 +30,10 @@ interface WNBreakOverview {
     data: {
         getBreak: {
             id: string
-            spots: {title: string; buyer: {username: string} | null}[]
+            // `price` is the per-spot sale price in dollars, tracked by the userscript's
+            // break state store. It is absent on overviews produced before it was added
+            // and 0 when no sale price has been seen for that spot yet.
+            spots: {title: string; buyer: {username: string} | null; price?: number}[]
         }
     }
 }
@@ -103,8 +106,14 @@ export const BreakComponent: React.FC<BreakComponentProps> = (params) => {
             if (event.is_giveaway) continue
             const spot = spots.find(s => s.title === event.team)
             const newCustomer = spot?.buyer?.username ?? ''
-            if (event.customer !== newCustomer) {
-                updateEvent({...event, customer: newCustomer})
+            // A card with no buyer is empty, so its price goes back to 0. Otherwise take
+            // the overview's price when it carries one, and keep what the card already
+            // has when it does not — an older overview or a manual correction must not
+            // be overwritten with 0.
+            const overviewPrice = typeof spot?.price === 'number' ? spot.price : 0
+            const newPrice = newCustomer === '' ? 0 : (overviewPrice > 0 ? overviewPrice : event.price)
+            if (event.customer !== newCustomer || event.price !== newPrice) {
+                updateEvent({...event, customer: newCustomer, price: newPrice})
             }
         }
     }
