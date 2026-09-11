@@ -18,6 +18,8 @@ export default function Page() {
         const stored = parseInt(localStorage.getItem(PAGE_SIZE_STORAGE_KEY) ?? '')
         return ALLOWED_PAGE_SIZES.includes(stored) ? stored : DEFAULT_PAGE_SIZE
     })
+    const [newRangesName, setNewRangesName] = useState('')
+    const [creating, setCreating] = useState(false)
     const router = useRouter()
 
     useEffect(() => {
@@ -26,6 +28,22 @@ export default function Page() {
             setTotal(data?.total ?? 0)
         })
     }, [page, pageSize])
+
+    // Deliberately kind-specific (series-price-ranges-plan.md §3.2): photo series keep being
+    // created from Card-Scanner only, so this button can never spawn an empty one by accident.
+    function createRangesSeries() {
+        if (!newRangesName.trim() || creating) return
+        setCreating(true)
+        post(getEndpoints().series_create, {
+            name: newRangesName.trim(),
+            kind: 'price_ranges',
+            total_cards: 0,
+            default_price: '',
+        }).then((data: { id: number }) => {
+            setCreating(false)
+            if (data?.id) router.push(`/series/${data.id}`)
+        })
+    }
 
     const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
@@ -50,6 +68,24 @@ export default function Page() {
         <main>
             <div className="d-flex justify-content-center">
                 <div style={{width: '100%', maxWidth: '900px'}}>
+                    <div className="d-flex align-items-center gap-2 mb-3 text-white">
+                        <input
+                            type="text"
+                            className="form-control form-control-sm"
+                            style={{maxWidth: '260px'}}
+                            placeholder="New price-ranges series name"
+                            value={newRangesName}
+                            onChange={(e) => setNewRangesName(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && createRangesSeries()}
+                        />
+                        <button
+                            className="btn btn-sm btn-info text-dark"
+                            disabled={!newRangesName.trim() || creating}
+                            onClick={createRangesSeries}
+                        >
+                            {creating ? 'Creating…' : 'New price-ranges series'}
+                        </button>
+                    </div>
                     <div className="d-flex justify-content-between align-items-center mb-2 text-white">
                         <div className="d-flex align-items-center gap-2">
                             <label className="text-secondary">Page size</label>
@@ -90,6 +126,11 @@ export default function Page() {
                                         <div className="col-auto">
                                             <span className={`badge ${s.status === 'open' ? 'bg-warning text-dark' : 'bg-success'}`}>
                                                 {s.status}
+                                            </span>
+                                        </div>
+                                        <div className="col-auto">
+                                            <span className={`badge ${s.kind === 'price_ranges' ? 'bg-info text-dark' : 'bg-secondary'}`}>
+                                                {s.kind === 'price_ranges' ? 'Price ranges' : 'Cards'}
                                             </span>
                                         </div>
                                         <div className="col-auto text-secondary">{formatDate(s.created_at)}</div>

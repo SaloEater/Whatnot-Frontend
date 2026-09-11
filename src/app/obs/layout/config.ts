@@ -338,6 +338,20 @@ function validateTextFields(key: string, rawEl: Record<string, unknown>): string
     return errors
 }
 
+// `priceRanges` field validation: both settings are optional (absent = component default applies,
+// registry.ts `makeElement` leaves them unset), and when present must be a finite number > 0 —
+// same rule as `text.fontSize` above.
+function validatePriceRangesFields(key: string, rawEl: Record<string, unknown>): string[] {
+    const errors: string[] = []
+    if (rawEl.labelFontSize !== undefined && (!isFiniteNumber(rawEl.labelFontSize) || rawEl.labelFontSize <= 0)) {
+        errors.push(`element "${key}": labelFontSize must be a finite number > 0`)
+    }
+    if (rawEl.badgeFontSize !== undefined && (!isFiniteNumber(rawEl.badgeFontSize) || rawEl.badgeFontSize <= 0)) {
+        errors.push(`element "${key}": badgeFontSize must be a finite number > 0`)
+    }
+    return errors
+}
+
 // `imageBox` field validation: `url` is the public image URL returned by
 // `/api/layout/image/upload` (a plain string, capped well above any realistic Spaces URL length),
 // `name` a display label (obs-image-box-plan.md §6, capped at the same length as the upload
@@ -571,6 +585,10 @@ export function validateConfig(
                 regId = 'image-box'
                 elErrors.push(...validatePlacements(key, rawEl.placements, regId, stages))
                 elErrors.push(...validateImageBoxFields(key, rawEl))
+            } else if (kind === 'priceRanges') {
+                regId = 'priceRanges'
+                elErrors.push(...validatePlacements(key, rawEl.placements, regId, stages))
+                elErrors.push(...validatePriceRangesFields(key, rawEl))
             } else {
                 elErrors.push(`element "${key}": unknown kind ${JSON.stringify(kind)}`)
             }

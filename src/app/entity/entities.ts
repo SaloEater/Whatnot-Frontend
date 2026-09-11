@@ -46,6 +46,12 @@ export interface WNBreak {
     series_id?: number | null
 }
 
+// `series.kind` (series-price-ranges-plan.md §1.1): `cards` is today's photo series (default —
+// every row created before this existed is `cards`); `price_ranges` is the new show format whose
+// contents are described by `SeriesPriceRange` rows instead of photos. Set at creation, never
+// changes.
+export type SeriesKind = 'cards' | 'price_ranges'
+
 export interface Series {
     id: number
     name: string
@@ -55,6 +61,21 @@ export interface Series {
     total_cards: number
     used_cards: number
     default_price: string
+    kind: SeriesKind
+}
+
+// One row of a `price_ranges` series' contents (series-price-ranges-plan.md §1.2): "how many cards
+// in this price band". Ordered by `price_from` ascending — there is no manual sort order, a range's
+// position IS its price. `price_to: null` means open-ended ("$500+").
+//
+// Name collision warning: `PriceRange` (below) already exists and is the cobra board's per-channel
+// tier threshold (`widget_board_price_ranges`) — unrelated to this. Do not conflate the two.
+export interface SeriesPriceRange {
+    id: number
+    series_id: number
+    price_from: number
+    price_to: number | null
+    count: number
 }
 
 export interface SeriesWithCount extends Series {

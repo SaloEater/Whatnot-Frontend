@@ -1,0 +1,155 @@
+/* cobra-flat-board-plan.md §5 — box-relative `board:cobra_flat` element. All classes prefixed
+   `cbf-` (distinct from `cbr-*`/`flat-*`/every other element's prefix); no `body`/`html` rules (the
+   layout page owns the page background, same convention as CobraBoard.css); no `vh`/`vw`/`vmin`
+   anywhere; no `color-mix()` (OBS ships an older CEF than that needs — same reason CobraBoard.css
+   gives for precomputing its tier variables instead).
+
+   Sizing model (plan §4): CobraFlatBoard.tsx measures its wrapper and computes ONE integer `cellPx`
+   (cells are square), sized against MAX_COLS on the width axis and the row COUNT on the height
+   axis — not the widest row actually rendered — so the cell size never jumps as teams are added or
+   sold. That `cellPx` is set as `.cbf-grid`'s `font-size` (inline style), and every chrome value
+   below (border, border-radius, margin, glow radii, hatching period) is `em` against it, the same
+   convention CobraBoard.css uses for its own per-row `--cbr-font` basis. `.cbf-grid` itself is NOT
+   given an explicit width: a CSS column flexbox shrinks to its widest row's own content width, and
+   `align-items: center` on it centres every shorter row against that width automatically — this is
+   what makes a short row "centred, half-cell offset" (plan §3.2) without any manual box-width maths
+   the way FlatBoard.tsx needs for its CSS-grid seams (cobra_flat has no seam problem: flex rows
+   have no fractional-track rounding to guard against). `.cbf-root` then centres `.cbf-grid` as a
+   whole on both axes, which is this board's "leftover space is centred on both axes" (plan §4). */
+
+/* ── Root ── */
+.cbf-root {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: var(--font-exo2), sans-serif;
+}
+
+.cbf-waiting {
+    color: #fff;
+    text-align: center;
+}
+
+/* ── Grid / rows ──
+   Column flex so `align-items: center` centres each row against the widest one (see the file
+   header). No explicit `gap` between rows: each `.cbf-cell`'s own margin (below) already opens a
+   consistent gap on every side, rows included. */
+.cbf-grid {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.cbf-row {
+    display: flex;
+    justify-content: center;
+}
+
+/* ── Tier neon variables — copied verbatim from CobraBoard.css (see that file's header for why
+   these are precomputed rather than color-mix()'d). Do not import CobraBoard.css itself: its rules
+   are scoped to `cbr-*` and its font multipliers are meaningless here. ── */
+.cbf-cell--best    { --neon: #9eedf6; --neon-mid: #c5f4fa; --neon-soft: rgba(158,237,246,0.45); --neon-faint: rgba(158,237,246,0.32); --neon-pale: #e2fafc; --neon-vivid: #195FC2; }
+.cbf-cell--good    { --neon: #2ef079; --neon-mid: #82f6af; --neon-soft: rgba(46,240,121,0.45);  --neon-faint: rgba(46,240,121,0.32);  --neon-pale: #c0fbd7; --neon-vivid: #1ad964; }
+.cbf-cell--mid     { --neon: #f25d26; --neon-mid: #f79e7d; --neon-soft: rgba(242,93,38,0.45);   --neon-faint: rgba(242,93,38,0.18);   --neon-pale: #F3A445; --neon-vivid: #F02C02; }
+.cbf-cell--regular { --neon: #ebdb61; --neon-mid: #f3e9a0; --neon-soft: rgba(235,219,97,0.45);  --neon-faint: rgba(235,219,97,0.18);  --neon-pale: #f9f4d0; --neon-vivid: #d4c447; }
+
+/* ── Cell base (available cell) ──
+   The cell's OUTER footprint (box + margin) is exactly `1em` == cellPx, so an 11-cell row is
+   exactly 11 * cellPx wide and `rowCount` rows are exactly rowCount * cellPx tall — the same
+   numbers CobraFlatBoard.tsx divided the wrapper by. The box itself is 0.9em with a 0.05em margin
+   on every side (the gap between neighbours, across and down); if the margin changes, the width/
+   height must change with it so the sum stays 1em, or rows overflow the box and get clipped.
+   `box-sizing: border-box` keeps the border inside the 0.9em rather than adding to it. */
+.cbf-cell {
+    /* Drives the sheen sweep below — one specular pass, same duration CobraBoard.css uses. */
+    --sheen-sweep: 1.62s;
+    position: relative;
+    box-sizing: border-box;
+    width: 0.9em;
+    height: 0.9em;
+    margin: 0.05em;
+    /* Plan §5's literal guidance. */
+    border: 0.03em solid var(--neon);
+    border-radius: 0.1em;
+    /* Weak white bloom centred on the top edge, falling off into the black — CobraBoard.css's
+       `.cbr-cell` background, unchanged. */
+    background:
+        radial-gradient(circle at 50% 0%, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 72%),
+        #000000;
+    /* Outer bloom + inner halo, same structure as CobraBoard.css's `.cbr-cell` box-shadow, but
+       re-proportioned: cobra's ratios (26px/60px/6px/16px) are relative to a font BASIS deliberately
+       fitted much smaller than its own card (~6% of the card's width — see CobraBoard.tsx's K_H/K_W
+       comment), whereas here `1em` IS the full cell width, so reusing cobra's literal em multipliers
+       would blow the glow out to several cell-widths. These keep the same visual proportions
+       (outer bloom / inner halo ratio) sized against the cell itself instead. */
+    box-shadow:
+        0 0 0.12em var(--neon-soft),
+        0 0 0.28em var(--neon-soft),
+        inset 0 0 0.05em var(--neon),
+        inset 0 0 0.12em var(--neon-soft);
+}
+
+/* Glow falls away down the tiers, same rule as CobraBoard.css: mid keeps only the inner halo,
+   regular has none at all. Must follow `.cbf-cell` — same specificity, source order decides. */
+.cbf-cell--mid {
+    box-shadow:
+        inset 0 0 0.05em var(--neon),
+        inset 0 0 0.12em var(--neon-soft);
+}
+
+.cbf-cell--regular {
+    box-shadow: none;
+}
+
+.cbf-cell__logo {
+    position: absolute;
+    /* Small inset so the logo's own gold octagon edge doesn't touch the neon border (plan §5). */
+    inset: 0.12em;
+    width: calc(100% - 0.24em);
+    height: calc(100% - 0.24em);
+    object-fit: contain;
+}
+
+/* ── Sheen ──
+   One one-shot specular sweep, fired per-cell by the lottery in CobraFlatBoard.tsx — the same
+   sweep CobraBoard.css uses for its card, renamed `cbf-`. There is no badge here to run an
+   answering sweep on (plan §5's "the badge's answering sweep has no badge to run on and is
+   dropped"), so only the card layer exists. */
+.cbf-cell__sheen-clip {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    /* Matches `.cbf-cell`'s own border-radius. */
+    border-radius: 0.1em;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.cbf-cell__sheen {
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(105deg, transparent 38%, rgba(232,223,203,0.50) 50%, transparent 62%);
+    transform: translateX(-100%);
+    animation: cbf-sheen-once var(--sheen-sweep) linear forwards;
+}
+
+@keyframes cbf-sheen-once {
+    from { transform: translateX(-100%); }
+    to   { transform: translateX(100%); }
+}
+
+/* ── Sold cell ──
+   No logo, no glow, nothing animates. Dark grey fill with a light grey 45deg diagonal hatch, the
+   stripe period in `em` so it scales with the cell (plan §5's suggested colours/period, converted
+   to em against the cell's own 1em width). */
+.cbf-cell--sold {
+    border-color: #4a4a4f;
+    background:
+        repeating-linear-gradient(45deg, rgba(200,200,205,0.35) 0 0.02em, transparent 0.02em 0.16em),
+        #1c1c1e;
+    box-shadow: none;
+}

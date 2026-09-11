@@ -20,6 +20,7 @@ import ResultsSettings from './ResultsSettings'
 import ThinResultsSettings from './ThinResultsSettings'
 import TextSettings from './TextSettings'
 import ImageBoxSettings from './ImageBoxSettings'
+import PriceRangesSettings from './PriceRangesSettings'
 
 type Props = {
     registryId: RegistryId
@@ -56,6 +57,10 @@ export default function ElementSettings({registryId, channelId, seriesId, elemen
         case 'cards':
             return <CardsSettings channelId={channelId} elementKey={elementKey} onFireCue={onFireCue} onEmitCue={onEmitCue}/>
         case 'board:cobra':
+        // Shares one settings panel with `board:cobra` (cobra-flat-board-plan.md §6): the tier
+        // thresholds are channel-wide, and are the only setting either board reads. The "Side
+        // Cards Price" card the panel also carries is irrelevant to cobra_flat but harmless.
+        case 'board:cobra_flat':
             return <CobraBoardSettings channelId={channelId} seriesId={seriesId} onFireCue={onFireCue}/>
         case 'frame:static':
             return <FrameSettings elementKey={elementKey} element={element} currentPhase={currentPhase} onPatchElement={onPatchElement}/>
@@ -65,6 +70,16 @@ export default function ElementSettings({registryId, channelId, seriesId, elemen
             return <ThinResultsSettings elementKey={elementKey} element={element} onPatchElement={onPatchElement}/>
         case 'text':
             return <TextSettings elementKey={elementKey} element={element} onPatchElement={onPatchElement}/>
+        case 'priceRanges':
+            return (
+                <PriceRangesSettings
+                    elementKey={elementKey}
+                    element={element}
+                    onPatchElement={onPatchElement}
+                    seriesId={seriesId}
+                    onFireCue={onFireCue}
+                />
+            )
         case 'image-box':
             return (
                 <ImageBoxSettings

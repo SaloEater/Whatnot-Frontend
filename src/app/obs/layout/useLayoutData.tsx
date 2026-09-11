@@ -29,6 +29,7 @@ import {
     Photo,
     PriceRange,
     Series,
+    SeriesPriceRange,
     SeriesTeamTotal,
     SeriesWithCount,
     WNBreak,
@@ -80,6 +81,7 @@ type Needs = {
     needsStashOrPass: boolean
     needsBoxesPerBreak: boolean
     needsCards: boolean
+    needsSeriesPriceRanges: boolean
 }
 
 function deriveNeeds(config: LayoutConfig): Needs {
@@ -90,10 +92,12 @@ function deriveNeeds(config: LayoutConfig): Needs {
     let needsStashOrPass = false
     let needsBoxesPerBreak = false
     let needsCards = false
+    let needsSeriesPriceRanges = false
 
     for (const element of Object.values(config.elements)) {
-        if (element.kind === 'board' && element.variant === 'cobra') needsCobra = true
+        if (element.kind === 'board' && (element.variant === 'cobra' || element.variant === 'cobra_flat')) needsCobra = true
         if (element.kind === 'cards') needsCards = true
+        if (element.kind === 'priceRanges') needsSeriesPriceRanges = true
         if (element.kind === 'widget') {
             if (element.widget === 'name') needsName = true
             if (element.widget === 'boxesLeft' || element.widget === 'chasersLeft') needsCount = true
@@ -105,12 +109,15 @@ function deriveNeeds(config: LayoutConfig): Needs {
 
     return {
         needsCobra,
-        needsSeries: needsCobra || needsName,
+        // `priceRanges` renders `series.kind` too (PriceRangesElement.tsx), so it needs the same
+        // `series` source the cobra board and `name` widget already pull.
+        needsSeries: needsCobra || needsName || needsSeriesPriceRanges,
         needsCount,
         needsPick2,
         needsStashOrPass,
         needsBoxesPerBreak,
         needsCards,
+        needsSeriesPriceRanges,
     }
 }
 
@@ -143,6 +150,7 @@ export type LayoutDataSourceKey =
     | 'countSettings'
     | 'photos'
     | 'cardsBoardSettings'
+    | 'seriesPriceRanges'
 
 export type LayoutData = {
     // Exposed mainly so sceneEventBus.tsx's `useSceneEvent()` can look up an element's current
@@ -162,6 +170,7 @@ export type LayoutData = {
     countSettings: CountSettings | null
     photos: Photo[]
     cardsBoardSettings: CardsBoardSettings | null
+    seriesPriceRanges: SeriesPriceRange[]
     lastFetched: Record<string, number>
     refetch: (key: string) => void
 }
@@ -201,6 +210,7 @@ export function LayoutDataProvider({
     const [countSettings, setCountSettings] = useState<CountSettings | null>(null)
     const [photos, setPhotos] = useState<Photo[]>([])
     const [cardsBoardSettings, setCardsBoardSettings] = useState<CardsBoardSettings | null>(null)
+    const [seriesPriceRanges, setSeriesPriceRanges] = useState<SeriesPriceRange[]>([])
     const [lastFetched, setLastFetched] = useState<Record<string, number>>({})
 
     const touch = useCallback((key: string) => {
@@ -585,6 +595,35 @@ export function LayoutDataProvider({
         }
     }, [needs.needsCards, channelIdRef, touch])
 
+    // series_price_ranges {series_id}, POLL_MS (priceRanges element) — copied from the
+    // boxesPerBreak source above, series-scoped the same way, but guarded/cleared like `photos`
+    // (Array.isArray, not isErrorResponse) since the response is a bare array, not an object.
+    useEffect(() => {
+        const fetchers = fetchersRef.current
+        if (!needs.needsSeriesPriceRanges || !seriesId) {
+            setSeriesPriceRanges([])
+            return
+        }
+        let cancelled = false
+        function fetchSeriesPriceRanges() {
+            qPost(getEndpoints().series_price_ranges, {series_id: seriesId}).then(
+                (resp: SeriesPriceRange[]) => {
+                    if (cancelled || !Array.isArray(resp)) return
+                    setSeriesPriceRanges(resp)
+                    touch('seriesPriceRanges')
+                }
+            )
+        }
+        fetchers['seriesPriceRanges'] = fetchSeriesPriceRanges
+        fetchSeriesPriceRanges()
+        const id = setInterval(fetchSeriesPriceRanges, POLL_MS)
+        return () => {
+            cancelled = true
+            clearInterval(id)
+            delete fetchers['seriesPriceRanges']
+        }
+    }, [needs.needsSeriesPriceRanges, seriesId, touch])
+
     // Cues: `photos-changed` forces an immediate photo_board refetch (otherwise it would lag up
     // to 120s after a controls-panel write); the generic `refetch` cue lets any future cue kind
     // target any source key by name.
@@ -615,6 +654,7 @@ export function LayoutDataProvider({
         countSettings,
         photos,
         cardsBoardSettings,
+        seriesPriceRanges,
         lastFetched,
         refetch,
     }

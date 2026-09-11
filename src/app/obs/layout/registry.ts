@@ -10,12 +10,14 @@ import { StashOrPassTl } from './elements/animation/tl/StashOrPassTl'
 import { StashOrPassRing } from './elements/animation/ring/StashOrPassRing'
 import { FlatBoard } from './elements/board-flat/FlatBoard'
 import { CobraBoard } from './elements/board-cobra/CobraBoard'
+import { CobraFlatBoard } from './elements/board-cobra-flat/CobraFlatBoard'
 import { ResultsElement } from './elements/results/ResultsElement'
 import { ThinResults } from './elements/results-thin/ThinResults'
 import { CircleWidget } from './elements/circle/CircleWidget'
 import { CardsElement } from './elements/cards/CardsElement'
 import { TextElement } from './elements/text/TextElement'
 import { ImageBoxElement } from './elements/image-box/ImageBoxElement'
+import { PriceRangesElement } from './elements/price-ranges/PriceRangesElement'
 import type { AnimationId, BoardVariant, Box, Element, ElementKind, FrameVariant, Phase, WidgetId } from './schema'
 import { ANIMATION_IDS, DEFAULT_FRAME_BORDERS, DEFAULT_FRAME_WIDTH } from './schema'
 import type { SceneEventName } from './sceneEvents'
@@ -24,6 +26,7 @@ export type RegistryId =
     | 'board:flat'
     | 'board:classic'
     | 'board:cobra'
+    | 'board:cobra_flat'
     | 'widget:pick2'
     | 'widget:stashorpass'
     | 'widget:name'
@@ -41,6 +44,7 @@ export type RegistryId =
     | 'animation:stashOrPassWrapRing'
     | 'text'
     | 'image-box'
+    | 'priceRanges'
 
 // Shared prop contract every registry component (placeholder now, real components in Phase 2)
 // implements.
@@ -98,6 +102,11 @@ function widgetDefaultBox(index: number): Box {
 }
 
 const BOARD_BOX: Box = { x: 0, y: 300, w: 1080, h: 1300 }
+// cobra_flat is a wide strip of square cells (11 columns), not a portrait board: a 32-team break
+// at 11 columns is 3 rows of squares, about 1080x320 including padding, so BOARD_BOX's 1080x1300
+// portrait footprint would sit two-thirds empty (cobra-flat-board-plan.md §4). Purely a starting
+// point — the operator resizes it in the builder like any other box.
+const COBRA_FLAT_BOX: Box = { x: 0, y: 300, w: 1080, h: 340 }
 const FULL_BOX: Box = { x: 0, y: 0, w: 1080, h: 1920 }
 const RIPBAR_BOX: Box = { x: 0, y: 0, w: 1080, h: 120 }
 const RESERVED_BOX: Box = { x: 1080 - 480, y: 0, w: 480, h: 270 }
@@ -114,6 +123,9 @@ const TEXT_BOX: Box = { x: 40, y: 130, w: 560, h: 160 }
 // Centred square — an image box has no natural home on the canvas (it is whatever the operator
 // wants to show), so it spawns where it is easiest to see and gets moved from there.
 const IMAGE_BOX: Box = { x: 300, y: 720, w: 480, h: 480 }
+// Same starting corner as TEXT_BOX (the one gap the other defaults leave clear, see that comment)
+// but taller — a price-ranges list is a handful of stacked lines, not one line of copy.
+const PRICE_RANGES_BOX: Box = { x: 40, y: 130, w: 560, h: 400 }
 
 export const REGISTRY: Record<RegistryId, RegistryEntry> = {
     'board:flat': {
@@ -168,6 +180,33 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         // ranges table, and the presets list/apply/save-as/delete controls) — same reasoning as
         // `cards` above: a narrow column would squash the price-ranges table and preset list.
         wideBlock: true,
+        reactsTo: [],
+    },
+    'board:cobra_flat': {
+        id: 'board:cobra_flat',
+        kind: 'board',
+        label: 'Board — Cobra Flat',
+        // Not a singleton: several boards may coexist, so each variant gets its own group and
+        // `singleton: false` is what allows it — same convention as every other board entry.
+        singleton: false,
+        singletonGroup: 'board:cobra_flat',
+        defaultBox: COBRA_FLAT_BOX,
+        // Logos are per team, resolved at render time from /images/new_teams/ — nothing to
+        // eagerly preload (same reasoning as `board:cobra`).
+        preload: [],
+        component: CobraFlatBoard,
+        available: true,
+        hasBox: true,
+        // Shares CobraBoardSettings with `board:cobra` (ElementSettings.tsx) — the tier thresholds
+        // are channel-wide and are the only setting this board reads, so it needs the same wide
+        // column the price-ranges table/preset list require.
+        wideBlock: true,
+        // cobra-flat-board-plan.md §6 asks for `reactsTo: ['sold']`, mirroring board-flat/results.
+        // `sold` is no longer a member of SceneEventName (sceneEvents.ts: removed from the
+        // vocabulary "on request"), and board-flat/results/resultsThin all import `useSceneEvent`
+        // but never call it — that wiring is already dead in every board this was meant to copy.
+        // Left `[]`, matching what those entries actually declare; see CobraFlatBoard.tsx's header
+        // for the full note. The board still catches up within one events poll (5s) of a sale.
         reactsTo: [],
     },
     'widget:pick2': {
@@ -432,6 +471,21 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         hasBox: true,
         reactsTo: [],
     },
+    priceRanges: {
+        id: 'priceRanges',
+        kind: 'priceRanges',
+        label: 'Price ranges',
+        // The data is per-series, so a second copy would just show the same list twice — one copy
+        // per config, like `results`/`cards`.
+        singleton: true,
+        singletonGroup: 'priceRanges',
+        defaultBox: PRICE_RANGES_BOX,
+        preload: [],
+        component: PriceRangesElement,
+        available: true,
+        hasBox: true,
+        reactsTo: [],
+    },
 }
 
 export function registryIdOf(element: Element): RegistryId {
@@ -458,6 +512,8 @@ export function registryIdOf(element: Element): RegistryId {
             return 'text'
         case 'imageBox':
             return 'image-box'
+        case 'priceRanges':
+            return 'priceRanges'
         default: {
             const _exhaustive: never = element
             throw new Error(`registryIdOf: unhandled element ${JSON.stringify(_exhaustive)}`)
@@ -545,6 +601,12 @@ export function makeElement(registryId: RegistryId): Element {
             // url/fit left unset — the operator uploads an image in ImageBoxSettings, and the
             // element applies 'contain' until `fit` is chosen (ImageBoxElement.tsx DEFAULT_IMAGE_FIT).
             return { kind: 'imageBox', placements }
+        case 'priceRanges':
+            // labelFontSize/badgeFontSize left unset — the component's own defaults apply
+            // (PriceRangesElement.tsx's DEFAULT_LABEL_FONT_SIZE/DEFAULT_BADGE_FONT_SIZE), same
+            // convention as `text`'s fontSize above. The ranges themselves are series data, not
+            // layout config, so there is nothing else to seed here.
+            return { kind: 'priceRanges', placements }
         default: {
             const _exhaustive: never = entry.kind
             throw new Error(`makeElement: unhandled kind ${JSON.stringify(_exhaustive)}`)

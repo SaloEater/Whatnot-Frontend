@@ -5,6 +5,7 @@ import {useRouter} from "next/navigation";
 import {getEndpoints, post, get} from "@/app/lib/backend";
 import {Photo, Series} from "@/app/entity/entities";
 import {PhotoGridComponent} from "@/app/series/[id]/photoGridComponent";
+import {PriceRangesSeriesView} from "@/app/series/[id]/priceRangesSeriesView";
 
 function parsePrice(val: string): [string, string] {
     const range = val.match(/^\$(\d+)-\$(\d+)$/)
@@ -133,6 +134,10 @@ export default function Page({params}: {params: {id: string}}) {
     }
 
     if (!series) return null
+
+    // series-price-ranges-plan.md §3.3: a `price_ranges` series has no photos, so its whole page
+    // body branches out to a dedicated view rather than reusing any of the cards UI below.
+    if (series.kind === 'price_ranges') return <PriceRangesSeriesView series={series} onSeriesChange={setSeries}/>
 
     return (
         <main className="container py-3">

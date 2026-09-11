@@ -42,8 +42,9 @@ export type ElementKind =
     | 'animation'
     | 'text'
     | 'imageBox'
+    | 'priceRanges'
 
-export const BOARD_VARIANTS = ['flat', 'classic', 'cobra'] as const
+export const BOARD_VARIANTS = ['flat', 'classic', 'cobra', 'cobra_flat'] as const
 export type BoardVariant = (typeof BOARD_VARIANTS)[number]
 
 // `count` split into `boxesLeft`/`chasersLeft` (obs-layout-plan.md §2.7) — mirrors upstream commit
@@ -194,6 +195,21 @@ export type Element =
           // Which part of the image shows when `fit` crops or letterboxes it (obs-image-box-plan.md
           // §5) — a percentage pair, default DEFAULT_IMAGE_POSITION (centred). Ignored by `stretch`.
           position?: { x: number; y: number }
+          placements: Partial<Record<PlacementKey, Box>>
+          z?: number
+          reactions?: Reactions
+      }
+    // Series-scoped raw-text readout of a `price_ranges` series' contents
+    // (series-price-ranges-plan.md §4) — "how many cards in each price band". The ranges
+    // themselves are series data (SeriesPriceRange, entities.ts), edited on the controls page's
+    // PriceRangesSettings and read through useLayoutData's `seriesPriceRanges` source, not stored
+    // here. It has two per-element settings, stored in LayoutConfig like `text.fontSize`:
+    // `labelFontSize` (the range label) and `badgeFontSize` (the count badge), both absolute
+    // canvas px.
+    | {
+          kind: 'priceRanges'
+          labelFontSize?: number
+          badgeFontSize?: number
           placements: Partial<Record<PlacementKey, Box>>
           z?: number
           reactions?: Reactions

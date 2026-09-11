@@ -49,9 +49,17 @@ export function getEndpoints()  {
         series_list_paginated:  "/api/series/list_paginated",
         series_get:             "/api/series/get",
         series_get_with_count:  "/api/series/get_with_count",
+        series_create:          "/api/series/create",
         series_update:          "/api/series/update",
         series_close:           "/api/series/close",
         series_delete:          "/api/series/delete",
+
+        // series-price-ranges-plan.md §1.3 — a `price_ranges` series' contents. Mirrors
+        // `/api/widget/board/price_ranges/*` one-to-one, hence the matching key style.
+        series_price_ranges:        "/api/series/price_ranges",
+        series_price_ranges_create: "/api/series/price_ranges/create",
+        series_price_ranges_update: "/api/series/price_ranges/update",
+        series_price_ranges_delete: "/api/series/price_ranges/delete",
 
         photo_list:            "/api/photo/list",
         photo_delete:          "/api/photo/delete",
