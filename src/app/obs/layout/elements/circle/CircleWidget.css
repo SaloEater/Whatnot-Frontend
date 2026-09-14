@@ -79,6 +79,18 @@
     text-shadow: var(--neon-glow);
 }
 
+/* stashorpass-only: round the inner fills' corners to match the outer border's curve. `.circ-cell`
+   already clips its children via `overflow: hidden` above, so bumping its own radius is enough —
+   the title bar and value area (and `.circ-corner` below, which sits well clear of the corner at
+   10px in from both edges) simply follow the new curve, nothing else needs its own radius.
+   `--circ-radius` is computed box-relative in CircleWidget.tsx (same pattern as the other
+   `--circ-*` sizes) rather than hardcoded, since the base 5px above is imperceptible at this
+   widget's on-screen size. Scoped to `.circ-root--stashorpass` only — pick2/name/boxesPerBreak/
+   boxesLeft/chasersLeft share this file and keep the original 5px look. */
+.circ-root--stashorpass .circ-cell {
+    border-radius: var(--circ-radius);
+}
+
 /* circle at the top-right corner — same style as the bottom half */
 .circ-corner {
     position: absolute;

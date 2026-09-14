@@ -165,10 +165,15 @@ export function CircleWidget({element, box}: ElementProps) {
     const valueFontPx = basis * 0.3
     const cornerSizePx = basis * 0.12
     const valuePaddingPx = basis * 0.03
+    // Inner-corner rounding for stashorpass only (requested for that widget specifically;
+    // pick2/name/boxesPerBreak/boxesLeft/chasersLeft keep the original 5px radius via
+    // CircleWidget.css). Box-relative like the sizes above, not a fixed px, since a flat value
+    // reads as basically square at this widget's on-screen size but would look wrong at others.
+    const cellRadiusPx = basis * 0.06
 
     return (
         <div
-            className="circ-root"
+            className={`circ-root${widget === 'stashorpass' ? ' circ-root--stashorpass' : ''}`}
             style={
                 {
                     '--neon': config.neonColor,
@@ -178,6 +183,7 @@ export function CircleWidget({element, box}: ElementProps) {
                     '--circ-value-fs': `${valueFontPx}px`,
                     '--circ-corner-size': `${cornerSizePx}px`,
                     '--circ-value-pad': `${valuePaddingPx}px`,
+                    '--circ-radius': `${cellRadiusPx}px`,
                 } as React.CSSProperties
             }
         >

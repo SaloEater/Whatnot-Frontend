@@ -167,7 +167,15 @@ function LayoutPageInner({channelId, devMode}: {channelId: number; devMode: bool
                     nextConfig = defaultConfig()
                 }
             }
-            setConfig(nextConfig)
+            // A FRACTIONAL last-accepted seq means an uncommitted draft from the controls page is
+            // live on this canvas (useControls.emitDraft — a box being dragged). The DB config is
+            // then known to be behind it, and applying it here would snap the dragged element
+            // back until the next draft emit. Skip config from the poll while that holds; the
+            // state half below is seq-guarded and drops the poll's integer seq on its own.
+            // -Infinity (nothing accepted yet) is not a draft: the mount fetch must apply.
+            const lastSeen = guardRef.current.last()
+            const draftLive = Number.isFinite(lastSeen) && !Number.isInteger(lastSeen)
+            if (!draftLive) setConfig(nextConfig)
 
             const incomingSeq = typeof stateResp?.seq === 'number' ? stateResp.seq : 0
             if (guardRef.current.accept(incomingSeq)) {

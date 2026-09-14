@@ -10,14 +10,21 @@ import {REGISTRY, registryIdOf} from '@/app/obs/layout/registry'
 import {resolveBox} from '@/app/obs/layout/config'
 import {SCENE_EVENTS} from '@/app/obs/layout/sceneEvents'
 import type {SceneEventName} from '@/app/obs/layout/sceneEvents'
+import {useRef, useState} from 'react'
 import ElementSettings from './ElementSettings'
+import BoxEditorModal from './BoxEditorModal'
 import {useFoldState} from './useFoldState'
 
 const SCENE_EVENT_LABELS: Record<SceneEventName, string> = Object.fromEntries(
     SCENE_EVENTS.map((e) => [e.name, e.label])
 ) as Record<SceneEventName, string>
 
-export type SetPlacement = (key: string, phase: PlacementKey, box: Box | null, opts?: { debounce?: boolean }) => void
+export type SetPlacement = (
+    key: string,
+    phase: PlacementKey,
+    box: Box | null,
+    opts?: { debounce?: boolean; history?: boolean; commit?: boolean }
+) => void
 export type SetPersistent = (key: string, persistent: boolean) => void
 export type PatchElement = (key: string, patch: Record<string, unknown>) => void
 
@@ -70,6 +77,11 @@ export default function ElementBlock({
         suffix: 'box',
         defaultOpen: false,
     })
+    // The wireframe box editor popup (obs-layout-box-editor-plan.md E.1/E.2) — a dead button
+    // until BoxEditorModal exists, added alongside it.
+    const [editorOpen, setEditorOpen] = useState(false)
+    // Focus target the modal restores to on close (E.2's "Focus" rule).
+    const editButtonRef = useRef<HTMLButtonElement>(null)
 
     const regId = registryIdOf(element)
     const entry = REGISTRY[regId]
@@ -89,13 +101,29 @@ export default function ElementBlock({
         onSetPersistent(elementKey, next)
     }
 
+    // The persistent/override rule, shared by every write path (obs-layout-box-editor-plan.md
+    // E.1): while persistent, an existing per-stage override edits that override; otherwise edits
+    // are made to the shared `all` box (obs-layout-plan.md §1.7). `setBoxField` uses it for the
+    // Box section's own inputs (debounced, global history); the box editor popup uses it via
+    // `commitBox` (immediate, popup-local history — the popup controls its own cadence and undo).
+    function targetPhaseFor(): PlacementKey {
+        return persistent && !overrideBox ? 'all' : currentPhase
+    }
+
     function setBoxField(field: keyof Box, value: number, opts?: {debounce?: boolean}) {
         if (!resolvedBox) return
         const nextBox = {...resolvedBox, [field]: value}
-        // While persistent: an existing per-stage override edits that override; otherwise edits
-        // are made to the shared `all` box (obs-layout-plan.md §1.7).
-        const targetPhase: PlacementKey = persistent && !overrideBox ? 'all' : currentPhase
-        onSetPlacement(elementKey, targetPhase, nextBox, {debounce: opts?.debounce ?? true})
+        onSetPlacement(elementKey, targetPhaseFor(), nextBox, {debounce: opts?.debounce ?? true})
+    }
+
+    function commitBox(box: Box) {
+        onSetPlacement(elementKey, targetPhaseFor(), box, {debounce: false, history: false})
+    }
+
+    // Mid-gesture position from the popup: shown everywhere immediately, written nowhere. Same
+    // placement rule as commitBox — only the persistence differs (see ElementsPanel.setPlacement).
+    function draftBox(box: Box) {
+        onSetPlacement(elementKey, targetPhaseFor(), box, {debounce: false, history: false, commit: false})
     }
 
     /** Centre the element on one axis of the 1080x1920 canvas. Applied immediately, not debounced
@@ -272,6 +300,14 @@ export default function ElementBlock({
                                                 </div>
                                             ))}
                                         </div>
+                                        <button
+                                            type="button"
+                                            ref={editButtonRef}
+                                            className="btn btn-sm btn-outline-secondary ctl-box-edit-btn"
+                                            onClick={() => setEditorOpen(true)}
+                                        >
+                                            Edit
+                                        </button>
                                     </div>
                                     {persistent && (
                                         overrideBox ? (
@@ -353,6 +389,22 @@ export default function ElementBlock({
                         />
                     </div>
                 </div>
+            )}
+            {editorOpen && resolvedBox && (
+                <BoxEditorModal
+                    elementKey={elementKey}
+                    label={entry.label}
+                    config={config}
+                    currentPhase={currentPhase}
+                    box={resolvedBox}
+                    channelId={channelId}
+                    onCommit={commitBox}
+                    onDraft={draftBox}
+                    onClose={() => {
+                        setEditorOpen(false)
+                        editButtonRef.current?.focus()
+                    }}
+                />
             )}
         </div>
     )

@@ -30,7 +30,7 @@ type Props = {
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
 export default function ElementsPanel({controls, channelId, seriesId, onPushResult}: Props) {
-    const {config, setConfigLocal, pushConfig, apply, state, emitCue} = controls
+    const {config, setConfigLocal, pushConfig, apply, state, emitCue, emitDraft} = controls
     const currentPhase = state.phase
 
     // Lets an element's own settings panel push a cue through the same state-update path the
@@ -334,15 +334,38 @@ export default function ElementsPanel({controls, channelId, seriesId, onPushResu
         })
     }
 
-    function setPlacement(key: string, phase: PlacementKey, box: Box | null, opts?: { debounce?: boolean }) {
-        mutate(c => {
+    function setPlacement(
+        key: string,
+        phase: PlacementKey,
+        box: Box | null,
+        opts?: { debounce?: boolean; history?: boolean; commit?: boolean }
+    ) {
+        const updater = (c: LayoutConfig) => {
             const el = c.elements[key]
             if (!el) return c
             const placements = {...el.placements}
             if (box) placements[phase] = box
             else delete placements[phase]
             return {...c, elements: {...c.elements, [key]: {...el, placements} as Element}}
-        }, opts)
+        }
+        // The box editor popup (obs-layout-box-editor-plan.md E.0) keeps its own undo/redo and
+        // must never touch the Elements toolbar's global stack — `history: false` skips `mutate`'s
+        // push onto `undoStack`/clear of `redoStack` and commits straight from the current config.
+        // `commit: false` is a DRAFT: the popup mid-gesture. Local config and OBS follow at once
+        // (so the Box inputs, the wireframe and the browser source all move), but nothing is
+        // written — the backend sees one push, on release, instead of one per move. A draft never
+        // enters history either; the popup keeps its own.
+        if (opts?.commit === false) {
+            const next = updater(config)
+            setConfigLocal(next)
+            emitDraft(next)
+            return
+        }
+        if (opts?.history === false) {
+            commit(updater(config), opts)
+            return
+        }
+        mutate(updater, opts)
     }
 
     /** Persistent checkbox (obs-layout-plan.md §1.7): on moves the current (or any existing, else

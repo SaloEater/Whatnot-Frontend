@@ -23,6 +23,9 @@ export type ConnectionStatus = 'connected' | 'connecting' | 'reconnecting' | 'di
 // both cheaper to reason about and more honest than a growing delay nobody can predict.
 const RETRY_MS = 5000
 
+// Step between consecutive draft seqs (see `emitDraft`): 10⁻⁴ leaves 9,999 drafts per commit.
+const DRAFT_SEQ_STEP = 0.0001
+
 export type ApplyResult = { ok: boolean; warning?: string; error?: string }
 
 interface LayoutConfigGetResponse {
@@ -249,6 +252,37 @@ export function useControls(
         return emit(payload)
     }, [channelId, emit])
 
+    /**
+     * Emit an UNCOMMITTED config on the durable channel — nothing written, no server seq.
+     *
+     * Integer seqs are committed and come from the backend (`apply`/`pushConfig`). A draft rides
+     * between them: `seq = N + k·10⁻⁴`, where N is the last committed seq this page knows and k
+     * counts up, so the layout's `seq > last` guard accepts drafts in order and still accepts the
+     * next real commit (N+1) after them — no change to the guard or the payload shape. This is
+     * what makes a drag in the box editor live on OBS without a backend row per move: only the
+     * release goes through `pushConfig`. The layout treats a fractional last-seen seq as "a draft
+     * is live, the DB is behind" (its reconcile poll skips config while that holds).
+     *
+     * Deliberately does NOT touch `undelivered`/`lastEmitAt`: that banner says "changes saved,
+     * layout not notified", which is false for a draft — nothing was saved. Not validated either;
+     * the layout validates every payload on receipt, and a draft only ever changes a box.
+     */
+    const draftSeqRef = useRef(0)
+    const emitDraft = useCallback((draftConfig: LayoutConfig): void => {
+        const base = Math.floor(seqRef.current)
+        // Continue counting within the current commit's range, or restart if a commit landed
+        // since the last draft. Clamped below base+1 so a draft can never sort after the commit
+        // that follows it (unreachable in practice: ~55 min of continuous dragging).
+        const next = Math.min(Math.max(draftSeqRef.current, base) + DRAFT_SEQ_STEP, base + 0.9999)
+        draftSeqRef.current = next
+        const payload: BusPayload = {seq: next, state: stateRef.current, config: draftConfig}
+        broadcastDev(DEV_CHANNEL_NAME, payload)
+        if (!obs || !isConnected) return
+        obs.emitBrowserEvent(BUS_EVENT_NAME, payload).catch((e) => {
+            console.warn('[useControls] draft emit failed', e)
+        })
+    }, [obs, isConnected, broadcastDev])
+
     const pushConfig = useCallback(async (nextConfig: LayoutConfig): Promise<ApplyResult & { errors?: string[] }> => {
         const validated = validateConfig(nextConfig)
         if (!validated.ok) {
@@ -446,6 +480,7 @@ export function useControls(
         setConfigLocal,
         apply,
         emitCue,
+        emitDraft,
         pushConfig,
         resendCurrent,
         reload,

@@ -75,7 +75,7 @@ export function parseCuePayload(detail: unknown): CuePayload | null {
 // Order is not preserved across emits (obs-browser-event-bus.md §6.5), so the receiver must
 // track the highest seq seen and drop anything at or below it, regardless of arrival order.
 // Also used for the transient channel's `n` (same problem, different counter).
-export function makeSeqGuard(): { accept: (seq: number) => boolean } {
+export function makeSeqGuard(): { accept: (seq: number) => boolean; last: () => number } {
     let last = -Infinity
 
     return {
@@ -86,5 +86,8 @@ export function makeSeqGuard(): { accept: (seq: number) => boolean } {
             }
             return false
         },
+        // Exposed so the reconcile poll can tell a committed (integer) seq from a live draft
+        // (fractional — see useControls.emitDraft). -Infinity until the first accept.
+        last: () => last,
     }
 }
