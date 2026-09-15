@@ -182,6 +182,10 @@ type Props = {
     config: LayoutConfig
     currentPhase: Phase
     box: Box
+    // A mirror's W/H are inherited from its source, never its own to resize (obs-layout-text-
+    // mirror-plan.md M.4) — no resize handles are rendered, and the footer's W/H inputs are
+    // disabled. Drag-to-move, nudge and snapping are unaffected: they only ever touch X/Y.
+    isMirror?: boolean
     channelId: number
     onCommit: (box: Box) => void
     onDraft: (box: Box) => void
@@ -221,7 +225,7 @@ function resizeBox(handle: HandleId, start: Box, dx: number, dy: number): Box {
     return {x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h)}
 }
 
-export default function BoxEditorModal({elementKey, label, config, currentPhase, box, channelId, onCommit, onDraft, onClose}: Props) {
+export default function BoxEditorModal({elementKey, label, config, currentPhase, box, isMirror, channelId, onCommit, onDraft, onClose}: Props) {
     const panelRef = useRef<HTMLDivElement>(null)
     const bodyRef = useRef<HTMLDivElement>(null)
 
@@ -674,7 +678,7 @@ export default function BoxEditorModal({elementKey, label, config, currentPhase,
                                 <span>{label}</span>
                                 <span className="ctl-boxed-el-key">{elementKey}</span>
                             </span>
-                            {HANDLES.map((h) => (
+                            {!isMirror && HANDLES.map((h) => (
                                 <div
                                     key={h.id}
                                     className="ctl-boxed-handle"
@@ -704,6 +708,7 @@ export default function BoxEditorModal({elementKey, label, config, currentPhase,
                                     type="number"
                                     className="form-control form-control-sm"
                                     value={displayBox[field]}
+                                    disabled={isMirror && (field === 'w' || field === 'h')}
                                     onFocus={fieldFocus}
                                     onChange={(e) => fieldChange(field, e.target.value)}
                                     onBlur={fieldEnd}

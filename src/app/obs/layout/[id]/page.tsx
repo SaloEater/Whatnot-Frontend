@@ -12,7 +12,7 @@ import {
     defaultConfig,
     defaultState,
     elementsForPhase,
-    isVisible,
+    isEffectivelyVisible,
     migrateConfig,
     migrateState,
     validateConfig,
@@ -77,7 +77,7 @@ function LayoutStageContent({config, state}: {config: LayoutConfig; state: Overl
             <ResolvedBoxesProvider boxes={resolvedBoxes}>
                 <Stage>
                     {elements.map(({key, element, box}) => {
-                        if (!isVisible(state, key)) return null
+                        if (!isEffectivelyVisible(config, state, key)) return null
                         const entry = REGISTRY[registryIdOf(element)]
                         const Component = entry.component
                         const effectiveBox = entry.hasBox ? box : FULL_CANVAS_BOX

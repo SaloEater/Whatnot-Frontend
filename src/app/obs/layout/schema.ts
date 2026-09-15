@@ -86,7 +86,22 @@ export type ResultsSort = (typeof RESULTS_SORTS)[number]
 // `effectiveReactions()`.
 export type Reactions = Partial<Record<SceneEventName, boolean>>
 
-export type Element =
+// Which element kinds may be mirrored — the SOURCE side of `mirrorOf` (obs-layout-text-mirror-plan.md).
+// Single source of truth: the controls page shows the Mirror button only for these kinds, and
+// config.ts's validator refuses a `mirrorOf` whose source is any other kind. Add a kind here to
+// make it mirrorable; nothing else needs to change (`resolveEffective` is kind-agnostic).
+export const MIRRORABLE_KINDS = ['text'] as const satisfies readonly ElementKind[]
+export type MirrorableKind = (typeof MIRRORABLE_KINDS)[number]
+
+// Present on every element kind so a mirror can be of any kind the allowlist admits. A mirror
+// is the same element again at another X/Y: it inherits everything but its placements' x/y and
+// stores nothing else of its own. Resolving the inheritance is centralised in exactly one place,
+// config.ts's `resolveEffective` — every renderer/editor reads a merged element through that,
+// never through this field directly. Code elsewhere may read `mirrorOf` only for POLICY ("is
+// this a mirror" / "who mirrors this"), never to itself merge properties.
+export type MirrorFields = { mirrorOf?: string }
+
+export type Element = (
     | { kind: 'board'; variant: BoardVariant; placements: Partial<Record<PlacementKey, Box>>; z?: number; reactions?: Reactions }
     | { kind: 'widget'; widget: WidgetId; placements: Partial<Record<PlacementKey, Box>>; z?: number; reactions?: Reactions }
     | { kind: 'cards' | 'ripbar' | 'reserved'; placements: Partial<Record<PlacementKey, Box>>; z?: number; reactions?: Reactions }
@@ -214,6 +229,7 @@ export type Element =
           z?: number
           reactions?: Reactions
       }
+) & MirrorFields
 
 export type LayoutConfig = {
     version: 1

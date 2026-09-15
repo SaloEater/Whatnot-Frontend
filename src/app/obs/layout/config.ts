@@ -16,8 +16,7 @@ import {
     IMAGE_FITS,
     MAX_TEXT_LENGTH,
     RESULTS_SORTS,
-    WIDGET_IDS,
-} from './schema'
+    WIDGET_IDS, MIRRORABLE_KINDS} from './schema'
 import type { RegistryId } from './registry'
 import { REGISTRY, registryIdOf } from './registry'
 import type { SceneEventName } from './sceneEvents'
@@ -338,6 +337,80 @@ function validateTextFields(key: string, rawEl: Record<string, unknown>): string
     return errors
 }
 
+// `mirrorOf` validation (obs-layout-text-mirror-plan.md M.1). A mirror is a real element that
+// borrows another element's properties/size/layer/reactions — these checks exist so
+// the panel's cascades (ElementsPanel.tsx: `removeElement`, `setPlacement`'s stage-removal
+// cascade, `setPersistent`'s refusal) are never actually exercised by a config that skips them —
+// if one of these fires on a config the panel produced, the cascade that should have prevented it
+// has a bug (see the plan's note on why the messages name both keys).
+function validateMirror(
+    key: string,
+    rawEl: Record<string, unknown>,
+    elementsRaw: Record<string, unknown>,
+    stages: Stage[]
+): string[] {
+    if (rawEl.mirrorOf === undefined) return []
+    const mirrorOf = rawEl.mirrorOf
+    if (typeof mirrorOf !== 'string') {
+        return [`element "${key}": mirrorOf must be a string`]
+    }
+    // Rule 1a: no self-reference.
+    if (mirrorOf === key) {
+        return [`element "${key}": mirrorOf cannot reference itself`]
+    }
+    // Rule 1b: must name an existing element whose kind is mirrorable (MIRRORABLE_KINDS) and the
+    // SAME kind/variant as the mirror itself — the mirror's own discriminant is what the registry
+    // and the per-kind validation below key off, so it must agree with what it will render as.
+    const sourceRaw = elementsRaw[mirrorOf]
+    if (!isPlainObject(sourceRaw)) {
+        return [`element "${key}": mirrorOf "${mirrorOf}" is not an existing element`]
+    }
+    if (!(MIRRORABLE_KINDS as readonly string[]).includes(String(sourceRaw.kind))) {
+        return [`element "${key}": mirrorOf "${mirrorOf}" is a "${String(sourceRaw.kind)}" element, which cannot be mirrored`]
+    }
+    for (const field of ['kind', 'variant', 'widget', 'animation'] as const) {
+        if (sourceRaw[field] !== rawEl[field]) {
+            return [`element "${key}": mirrorOf "${mirrorOf}" is a different element type (${field}: ${JSON.stringify(sourceRaw[field])} vs ${JSON.stringify(rawEl[field])})`]
+        }
+    }
+
+    const errors: string[] = []
+
+    // Rule 2: one level only — the source cannot itself be a mirror.
+    if (sourceRaw.mirrorOf !== undefined) {
+        errors.push(
+            `element "${key}": mirrors "${mirrorOf}", which is itself a mirror (mirrors can only be one level deep)`
+        )
+    }
+
+    // Rule 3: neither side may be persistent (`placements.all`) — a persistent mirror or source
+    // could put a mirror on a stage its source is not (also) placed on.
+    const mirrorPlacements = rawEl.placements
+    if (isPlainObject(mirrorPlacements) && mirrorPlacements.all !== undefined) {
+        errors.push(`element "${key}": a mirror cannot be persistent (placements.all)`)
+    }
+    const sourcePlacements = sourceRaw.placements
+    if (isPlainObject(sourcePlacements) && sourcePlacements.all !== undefined) {
+        errors.push(
+            `element "${key}": mirrors "${mirrorOf}", which is persistent (placements.all) — a mirror's source cannot be persistent`
+        )
+    }
+
+    // Rule 4: every stage the mirror is placed in must be one the source is placed in too — this
+    // is what makes the inherited size (`resolveEffective`) always resolvable, no fallback.
+    // Placement keys that aren't real stages are reported separately by `validatePlacements`.
+    if (isPlainObject(mirrorPlacements) && isPlainObject(sourcePlacements)) {
+        for (const phase of Object.keys(mirrorPlacements)) {
+            if (phase === 'all' || !isPlacementKey(phase, stages)) continue
+            if (!(phase in sourcePlacements)) {
+                errors.push(`element "${key}": mirrors "${mirrorOf}", which is not placed in stage "${phase}"`)
+            }
+        }
+    }
+
+    return errors
+}
+
 // `priceRanges` field validation: both settings are optional (absent = component default applies,
 // registry.ts `makeElement` leaves them unset), and when present must be a finite number > 0 —
 // same rule as `text.fontSize` above.
@@ -484,7 +557,12 @@ export function validateConfig(
                 continue
             }
 
-            const elErrors: string[] = [...validateZ(key, rawEl), ...validateReactions(key, rawEl)]
+            const elErrors: string[] = [
+                ...validateZ(key, rawEl),
+                ...validateReactions(key, rawEl),
+                // Any kind may carry `mirrorOf`; the allowlist check inside decides whether it may.
+                ...validateMirror(key, rawEl, elementsRaw, stages),
+            ]
             let regId: RegistryId | undefined
 
             const kind = rawEl.kind
@@ -822,6 +900,18 @@ export function isVisible(state: OverlayState, key: string): boolean {
     return state.overrides?.[key]?.visible !== false
 }
 
+/**
+ * Visibility as it should be RENDERED: a mirror follows its source (obs-layout-text-mirror-plan.md
+ * "Decisions"), so its own `overrides[key]` — which nothing writes any more, but a preset or an
+ * older state row may still carry — is ignored in favour of the source's. Everything else is
+ * plain `isVisible`. Same shape as `resolveEffective`: the one place that knows a mirror inherits.
+ */
+export function isEffectivelyVisible(config: LayoutConfig, state: OverlayState, key: string): boolean {
+    const element = config.elements[key]
+    const sourceKey = element?.mirrorOf ?? key
+    return isVisible(state, sourceKey)
+}
+
 // Resolution rule for persistent elements (obs-layout-plan.md §1.7): a phase-specific placement
 // always wins; otherwise fall back to the `all` placement. Every element kind carries its own
 // `placements` (the old anchor-resolving `effect` kind was removed in §1.9 — see boxless
@@ -847,21 +937,62 @@ export function resolveFrameWidth(element: Element): number {
     return element.frameWidth ?? DEFAULT_FRAME_WIDTH
 }
 
+// The element as it should be rendered/edited (obs-layout-text-mirror-plan.md M.2): for a plain
+// element, its own values untouched. For a mirror (any element with `mirrorOf`), the SOURCE's
+// properties/z/reactions with the MIRROR's own placements — so `element.z` is the inherited
+// layer and every kind-specific field is the source's — and a box built from the mirror's {x, y}
+// and the source's {w, h} in `phase`. Both are guaranteed present together by validateConfig's
+// mirror rule 4 (every phase the mirror is placed in, the source is placed in too), so there is no
+// "source has no box in this phase" fallback to design for.
+//
+// This is the ONLY place that merges a mirror with its source. Every consumer that goes through
+// it — `elementsForPhase` below (so the layout page, `resolvedBoxes`, wrap-animation targeting),
+// the box editor's `others`/snap targets, ElementBlock's box section — gets the merge for free and
+// never itself reads `mirrorOf` to compute anything. Controls code may still read `mirrorOf`
+// directly, but only for POLICY (is this element a mirror / who mirrors it), never to merge.
+export function resolveEffective(
+    config: LayoutConfig,
+    key: string,
+    phase: Phase
+): { element: Element; box: Box | undefined } {
+    const element = config.elements[key]
+    if (!element.mirrorOf) {
+        return { element, box: resolveBox(element, phase) }
+    }
+
+    const mirrorBox = resolveBox(element, phase)
+    const source = config.elements[element.mirrorOf]
+    if (!source || !mirrorBox) {
+        // Should not happen against a validated config (rule 1 guarantees the source exists and
+        // is the same mirrorable kind; rule 4 guarantees a box here implies one on the source
+        // too) — fall back to the mirror's own raw element/box rather than throwing.
+        return { element, box: mirrorBox }
+    }
+
+    const sourceBox = resolveBox(source, phase)
+    const effectiveElement: Element = { ...source, placements: element.placements }
+    const box: Box | undefined = sourceBox
+        ? { x: mirrorBox.x, y: mirrorBox.y, w: sourceBox.w, h: sourceBox.h }
+        : undefined
+    return { element: effectiveElement, box }
+}
+
 export function elementsForPhase(
     config: LayoutConfig,
     phase: Phase
 ): Array<{ key: string; element: Element; box: Box }> {
     const result: Array<{ key: string; element: Element; box: Box }> = []
 
-    for (const [key, element] of Object.entries(config.elements)) {
-        const box = resolveBox(element, phase)
+    for (const key of Object.keys(config.elements)) {
+        const { element, box } = resolveEffective(config, key, phase)
         if (!box) continue
         result.push({ key, element, box })
     }
 
     // Array.prototype.sort is a stable sort (guaranteed since ES2019), so elements that share a
     // `z` keep their insertion order — matches obs-layout-plan.md §1.7's "sorted by z ascending,
-    // stable".
+    // stable". `a.element.z`/`b.element.z` is the EFFECTIVE z (resolveEffective inherits it for a
+    // mirror), so a mirror sorts alongside its source's layer, not its own (unset) one.
     result.sort((a, b) => (a.element.z ?? 0) - (b.element.z ?? 0))
 
     return result

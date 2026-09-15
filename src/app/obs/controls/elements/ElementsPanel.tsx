@@ -6,15 +6,26 @@
 
 import {useEffect, useRef, useState} from 'react'
 import type {Box, DurableCue, Element, LayoutConfig, PlacementKey} from '@/app/obs/layout/schema'
+import {MIRRORABLE_KINDS} from '@/app/obs/layout/schema'
 import {REGISTRY, makeElement, registryIdOf} from '@/app/obs/layout/registry'
 import type {RegistryId} from '@/app/obs/layout/registry'
-import {defaultConfig, isVisible, resolveBox} from '@/app/obs/layout/config'
+import {defaultConfig, isEffectivelyVisible, resolveBox} from '@/app/obs/layout/config'
 import type {useControls} from '@/app/obs/controls/useControls'
 import ElementBlock from './ElementBlock'
 
 function baseKeyFor(regId: RegistryId): string {
     const parts = regId.split(':')
     return parts.length > 1 ? parts[1] : parts[0]
+}
+
+/** Every element mirroring `key` (obs-layout-text-mirror-plan.md M.3) — takes an explicit
+ *  `elements` record rather than closing over `config` so the cascades below (which run inside a
+ *  `mutate` updater, against that updater's own `c`, not necessarily the render's `config`) never
+ *  compute mirrors against a stale snapshot. */
+function mirrorKeysOf(elements: Record<string, Element>, key: string): string[] {
+    return Object.entries(elements)
+        .filter(([, el]) => el.mirrorOf === key)
+        .map(([k]) => k)
 }
 
 type Controls = ReturnType<typeof useControls>
@@ -167,10 +178,18 @@ export default function ElementsPanel({controls, channelId, seriesId, onPushResu
         )
     }
 
-    /** Elements already in the layout but with no resolved box for the current stage. */
-    const existingNotInPhase = Object.entries(config.elements).filter(([, el]) =>
-        !resolveBox(el, currentPhase)
-    )
+    /** Elements already in the layout but with no resolved box for the current stage. A mirror is
+     *  offered here only when its source IS placed in the current stage (obs-layout-text-mirror-
+     *  plan.md M.3) — otherwise picking it would build a config that fails validateConfig's rule
+     *  4 (a mirror may only be placed on a stage its source is placed on too). */
+    const existingNotInPhase = Object.entries(config.elements).filter(([, el]) => {
+        if (resolveBox(el, currentPhase)) return false
+        if (el.mirrorOf) {
+            const source = config.elements[el.mirrorOf]
+            return !!source && !!resolveBox(source, currentPhase)
+        }
+        return true
+    })
 
     function boxForPhase(el: Element, regId: RegistryId): Box {
         if ('placements' in el) {
@@ -233,6 +252,11 @@ export default function ElementsPanel({controls, channelId, seriesId, onPushResu
      * make the block vanish.
      */
     function setVisible(key: string, visible: boolean) {
+        // A mirror inherits its source's visibility (isEffectivelyVisible) and its checkbox is
+        // disabled in ElementBlock — belt to that brace, so no stray override is ever written for
+        // a key whose visibility is never read from its own override.
+        const el = config.elements[key]
+        if (el?.mirrorOf) return
         const overrides = {...state.overrides, [key]: {...state.overrides?.[key], visible}}
         void apply({...state, overrides}).then(result => onPushResult?.(result))
     }
@@ -281,12 +305,25 @@ export default function ElementsPanel({controls, channelId, seriesId, onPushResu
     /** "Add to all stages": new elements get `all` = defaultBox; existing elements from the
      * "Already in layout" group get `all` = their first existing box (kept alongside any
      * per-stage overrides they already have). */
+    // The one dropdown feeds both Add buttons, so a mirror picked under "Already in layout" must
+    // still work for the stage-scoped Add while "Add to all stages" — which would make it
+    // persistent — is disabled with the reason, rather than silently doing nothing.
+    const addChoiceIsMirror = (() => {
+        if (!addChoice.startsWith('existing:')) return false
+        const el = config.elements[addChoice.slice('existing:'.length)]
+        return !!el?.mirrorOf
+    })()
+
     function addElementToAllStages() {
         if (!addChoice) return
         if (addChoice.startsWith('existing:')) {
             const key = addChoice.slice('existing:'.length)
             const el = config.elements[key]
             if (!el || !('placements' in el)) return
+            // A mirror can never be persistent (validateConfig rule 3) — "Add to all stages"
+            // never offers one (obs-layout-text-mirror-plan.md M.3), even though the same
+            // dropdown may list it under "Already in layout" for the (stage-scoped) Add button.
+            if (el.mirrorOf) return
             const anyBox = Object.values(el.placements)[0] ?? REGISTRY[registryIdOf(el)].defaultBox
             setPlacement(key, 'all', {...anyBox})
             setAddChoice('')
@@ -314,16 +351,21 @@ export default function ElementsPanel({controls, channelId, seriesId, onPushResu
 
     function removeElement(key: string) {
         mutate(c => {
+            // Deleting a source deletes its mirrors too (obs-layout-text-mirror-plan.md M.3) — a
+            // mirror never outlives the element it borrows from. Computed against `c.elements`
+            // (this updater's own snapshot), not the render-time `config`, same reasoning as
+            // `mirrorKeysOf`'s doc comment.
+            const toRemove = new Set([key, ...mirrorKeysOf(c.elements, key)])
             const rest: Record<string, Element> = {}
             for (const [k, el] of Object.entries(c.elements)) {
-                if (k === key) continue
-                // Clear any `target` that pointed at the element being removed. The validator
-                // requires a target to name an existing element, so leaving the stale reference
-                // makes the whole config invalid and the removal is refused — which reads as "I
-                // can't delete this board" rather than "something still points at it". Dropping
-                // the field degrades gracefully: an animation with no target falls back to the
-                // first board in the config (see StashOrPassWrap).
-                if ('target' in el && el.target === key) {
+                if (toRemove.has(k)) continue
+                // Clear any `target` that pointed at an element being removed (source or mirror).
+                // The validator requires a target to name an existing element, so leaving the
+                // stale reference makes the whole config invalid and the removal is refused —
+                // which reads as "I can't delete this board" rather than "something still points
+                // at it". Dropping the field degrades gracefully: an animation with no target
+                // falls back to the first board in the config (see StashOrPassWrap).
+                if ('target' in el && el.target && toRemove.has(el.target)) {
                     const {target: _removed, ...withoutTarget} = el
                     rest[k] = withoutTarget as Element
                     continue
@@ -346,7 +388,31 @@ export default function ElementsPanel({controls, channelId, seriesId, onPushResu
             const placements = {...el.placements}
             if (box) placements[phase] = box
             else delete placements[phase]
-            return {...c, elements: {...c.elements, [key]: {...el, placements} as Element}}
+            let elements: Record<string, Element> = {...c.elements, [key]: {...el, placements} as Element}
+
+            // Cascade (obs-layout-text-mirror-plan.md M.3): removing `key` from one stage also
+            // removes that stage from every mirror of it — a mirror may only be placed on a stage
+            // its source is placed on too (config.ts validateConfig rule 4). A mirror left with no
+            // placements at all is deleted outright rather than kept as an empty, unreachable
+            // element. Never triggered by `phase === 'all'`: a source is guaranteed to never carry
+            // an `all` placement (rule 3 + the disabled Persistent checkbox), so that path is not
+            // "remove from a stage" for one.
+            if (box === null && phase !== 'all') {
+                for (const mKey of mirrorKeysOf(elements, key)) {
+                    const mEl = elements[mKey]
+                    if (mEl.kind !== 'text') continue
+                    const mPlacements = {...mEl.placements}
+                    delete mPlacements[phase]
+                    if (Object.keys(mPlacements).length === 0) {
+                        const {[mKey]: _removed, ...rest} = elements
+                        elements = rest
+                    } else {
+                        elements = {...elements, [mKey]: {...mEl, placements: mPlacements}}
+                    }
+                }
+            }
+
+            return {...c, elements}
         }
         // The box editor popup (obs-layout-box-editor-plan.md E.0) keeps its own undo/redo and
         // must never touch the Elements toolbar's global stack — `history: false` skips `mutate`'s
@@ -375,6 +441,14 @@ export default function ElementsPanel({controls, channelId, seriesId, onPushResu
         mutate(c => {
             const el = c.elements[key]
             if (!el) return c
+            // Refused for a mirror (mirrors can never be persistent — validateConfig rule 3) and
+            // for a source with mirrors (persistent would drop the per-stage placement that rule
+            // 4 checks the mirrors against). The Persistent checkbox is already disabled for both
+            // in ElementBlock — this is the belt to that brace (obs-layout-text-mirror-plan.md
+            // M.3).
+            if (persistent) {
+                if (el.mirrorOf || mirrorKeysOf(c.elements, key).length > 0) return c
+            }
             const placements = el.placements
             if (persistent) {
                 const current = placements[currentPhase]
@@ -387,6 +461,38 @@ export default function ElementsPanel({controls, channelId, seriesId, onPushResu
             const newPlacements: Partial<Record<PlacementKey, Box>> = {}
             if (allBox) newPlacements[currentPhase] = {...allBox}
             return {...c, elements: {...c.elements, [key]: {...el, placements: newPlacements} as Element}}
+        })
+    }
+
+    /** The `Mirror` button on a source's block (obs-layout-text-mirror-plan.md M.3/M.4): a new
+     *  element of the SAME registry id bound to `sourceKey` via `mirrorOf`, placed in the current
+     *  stage only, at a fixed offset from the source's box in that stage. Built from `makeElement`
+     *  so it carries exactly the identity fields the validator keys off (kind + variant/widget/…)
+     *  and nothing else — `resolveEffective` reads every other property off the source, so writing
+     *  any here would be dead data. Kind-agnostic; MIRRORABLE_KINDS decides who gets the button.
+     *  One `mutate` call, one undo entry, same key-collision loop `addElement` uses. */
+    function addMirror(sourceKey: string) {
+        mutate(c => {
+            const source = c.elements[sourceKey]
+            if (!source || !(MIRRORABLE_KINDS as readonly string[]).includes(source.kind)) return c
+            const s = resolveBox(source, currentPhase)
+            if (!s) return c
+
+            const regId = registryIdOf(source)
+            const base = baseKeyFor(regId)
+            let key = base
+            let n = 2
+            while (c.elements[key]) {
+                key = `${base}-${n}`
+                n++
+            }
+
+            const mirror: Element = {
+                ...makeElement(regId),
+                mirrorOf: sourceKey,
+                placements: {[currentPhase]: {x: s.x + 20, y: s.y + 20, w: s.w, h: s.h}},
+            }
+            return {...c, elements: {...c.elements, [key]: mirror}}
         })
     }
 
@@ -434,7 +540,12 @@ export default function ElementsPanel({controls, channelId, seriesId, onPushResu
                 <button className="btn btn-outline-primary btn-sm" onClick={addElement} disabled={!addChoice}>
                     Add element
                 </button>
-                <button className="btn btn-outline-primary btn-sm" onClick={addElementToAllStages} disabled={!addChoice}>
+                <button
+                    className="btn btn-outline-primary btn-sm"
+                    onClick={addElementToAllStages}
+                    disabled={!addChoice || addChoiceIsMirror}
+                    title={addChoiceIsMirror ? "A mirror can't be persistent — add it to this stage only" : undefined}
+                >
                     Add to all stages
                 </button>
 
@@ -492,7 +603,9 @@ export default function ElementsPanel({controls, channelId, seriesId, onPushResu
                         onSetPersistent={setPersistent}
                         onPatchElement={patchElement}
                         onRemove={removeElement}
-                        visible={isVisible(state, key)}
+                        onAddMirror={addMirror}
+                        mirrorCount={mirrorKeysOf(config.elements, key).length}
+                        visible={isEffectivelyVisible(config, state, key)}
                         onSetVisible={setVisible}
                         onMove={moveElement}
                         canMoveUp={canMove(key, -1)}

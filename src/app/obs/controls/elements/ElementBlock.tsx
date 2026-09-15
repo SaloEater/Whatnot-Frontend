@@ -5,9 +5,10 @@
 // this element used to be in the old channel/[id]/widgets LayoutBuilder.
 
 import type {Box, DurableCue, Element, LayoutConfig, PlacementKey, Phase, TransientCue} from '@/app/obs/layout/schema'
+import {MIRRORABLE_KINDS} from '@/app/obs/layout/schema'
 import {CANVAS} from '@/app/obs/layout/schema'
 import {REGISTRY, registryIdOf} from '@/app/obs/layout/registry'
-import {resolveBox} from '@/app/obs/layout/config'
+import {resolveEffective} from '@/app/obs/layout/config'
 import {SCENE_EVENTS} from '@/app/obs/layout/sceneEvents'
 import type {SceneEventName} from '@/app/obs/layout/sceneEvents'
 import {useRef, useState} from 'react'
@@ -39,6 +40,12 @@ type Props = {
     onSetPersistent: SetPersistent
     onPatchElement: PatchElement
     onRemove: (key: string) => void
+    /** `Mirror` button (obs-layout-text-mirror-plan.md M.4) — creates a new text element bound to
+     *  this one via `mirrorOf`. Only ever invoked from a source's own block. */
+    onAddMirror: (key: string) => void
+    /** How many elements mirror this one (0 for a mirror itself, or a source with none) — drives
+     *  the "N mirrors" badge, the remove-confirm wording, and whether Persistent is disabled. */
+    mirrorCount: number
     visible: boolean
     onSetVisible: (key: string, visible: boolean) => void
     onMove: (key: string, direction: -1 | 1) => void
@@ -61,6 +68,8 @@ export default function ElementBlock({
     onSetPersistent,
     onPatchElement,
     onRemove,
+    onAddMirror,
+    mirrorCount,
     visible,
     onSetVisible,
     onMove,
@@ -88,8 +97,21 @@ export default function ElementBlock({
     const placements = element.placements
     const persistent = !!placements.all
     const overrideBox = placements[currentPhase]
-    const resolvedBox = resolveBox(element, currentPhase)
+    // Every box the block shows comes from resolveEffective, not the raw element (obs-layout-
+    // text-mirror-plan.md M.4) — for a mirror this is {x, y} from its own placement, {w, h}
+    // inherited from its source; for anything else it is identical to the old resolveBox call.
+    const resolvedBox = resolveEffective(config, elementKey, currentPhase).box
     const z = element.z ?? 0
+
+    // Mirror/source policy reads `mirrorOf` directly (never to merge — that's resolveEffective's
+    // job alone, see schema.ts's comment on the field).
+    const isMirror = !!element.mirrorOf
+    const mirrorOfKey = element.mirrorOf
+    // The Mirror button appears only on kinds in MIRRORABLE_KINDS (schema.ts — the single place
+    // that decides), and only while the element is a plain (non-mirror), non-persistent one
+    // actually placed in the current stage — an unplaced element has nothing to offset from.
+    const mirrorable = (MIRRORABLE_KINDS as readonly string[]).includes(element.kind)
+    const canMirror = mirrorable && !isMirror && !persistent && !!resolvedBox
 
     function removeFromStage() {
         if (window.confirm(`Remove "${elementKey}" from the ${currentPhase} stage?`)) {
@@ -164,7 +186,11 @@ export default function ElementBlock({
     }
 
     function handleRemove() {
-        if (window.confirm(`Remove element "${elementKey}"?`)) onRemove(elementKey)
+        // Deleting a source deletes its mirrors too (obs-layout-text-mirror-plan.md M.3) — say so
+        // up front rather than have them silently vanish after confirming.
+        const mirrorNote =
+            mirrorCount > 0 ? ` and its ${mirrorCount} mirror${mirrorCount === 1 ? '' : 's'}` : ''
+        if (window.confirm(`Remove element "${elementKey}"${mirrorNote}?`)) onRemove(elementKey)
     }
 
     return (
@@ -179,8 +205,29 @@ export default function ElementBlock({
                     <button type="button" className="btn btn-sm btn-link ctl-el-chevron" onClick={() => setOpen(!open)}>
                         {open ? '▾' : '▸'}
                     </button>
-                    <span className="ctl-el-label">{entry.label}</span>
+                    <span className="ctl-el-label">
+                        {entry.label}
+                        {isMirror && <span className="text-secondary"> · mirror of {mirrorOfKey}</span>}
+                    </span>
                     <span className="ctl-el-key text-secondary small">{elementKey}</span>
+                    {mirrorCount > 0 && (
+                        <span
+                            className="badge bg-secondary-subtle text-secondary-emphasis ctl-el-badge"
+                            title="Text elements mirroring this one"
+                        >
+                            {mirrorCount} mirror{mirrorCount === 1 ? '' : 's'}
+                        </span>
+                    )}
+                    {canMirror && (
+                        <button
+                            type="button"
+                            className="btn btn-sm btn-outline-secondary"
+                            onClick={() => onAddMirror(elementKey)}
+                            title="Add a copy of this text, bound to it, at another position on this stage"
+                        >
+                            Mirror
+                        </button>
+                    )}
                     <button
                         type="button"
                         className="btn btn-sm btn-outline-secondary ctl-el-move"
@@ -212,7 +259,10 @@ export default function ElementBlock({
                             className="form-check-input"
                             id={`ctl-visible-${elementKey}`}
                             checked={visible}
-                            title="Hide this element without removing it — it keeps its placement and stays in this list"
+                            disabled={isMirror}
+                            title={isMirror
+                                ? `Inherited from ${mirrorOfKey} — hide that element instead`
+                                : 'Hide this element without removing it — it keeps its placement and stays in this list'}
                             onChange={(e) => onSetVisible(elementKey, e.target.checked)}
                         />
                         <label className="form-check-label small" htmlFor={`ctl-visible-${elementKey}`}>
@@ -225,6 +275,14 @@ export default function ElementBlock({
                             className="form-check-input"
                             id={`ctl-persistent-${elementKey}`}
                             checked={persistent}
+                            disabled={isMirror || mirrorCount > 0}
+                            title={
+                                isMirror
+                                    ? "Mirrors can't be persistent"
+                                    : mirrorCount > 0
+                                        ? 'Has mirrors — remove them first'
+                                        : undefined
+                            }
                             onChange={(e) => togglePersistent(e.target.checked)}
                         />
                         <label className="form-check-label small" htmlFor={`ctl-persistent-${elementKey}`}>
@@ -281,7 +339,14 @@ export default function ElementBlock({
                                             ))}
                                         </div>
                                         <div className="ctl-box-col">
-                                            <div className="ctl-box-col-title">Size</div>
+                                            <div className="ctl-box-col-title">
+                                                Size
+                                                {/* W/H are inherited from the source (resolveEffective) and never a
+                                                    mirror's own — obs-layout-text-mirror-plan.md M.4. */}
+                                                {isMirror && (
+                                                    <span className="text-secondary small"> — inherited from {mirrorOfKey}</span>
+                                                )}
+                                            </div>
                                             {([
                                                 {field: 'w', label: 'W'},
                                                 {field: 'h', label: 'H'},
@@ -295,6 +360,8 @@ export default function ElementBlock({
                                                         type="number"
                                                         className="form-control form-control-sm"
                                                         value={resolvedBox[field]}
+                                                        disabled={isMirror}
+                                                        title={isMirror ? `Inherited from ${mirrorOfKey}` : undefined}
                                                         onChange={(e) => setBoxField(field, parseInt(e.target.value) || 0)}
                                                     />
                                                 </div>
@@ -334,7 +401,10 @@ export default function ElementBlock({
                                 Remove from this stage
                             </button>
                         )}
-                        {boxOpen && (
+                        {/* No Layer input for a mirror (obs-layout-text-mirror-plan.md M.4) — its
+                            render order is the source's `z`, inherited via resolveEffective, not
+                            its own to set. */}
+                        {boxOpen && !isMirror && (
                         <div className="d-flex align-items-center gap-2 mt-2">
                             <label className="form-label mb-0 small" title="Render order — higher draws on top">Layer</label>
                             <input
@@ -375,18 +445,28 @@ export default function ElementBlock({
 
                     <div className="ctl-el-section">
                         <div className="ctl-el-section-title">Settings</div>
-                        <ElementSettings
-                            registryId={regId}
-                            channelId={channelId}
-                            seriesId={seriesId}
-                            elementKey={elementKey}
-                            element={element}
-                            currentPhase={currentPhase}
-                            config={config}
-                            onPatchElement={onPatchElement}
-                            onFireCue={onFireCue}
-                            onEmitCue={onEmitCue}
-                        />
+                        {/* A mirror has no settings of its own — every value its panel would
+                            show is read off the source by resolveEffective, so editing it here
+                            would be editing dead data. Kind-agnostic: whichever kind is mirrored,
+                            its settings panel is replaced by this pointer. */}
+                        {isMirror ? (
+                            <div className="small text-secondary">
+                                Mirror of <strong>{mirrorOfKey}</strong> — edit that element to change its settings, size and layer.
+                            </div>
+                        ) : (
+                            <ElementSettings
+                                registryId={regId}
+                                channelId={channelId}
+                                seriesId={seriesId}
+                                elementKey={elementKey}
+                                element={element}
+                                currentPhase={currentPhase}
+                                config={config}
+                                onPatchElement={onPatchElement}
+                                onFireCue={onFireCue}
+                                onEmitCue={onEmitCue}
+                            />
+                        )}
                     </div>
                 </div>
             )}
@@ -397,6 +477,7 @@ export default function ElementBlock({
                     config={config}
                     currentPhase={currentPhase}
                     box={resolvedBox}
+                    isMirror={isMirror}
                     channelId={channelId}
                     onCommit={commitBox}
                     onDraft={draftBox}
