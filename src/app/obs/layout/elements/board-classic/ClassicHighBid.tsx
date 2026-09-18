@@ -8,7 +8,7 @@ import {Teams} from "@/app/common/teams"
 /** The `$<amount>` panel — rendered only when `highBid >= break.high_bid_floor` (ClassicBoard). */
 export function ClassicHighBidAmount({highBid}: { highBid: number }) {
     return (
-        <div className="classic-hb-container p-2 h-100p d-flex align-items-center justify-content-center">
+        <div className="classic-hb-container h-100p d-flex align-items-center justify-content-center">
             <span className="bigboz-font classic-hb-amount">
                 $<span className="classic-hb-underline">{highBid}</span>
             </span>

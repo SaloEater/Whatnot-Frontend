@@ -85,10 +85,17 @@
     z-index: 2;
 }
 
-/* "MOUNT"/"OLYMPUS"/"RIPS" and the "HIGH BID" label (was `.big-font-size`, 4.5vw). */
+/* ── Centre-block contents: sized from the block's own height ──
+   `--classic-centre-h` = 2 * cell + gap (ClassicBoard.tsx). The fractions below are read off the
+   old page at a 1920-wide OBS source (centre block 268px tall: 4.5vw label = 86px ≈ 0.32, fixed
+   150px image ≈ 0.56, 6vw amount = 115px ≈ 0.43), trimmed slightly so label + gap + image row
+   stacks to ~0.95 of the block instead of exactly 1.0. Tune here, not in the TSX. */
+
+/* "MOUNT"/"OLYMPUS"/"RIPS" and the "HIGH BID" label (was `.big-font-size`, 4.5vw). Three lines
+   at line-height 1 = 0.9 of the block, so the idle state fits too. */
 .classic-big-font {
-    line-height: calc(var(--classic-s) * 48.6px);
-    font-size: calc(var(--classic-s) * 48.6px);
+    line-height: calc(var(--classic-centre-h) * 0.30);
+    font-size: calc(var(--classic-centre-h) * 0.30);
     color: white;
     text-shadow:
             calc(var(--classic-s) * -2px) calc(var(--classic-s) * -2px) 0 black,
@@ -118,10 +125,15 @@
     border-color: #FECB62;
 }
 
+/* Label above, image row below (was Bootstrap `gap-2`, a fixed rem-based 8px). */
+.classic-hb-stack {
+    gap: calc(var(--classic-centre-h) * 0.03);
+}
+
 /* Plain `<img>` replacing the old fixed 150x150 `next/image` (obs-layout-plan.md §2.10.3). */
 .classic-hbt-img {
-    width: calc(var(--classic-s) * 150px);
-    height: calc(var(--classic-s) * 150px);
+    width: calc(var(--classic-centre-h) * 0.54);
+    height: calc(var(--classic-centre-h) * 0.54);
 }
 
 /* ── `$<amount>` panel (was `.hb-container`) ── */
@@ -131,13 +143,16 @@
     border-width: calc(var(--classic-s) * 3px);
     border-style: solid;
     border-color: #FECB62;
+    /* Was Bootstrap `p-2` (fixed 0.5rem). */
+    padding: calc(var(--classic-centre-h) * 0.03);
 }
 
-/* Was `.hb-container > *` (6vw). Left `padding: 3px` as a bare px, same call CobraBoard.css made
+/* Was `.hb-container > *` (6vw). 0.36 rather than the old page's 0.43: at 0.43 "$150" next to
+   the image already overran the 75%-wide row on the old page too. Left `padding: 3px` as a bare px, same call CobraBoard.css made
    for its glow radii: it's decorative chrome around already-scaled text, not one of the
    gap/padding/margin/border-radius offenders the port's scale table enumerates. */
 .classic-hb-amount {
-    font-size: calc(var(--classic-s) * 64.8px);
+    font-size: calc(var(--classic-centre-h) * 0.36);
     line-height: 1;
     color: white;
     text-shadow:

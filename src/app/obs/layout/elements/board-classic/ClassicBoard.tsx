@@ -151,6 +151,14 @@ export function ClassicBoard({box}: ElementProps) {
     const boardContentH = teamGridH + (customRows > 0 ? gap : 0) + customGridH
     const boardW = gridW + 2 * pad
     const boardH = boardContentH + 2 * pad
+    // The centre block spans 2 rows x 4 columns, so its height is fixed by the cell, NOT by
+    // `box.w`. Everything drawn inside it (HIGH BID label, team image, $ amount, the MOUNT /
+    // OLYMPUS / RIPS lines) is sized as a fraction of this in ClassicBoard.css rather than from
+    // `--classic-s`: `s` is width-only, while `cell` can be height-bound (short box, extra
+    // custom-spot rows), and the old page's fixed 150px image only ever fit its block because
+    // the OBS source was ~1920 wide — see the 2026-09-18 scaling report. Sizing from the block
+    // itself makes the high-bid panel fit at any box shape and independent of REF_W.
+    const centreH = 2 * cell + gap
 
     const cssVars = {
         '--classic-s': s,
@@ -160,6 +168,7 @@ export function ClassicBoard({box}: ElementProps) {
         '--classic-grid-w': `${gridW}px`,
         '--classic-board-w': `${boardW.toFixed(2)}px`,
         '--classic-board-h': `${boardH.toFixed(2)}px`,
+        '--classic-centre-h': `${centreH}px`,
     } as React.CSSProperties
 
     return (
@@ -168,7 +177,7 @@ export function ClassicBoard({box}: ElementProps) {
                 <div className="classic-grid">
                     <div className="classic-centre position-relative h-100p">
                         {highBidTeam !== '' ? (
-                            <div className="d-flex flex-column align-items-center h-100p justify-content-center gap-2">
+                            <div className="classic-hb-stack d-flex flex-column align-items-center h-100p justify-content-center">
                                 <div className="bigboz-font classic-big-font classic-hb-fontsize w-75p d-flex align-items-center justify-content-center">
                                     <div>HIGH BID</div>
                                 </div>
