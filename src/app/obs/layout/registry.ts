@@ -9,6 +9,7 @@ import { StashOrPassWrap } from './elements/animation/StashOrPassWrap'
 import { StashOrPassTl } from './elements/animation/tl/StashOrPassTl'
 import { StashOrPassRing } from './elements/animation/ring/StashOrPassRing'
 import { FlatBoard } from './elements/board-flat/FlatBoard'
+import { ClassicBoard } from './elements/board-classic/ClassicBoard'
 import { CobraBoard } from './elements/board-cobra/CobraBoard'
 import { CobraFlatBoard } from './elements/board-cobra-flat/CobraFlatBoard'
 import { ResultsElement } from './elements/results/ResultsElement'
@@ -114,6 +115,11 @@ const BOARD_BOX: Box = { x: 0, y: 300, w: 1080, h: 1300 }
 // portrait footprint would sit two-thirds empty (cobra-flat-board-plan.md §4). Purely a starting
 // point — the operator resizes it in the builder like any other box.
 const COBRA_FLAT_BOX: Box = { x: 0, y: 300, w: 1080, h: 340 }
+// classic is a 10-column grid of square team tiles plus an 8-cell centre block: 32 teams + 8
+// reserved cells = 40 cells / 10 cols = 4 rows of squares — at REF_W (ClassicBoard.tsx, 810) that's
+// roughly 2.1:1, landscape (obs-layout-plan.md §2.10.4). BOARD_BOX is 1080x1300 (0.83:1, portrait)
+// and would leave two-thirds of the box empty, same reasoning as COBRA_FLAT_BOX above.
+const CLASSIC_BOX: Box = { x: 0, y: 620, w: 1080, h: 560 }
 const FULL_BOX: Box = { x: 0, y: 0, w: 1080, h: 1920 }
 const RIPBAR_BOX: Box = { x: 0, y: 0, w: 1080, h: 120 }
 const RESERVED_BOX: Box = { x: 1080 - 480, y: 0, w: 480, h: 270 }
@@ -163,9 +169,12 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         // variants), so each variant gets its own group and `singleton: false` is what allows it.
         singleton: false,
         singletonGroup: 'board:classic',
-        defaultBox: BOARD_BOX,
-        preload: [],
-        component: Placeholder,
+        defaultBox: CLASSIC_BOX,
+        // Just the static board background + the mount_golden.png overlay — the per-team PNGs
+        // (x2 for the sold " BW" variant) are combinatorial and not worth eagerly preloading here,
+        // same call as board:flat's manifest-resolved skins (obs-layout-plan.md §2.10.7).
+        preload: ['/images/board.png', '/images/mount_golden.png'],
+        component: ClassicBoard,
         available: true,
         hasBox: true,
         reactsTo: [],

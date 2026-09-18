@@ -1,0 +1,215 @@
+/* obs-layout-plan.md §2.10 — box-relative `board:classic` element, ported from
+   obs/[id]/page.css + eventComponent.css + highBidComponent.css + highBidTeamComponent.css. Every
+   class is prefixed `classic-` (renamed from the old files' generic `.logo`/`.overlay`/
+   `.grid-container`/`.grid-item`/`.grid-middle-item`/`.team-bg`/`.team-image`/`.big-font-size`/
+   `.hb-fontsize`/`.p-45`/`.custom-spot-*`/`.hb-container`/`.higbid-color`/`.hbt-container` — Layout
+   CSS is global and every element's stylesheet loads at once, so nothing here may collide with a
+   sibling element's classes). No `body`/`html` rule (the old `body{background-color:#30ff00;
+   height:100vh}` is dropped entirely — it would paint the whole layout page green). No `vw`/`vh`/
+   `vmin` anywhere; every size that was one is now `calc(var(--classic-s) * Npx)`, `--classic-s`
+   set from `box.w / REF_W` in ClassicBoard.tsx (see that file's header). Dropped as unused after
+   the port: `.flex-container`, `.down-button`, `.teams-left-amount`, `.dimmed`, `.white-text`
+   (obs-layout-plan.md §2.10.5).
+
+   `--classic-cell`/`--classic-gap` are whole pixels computed in ClassicBoard.tsx (not `calc()`
+   here) — same "integer px so cell/gap edges land on device-pixel boundaries, no 1-2px seams"
+   reasoning as FlatBoard's `useIntegerBoardLayout`. `--classic-pad`/`--classic-grid-w`/
+   `--classic-board-w`/`--classic-board-h` are also set from there since they feed the
+   fit-both-axes cell computation and must match exactly what's rendered. Every other size (fonts,
+   borders, radii, text-shadow offsets, the `$`-amount underline, the high-bid team image) is a
+   bare multiple of the box width, so it's left as `calc(var(--classic-s) * Npx)` directly in this
+   file, matching CobraBoard.css's `--cbr-font` convention. */
+
+/* ── Root / board ── */
+.classic-root {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* `.team-bg` + `.p-45` merged: the board's own fixed size (fit to `--classic-cell`) plus its
+   inset, letterboxed within `.classic-root` when the box's aspect ratio doesn't match. */
+.classic-board {
+    position: relative;
+    box-sizing: border-box;
+    width: var(--classic-board-w);
+    height: var(--classic-board-h);
+    padding: var(--classic-pad);
+    background-image: url('/images/board.png');
+    background-size: cover;
+    background-repeat: no-repeat;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* ── Team grid (was `.grid-container`) ── */
+.classic-grid {
+    width: var(--classic-grid-w);
+    display: grid;
+    grid-template-columns: repeat(10, var(--classic-cell));
+    grid-auto-rows: var(--classic-cell);
+    gap: var(--classic-gap);
+}
+
+.classic-tile {
+    position: relative;
+}
+
+.classic-tile-img {
+    width: 100%;
+}
+
+/* ── Centre block (was `.grid-middle-item.logo`) ── */
+.classic-centre {
+    grid-column: 4 / span 4;
+    grid-row: 1 / span 2;
+}
+
+/* `mount_golden.png`, layered over the centre block's text. z-index kept exactly as the old
+   file had it: `.classic-overlay` forces z-index 1 with `!important` so it always loses to
+   `.classic-centre *`'s z-index 2 below, regardless of which rule the cascade would otherwise
+   prefer. */
+.classic-overlay {
+    z-index: 1 !important;
+    width: 100%;
+    left: 0;
+    top: 0;
+}
+
+.classic-centre * {
+    z-index: 2;
+}
+
+/* "MOUNT"/"OLYMPUS"/"RIPS" and the "HIGH BID" label (was `.big-font-size`, 4.5vw). */
+.classic-big-font {
+    line-height: calc(var(--classic-s) * 48.6px);
+    font-size: calc(var(--classic-s) * 48.6px);
+    color: white;
+    text-shadow:
+            calc(var(--classic-s) * -2px) calc(var(--classic-s) * -2px) 0 black,
+            calc(var(--classic-s) * 2px) calc(var(--classic-s) * -2px) 0 black,
+            calc(var(--classic-s) * -2px) calc(var(--classic-s) * 2px) 0 black,
+            calc(var(--classic-s) * 2px) calc(var(--classic-s) * 2px) 0 black;
+}
+
+/* The "HIGH BID" label's own dark/gold panel (was `.hb-fontsize`). `padding: 1.25%` is already
+   relative to the panel's own (already-scaled) box, so it's left as a percentage unchanged. */
+.classic-hb-fontsize {
+    line-height: 1;
+    background-color: rgba(0, 0, 0, 0.75);
+    border-radius: calc(var(--classic-s) * 25px);
+    padding: 1.25%;
+    border-width: calc(var(--classic-s) * 3px);
+    border-style: solid;
+    border-color: #FECB62;
+}
+
+/* ── High-bid team image panel (was `.hbt-container`) ── */
+.classic-hbt-container > * {
+    background-color: rgba(0, 0, 0, 0.75);
+    border-radius: calc(var(--classic-s) * 25px);
+    border-width: calc(var(--classic-s) * 3px);
+    border-style: solid;
+    border-color: #FECB62;
+}
+
+/* Plain `<img>` replacing the old fixed 150x150 `next/image` (obs-layout-plan.md §2.10.3). */
+.classic-hbt-img {
+    width: calc(var(--classic-s) * 150px);
+    height: calc(var(--classic-s) * 150px);
+}
+
+/* ── `$<amount>` panel (was `.hb-container`) ── */
+.classic-hb-container {
+    background-color: rgba(0, 0, 0, 0.75);
+    border-radius: calc(var(--classic-s) * 25px);
+    border-width: calc(var(--classic-s) * 3px);
+    border-style: solid;
+    border-color: #FECB62;
+}
+
+/* Was `.hb-container > *` (6vw). Left `padding: 3px` as a bare px, same call CobraBoard.css made
+   for its glow radii: it's decorative chrome around already-scaled text, not one of the
+   gap/padding/margin/border-radius offenders the port's scale table enumerates. */
+.classic-hb-amount {
+    font-size: calc(var(--classic-s) * 64.8px);
+    line-height: 1;
+    color: white;
+    text-shadow:
+            calc(var(--classic-s) * -3px) calc(var(--classic-s) * -3px) 0 black,
+            calc(var(--classic-s) * 3px) calc(var(--classic-s) * -3px) 0 black,
+            calc(var(--classic-s) * -3px) calc(var(--classic-s) * 3px) 0 black,
+            calc(var(--classic-s) * 3px) calc(var(--classic-s) * 3px) 0 black;
+    padding: 3px;
+    vertical-align: middle;
+}
+
+/* Was `.higbid-color`. */
+.classic-hb-underline {
+    border-bottom: calc(var(--classic-s) * 7px) solid red;
+}
+
+/* ── Press-video burst (kept in-box, obs-layout-plan.md §2.10.6) ── */
+/* Percentages of the tile it bursts from, so it already scales with `--classic-cell` — no
+   `calc(var(--classic-s) * …)` needed here, matching the old inline style 1:1. */
+.classic-video-wrap {
+    top: -275%;
+    left: -275%;
+    width: 100%;
+    height: 100%;
+    z-index: 1000;
+}
+
+/* ── Custom spots row (was `.custom-spots-container`) ── */
+.classic-custom-row {
+    width: var(--classic-grid-w);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--classic-gap);
+    margin-top: var(--classic-gap);
+}
+
+/* Was `.custom-spot-tile`. `.classic-custom-row`'s own width is exactly
+   `10 * cell + 9 * gap` (--classic-grid-w), so this formula resolves to precisely `--classic-cell`
+   — kept as the old percentage formula rather than swapped for a flat `var(--classic-cell))` so it
+   stays correct even if the row is ever given a different width. */
+.classic-custom-tile {
+    width: calc((100% - 9 * var(--classic-gap)) / 10);
+    aspect-ratio: 1 / 1;
+    border-radius: calc(var(--classic-s) * 15px);
+    background-color: rgba(0, 0, 0, 0.6);
+    border-width: calc(var(--classic-s) * 3px);
+    border-style: solid;
+    border-color: #FECB62;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.classic-custom-tile.classic-taken {
+    background-color: rgba(0, 0, 0, 0.3);
+    border-color: #6c757d;
+    opacity: 0.6;
+}
+
+/* Was `.custom-spot-text` (2.5vw). */
+.classic-custom-text {
+    line-height: 1;
+    font-size: calc(var(--classic-s) * 27px);
+    color: white;
+    text-shadow:
+            calc(var(--classic-s) * -2px) calc(var(--classic-s) * -2px) 0 black,
+            calc(var(--classic-s) * 2px) calc(var(--classic-s) * -2px) 0 black,
+            calc(var(--classic-s) * -2px) calc(var(--classic-s) * 2px) 0 black,
+            calc(var(--classic-s) * 2px) calc(var(--classic-s) * 2px) 0 black;
+}
+
+.classic-custom-tile.classic-taken .classic-custom-text {
+    color: #adb5bd;
+}
