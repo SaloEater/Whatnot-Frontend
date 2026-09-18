@@ -3,16 +3,16 @@
 
 import type {Event} from '@/app/entity/entities'
 import {IsTeam} from '@/app/common/teams'
+import {getSpotAbbreviation} from '@/app/common/spot_label'
 import type {Tier} from './tiers'
 import './ResultRow.css'
 
 // Exported so the `resultsThin` element (obs-layout-plan.md §2.4) can reuse the exact same team
-// icon source instead of duplicating it — see ThinResultRow.tsx.
+// icon source instead of duplicating it — see ThinResultRow.tsx. Team branch only: every
+// non-team spot is now rendered as an abbreviation tile (obs-layout-plan.md §2.3.1) by both
+// ResultRow and ThinResultRow, so this never needs to resolve a non-team image path.
 export function getTeamImageSrc(team: string): string {
-    if (IsTeam(team)) {
-        return `/images/teams/${team}.webp`
-    }
-    return `/images/${team}.webp`
+    return `/images/teams/${team}.webp`
 }
 
 export function ResultRow({
@@ -44,7 +44,13 @@ export function ResultRow({
     // grey tiles' content at 2.7:1 while gold ones glowed.
     return (
         <div className={`res-row-item res-tier-${tier}`} style={gridColumnStart ? {gridColumnStart} : undefined}>
-            <img className="res-image" src={getTeamImageSrc(event.team)} alt={event.team} />
+            {IsTeam(event.team) ? (
+                <img className="res-image" src={getTeamImageSrc(event.team)} alt={event.team} />
+            ) : (
+                <div className="res-abbr">
+                    <span>{getSpotAbbreviation(event.team)}</span>
+                </div>
+            )}
             <div className={`res-customer-text ${bgClass}`}>
                 <div className="res-customer-name">{event.customer}</div>
             </div>

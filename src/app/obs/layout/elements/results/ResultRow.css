@@ -37,6 +37,32 @@
     flex: none;
 }
 
+/* Line 1 for a non-team spot ("Chaser 1", "Mystery Box 3"): there is no art for these, only
+   `/images/Miscellaneous.webp` exists, so every other custom spot rendered a broken image with
+   alt text (obs-layout-plan.md §2.3.1). Same footprint as .res-image so the two are
+   interchangeable in the flex column. Matches the classic board's ClassicCustomSpot tile and the
+   break admin page, which already show the same abbreviation for these spots. Border is bronze,
+   not a tier colour — D4 says the tier ramp belongs to the cell's outer frame, not this tile. */
+.res-abbr {
+    height: 54%;
+    max-height: 54%;
+    aspect-ratio: 1 / 1;
+    flex: none;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--res-bronze);
+    border-radius: 6px;
+    background-color: var(--res-cella);
+    color: var(--res-ivory);
+    font-weight: 700;
+    line-height: 1;
+    /* Same --res-row-h the buyer line derives from, so the tile scales with the row instead of
+       the viewport. */
+    font-size: calc(var(--res-row-h, 40px) * 0.30);
+}
+
 /* Font size derives from the row height set by ResultsElement.tsx as `--res-row-h` on the grid
    (box.h / rows, see ResultsElement.css) instead of the old route's fixed `1.5em`/`1.1vh` — the
    text scales with however tall a row happens to be for the element's actual box. */

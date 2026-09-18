@@ -31,6 +31,27 @@
     flex-shrink: 0;
 }
 
+/* Non-team spot ("Chaser 1", "Mystery Box 3"): there is no art for these (obs-layout-plan.md
+   §2.3.1/§2.4.1), so it renders the same abbreviation tile as the full `results` board's
+   `.res-abbr` and the classic board's ClassicCustomSpot, sized to iconSize like the <img> it
+   replaces. Uses this element's own `--rest-*` palette (declared on `.rest-root` in
+   ThinResults.css) rather than `results`' `--res-*` vars — the two elements are independent and
+   either may be placed without the other. Border is bronze, not a tier colour — D4 says the tier
+   ramp belongs to the row's outer frame, not this tile. */
+.rest-abbr {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--rest-bronze);
+    border-radius: 6px;
+    background-color: var(--rest-cella);
+    color: var(--rest-ivory);
+    font-weight: 700;
+    line-height: 1;
+    box-sizing: border-box;
+}
+
 .rest-customer-text {
     display: flex;
     align-items: center;

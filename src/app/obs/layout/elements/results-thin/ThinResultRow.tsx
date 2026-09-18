@@ -4,6 +4,8 @@
 // `box.h / rows`, and laid out as a single compact row rather than a boxed grid cell.
 
 import type {Event} from '@/app/entity/entities'
+import {IsTeam} from '@/app/common/teams'
+import {getSpotAbbreviation} from '@/app/common/spot_label'
 import type {Tier} from '../results/tiers'
 import {getTeamImageSrc} from '../results/ResultRow'
 import './ThinResultRow.css'
@@ -41,12 +43,21 @@ export function ThinResultRow({
             className={`rest-row-item rest-tier-${tier}`}
             style={gridColumnStart ? {gridColumnStart} : undefined}
         >
-            <img
-                className="rest-image"
-                src={getTeamImageSrc(event.team)}
-                alt={event.team}
-                style={{width: iconSize, height: iconSize}}
-            />
+            {IsTeam(event.team) ? (
+                <img
+                    className="rest-image"
+                    src={getTeamImageSrc(event.team)}
+                    alt={event.team}
+                    style={{width: iconSize, height: iconSize}}
+                />
+            ) : (
+                <div
+                    className="rest-abbr"
+                    style={{width: iconSize, height: iconSize, fontSize: iconSize * 0.5}}
+                >
+                    <span>{getSpotAbbreviation(event.team)}</span>
+                </div>
+            )}
             <div className={`rest-customer-text ${bgClass}`} style={{fontSize: textSize}}>
                 <div className="rest-customer-name">{event.customer}</div>
             </div>
