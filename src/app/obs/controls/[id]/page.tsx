@@ -595,7 +595,18 @@ export default function Page({params}: { params: { id: string } }) {
                     </div>
                 )}
 
-                {controls.loading && (
+                {/* A failed initial (or retried) load — controls.loaded is still false, so
+                    apply/pushConfig/resendCurrent/emitDraft are all refusing right now. Shown
+                    instead of (not alongside) the plain "Loading…" banner below: this is the
+                    banner's error state, not an additional one. */}
+                {controls.loadError ? (
+                    <div className="alert alert-danger d-flex align-items-center justify-content-between" role="alert">
+                        <span>{controls.loadError}</span>
+                        <button type="button" className="btn btn-sm btn-outline-danger" onClick={controls.reload}>
+                            Retry
+                        </button>
+                    </div>
+                ) : controls.loading && (
                     <div className="alert alert-secondary">Loading layout config/state…</div>
                 )}
 

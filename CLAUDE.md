@@ -43,6 +43,8 @@ BACKEND_HOST=http://localhost:5555
 | `/stream/[id]` | Stream breaks |
 | `/break/[id]` | Break events (most complex page) |
 | `/obs/[id]`, `/obs/manage/[id]`, `/obs/teams/[id]` | OBS browser source pages |
+| `/obs/layout/[id]` | OBS browser source rendering a channel's layout config (the boards/widgets/animations placed via the builder) |
+| `/obs/controls/[id]` | Operator-facing builder/controls page for a channel's layout config |
 | `/package/[id]` | Shipping / package management |
 
 ## Pattern: Adding a New API Call
@@ -51,7 +53,13 @@ BACKEND_HOST=http://localhost:5555
 2. Add or extend the TypeScript interface in `src/app/entity/entities.ts`
 3. The helpers automatically attach the Basic Auth header — no extra setup needed
 
+## Pattern: Adding a layout element
+
+See `src/app/obs/layout/ADDING_AN_ELEMENT.md`.
+
 ## Notes
 
 - No tests configured
 - `npm run lint` runs ESLint (next/core-web-vitals preset)
+- Never run `npm run build` while the user's `next dev` is running — they share `.next/` and will
+  corrupt each other's build output. Verify with `npx tsc --noEmit -p .` and `npx eslint <files>`.

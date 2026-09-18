@@ -5,7 +5,7 @@
 // implements.
 
 import {useCallback, useEffect, useRef, useState} from 'react'
-import {getEndpoints, post} from '@/app/lib/backend'
+import {getEndpoints, isBackendFailure, post} from '@/app/lib/backend'
 import {MyOBSWebsocket} from '@/app/entity/my_obs_websocket'
 import type {BusPayload, CuePayload, DurableCue, LayoutConfig, OverlayState, TransientCue} from '@/app/obs/layout/schema'
 import {BUS_CUE_EVENT_NAME, BUS_EVENT_NAME, DEV_CHANNEL_NAME, DEV_CUE_CHANNEL_NAME} from '@/app/obs/layout/schema'
@@ -42,14 +42,6 @@ interface LayoutStateUpdateResponse {
     state: OverlayState
 }
 
-function isBackendFailure(resp: unknown): boolean {
-    // post()/get() swallow network errors into {error: ...}; a well-formed backend reply never
-    // carries a top-level `error` key (that lives one level up, in the envelope post() already
-    // unwrapped). Anything that isn't a plain object at all is also a failure.
-    if (resp === null || typeof resp !== 'object') return true
-    return 'error' in (resp as Record<string, unknown>) && Object.keys(resp as object).length === 1
-}
-
 function describeError(e: unknown): string {
     if (e instanceof Error) return e.message
     try {
@@ -75,6 +67,15 @@ export function useControls(
     const [state, setState] = useState<OverlayState>(() => defaultState())
     const [seq, setSeq] = useState(0)
     const [loading, setLoading] = useState(true)
+    // `loaded` is distinct from `loading`: `loading` is just "a loadAll() call is in flight" and
+    // always ends up false once the request settles, success or failure. `loaded` tracks whether
+    // the in-memory config/state actually reflect a real backend response — it starts false and
+    // only becomes true once BOTH halves of a loadAll() succeed (a fresh channel's real
+    // `{config: null}` counts; a failed fetch does not). apply/pushConfig/resendCurrent/emitDraft
+    // all refuse while it's false, because those are exactly the paths that can push whatever is
+    // in memory to OBS or the DB — see obs-layout-disappearing-elements-findings.md fix #2.
+    const [loaded, setLoaded] = useState(false)
+    const [loadError, setLoadError] = useState<string | null>(null)
     const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected')
     // When the next automatic attempt fires (epoch ms), so the UI can count down to it; null while
     // connected, while an attempt is in flight, or while retrying is switched off.
@@ -96,9 +97,11 @@ export function useControls(
     const configRef = useRef(config)
     const stateRef = useRef(state)
     const seqRef = useRef(seq)
+    const loadedRef = useRef(loaded)
     configRef.current = config
     stateRef.current = state
     seqRef.current = seq
+    loadedRef.current = loaded
 
     // Dev BroadcastChannels, keyed by channel name and lazily opened on first use: the transient
     // cue channel fires on a 1Hz heartbeat for as long as a card highlight is held (CardsSettings'
@@ -130,31 +133,54 @@ export function useControls(
 
     const loadAll = useCallback(async () => {
         setLoading(true)
+        let configFailed = false
+        let configInvalid = false
+        let stateFailed = false
         try {
             const [configResp, stateResp] = await Promise.all([
                 post(getEndpoints().layout_config_get, {channel_id: channelId}) as Promise<LayoutConfigGetResponse | unknown>,
                 post(getEndpoints().layout_state_get, {channel_id: channelId}) as Promise<LayoutStateGetResponse | unknown>,
             ])
 
-            let nextConfig: LayoutConfig
+            // A FAILED fetch (isBackendFailure) must never be treated as "no row yet" — that
+            // conflation is exactly what used to wipe a healthy in-memory config/state down to
+            // defaultConfig()/defaultState() on a mere backend hiccup, which resendCurrent()/
+            // apply()/pushConfig() could then push straight to OBS or persist to the DB (see
+            // obs-layout-disappearing-elements-findings.md). On failure, keep whatever is already
+            // in memory (configRef/stateRef.current — this render's `config`/`state` closed over
+            // by the callback would be stale by the time a later loadAll() runs, refs are current)
+            // and leave `loaded` false below instead.
+            let nextConfig: LayoutConfig = configRef.current
             if (!isBackendFailure(configResp)) {
                 const raw = (configResp as LayoutConfigGetResponse).config
                 if (raw) {
                     const validated = validateConfig(migrateConfig(raw))
-                    nextConfig = validated.ok ? validated.config : defaultConfig()
-                    if (!validated.ok) {
-                        console.warn('[useControls] config from backend failed validation, using default', validated.errors)
+                    if (validated.ok) {
+                        nextConfig = validated.config
+                    } else {
+                        // An INVALID stored config is treated exactly like a failed fetch, not
+                        // like "no row": substituting defaultConfig() here would mark the hook
+                        // loaded with an EMPTY config in memory, and the next OBS reconnect's
+                        // resendCurrent() would blank the stream — or an element edit would
+                        // pushConfig() that emptiness over the real row. Keep what we have and
+                        // refuse to push until the row is fixed (fix #2 of the findings doc).
+                        console.warn('[useControls] config from backend failed validation, keeping current config', validated.errors)
+                        nextConfig = configRef.current
+                        configFailed = true
+                        configInvalid = true
                     }
                 } else {
+                    // A genuinely successful {config: null} — a fresh channel with no row yet —
+                    // is real data, not a failure, so this DOES count as loaded below.
                     nextConfig = defaultConfig()
                 }
             } else {
-                console.warn('[useControls] failed to load config, using default', configResp)
-                nextConfig = defaultConfig()
+                configFailed = true
+                console.warn('[useControls] failed to load config, keeping current in-memory config', configResp)
             }
 
-            let nextState: OverlayState
-            let nextSeq = 0
+            let nextState: OverlayState = stateRef.current
+            let nextSeq = seqRef.current
             if (!isBackendFailure(stateResp)) {
                 const resp = stateResp as LayoutStateGetResponse
                 if (resp.state) {
@@ -168,9 +194,8 @@ export function useControls(
                 }
                 nextSeq = typeof resp.seq === 'number' ? resp.seq : 0
             } else {
-                console.warn('[useControls] failed to load state, using default', stateResp)
-                nextState = defaultState()
-                nextSeq = 0
+                stateFailed = true
+                console.warn('[useControls] failed to load state, keeping current in-memory state', stateResp)
             }
 
             // `state` and `config` are validated independently (validateState has no `stages` in
@@ -178,6 +203,10 @@ export function useControls(
             // stored phase that isn't one of THIS config's stages (the stage was deleted, or the
             // whole config was swapped) falls back to the config's first stage. Surfaced via
             // console.warn rather than silently: cheap, and matches every other correction above.
+            // Runs regardless of which half (if any) failed: `nextConfig`/`nextState` are always
+            // each individually valid at this point (freshly validated, or the prior in-memory
+            // value which was already validated when it was set), so checking them against each
+            // other is safe either way.
             if (!nextConfig.stages.some((s) => s.id === nextState.phase)) {
                 console.warn(
                     `[useControls] state.phase "${nextState.phase}" is not a stage in this config, falling back to "${nextConfig.stages[0].id}"`
@@ -188,6 +217,27 @@ export function useControls(
             setConfig(nextConfig)
             setState(nextState)
             setSeq(nextSeq)
+            configRef.current = nextConfig
+            stateRef.current = nextState
+            seqRef.current = nextSeq
+
+            if (configFailed || stateFailed) {
+                setLoaded(false)
+                loadedRef.current = false
+                setLoadError(
+                    configInvalid
+                        ? 'Layout config stored for this channel is invalid — nothing will be pushed to OBS until it is fixed'
+                        : configFailed && stateFailed
+                            ? 'Failed to load layout config and state'
+                            : configFailed
+                                ? 'Failed to load layout config'
+                                : 'Failed to load layout state'
+                )
+            } else {
+                setLoaded(true)
+                loadedRef.current = true
+                setLoadError(null)
+            }
         } finally {
             setLoading(false)
         }
@@ -226,6 +276,14 @@ export function useControls(
     }, [obs, isConnected, broadcastDev])
 
     const apply = useCallback(async (nextState: OverlayState, cue?: DurableCue): Promise<ApplyResult> => {
+        // Refuse while the initial (or a retried) load hasn't actually succeeded — `state`/
+        // `config` in memory may still be the useState() defaults, and writing those to the
+        // backend would persist the emptiness (obs-layout-disappearing-elements-findings.md
+        // fix #2). `loadedRef`, not `loading`: this must also block AFTER a failed reload of an
+        // already-loaded page, not just before the first one finishes.
+        if (!loadedRef.current) {
+            return {ok: false, error: 'Layout not loaded — retry'}
+        }
         const validated = validateState(nextState)
         if (!validated.ok) {
             return {ok: false, error: `Invalid state: ${validated.errors.join('; ')}`}
@@ -269,6 +327,10 @@ export function useControls(
      */
     const draftSeqRef = useRef(0)
     const emitDraft = useCallback((draftConfig: LayoutConfig): void => {
+        // Same refusal as apply()/pushConfig()/resendCurrent() — a draft built from an unloaded
+        // page's placeholder config is exactly as dangerous to put on the durable bus as a
+        // committed one.
+        if (!loadedRef.current) return
         const base = Math.floor(seqRef.current)
         // Continue counting within the current commit's range, or restart if a commit landed
         // since the last draft. Clamped below base+1 so a draft can never sort after the commit
@@ -284,6 +346,9 @@ export function useControls(
     }, [obs, isConnected, broadcastDev])
 
     const pushConfig = useCallback(async (nextConfig: LayoutConfig): Promise<ApplyResult & { errors?: string[] }> => {
+        if (!loadedRef.current) {
+            return {ok: false, error: 'Layout not loaded — retry'}
+        }
         const validated = validateConfig(nextConfig)
         if (!validated.ok) {
             return {ok: false, error: `Invalid config: ${validated.errors.join('; ')}`, errors: validated.errors}
@@ -321,6 +386,12 @@ export function useControls(
      * reconnect for nothing.
      */
     const resendCurrent = useCallback(async (): Promise<ApplyResult> => {
+        // This is the automatic path — it fires on every OBS reconnect with no operator action —
+        // so it is the one this guard matters most for: a never-loaded (or failed-reload) page
+        // would otherwise emit its useState() placeholder config/state the moment OBS comes back.
+        if (!loadedRef.current) {
+            return {ok: false, error: 'Layout not loaded — retry'}
+        }
         return emit({seq: seqRef.current, state: stateRef.current, config: configRef.current})
     }, [emit])
 
@@ -468,6 +539,8 @@ export function useControls(
         state,
         seq,
         loading,
+        loaded,
+        loadError,
         connectionStatus,
         nextRetryAt,
         attempts,

@@ -5,7 +5,7 @@
 
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
 import {useSearchParams} from 'next/navigation'
-import {getEndpoints, post} from '@/app/lib/backend'
+import {getEndpoints, isBackendFailure, post} from '@/app/lib/backend'
 import {BUS_CUE_EVENT_NAME, BUS_EVENT_NAME, CANVAS, DEV_CHANNEL_NAME, DEV_CUE_CHANNEL_NAME} from '../schema'
 import type {Box, BusPayload, CuePayload, LayoutConfig, OverlayState, Phase} from '../schema'
 import {
@@ -13,9 +13,8 @@ import {
     defaultState,
     elementsForPhase,
     isEffectivelyVisible,
-    migrateConfig,
     migrateState,
-    validateConfig,
+    reconcileConfigResponse,
     validateState,
 } from '../config'
 import {REGISTRY, registryIdOf} from '../registry'
@@ -27,6 +26,7 @@ import {ResolvedBoxesProvider} from '../resolvedBoxes'
 import {EventActiveProvider} from '../eventActive'
 import {Stage} from './Stage'
 import {ElementFrame} from './ElementFrame'
+import {ElementErrorBoundary} from './ElementErrorBoundary'
 import {DevPanel} from './DevPanel'
 import './layout.css'
 
@@ -81,10 +81,17 @@ function LayoutStageContent({config, state}: {config: LayoutConfig; state: Overl
                         const entry = REGISTRY[registryIdOf(element)]
                         const Component = entry.component
                         const effectiveBox = entry.hasBox ? box : FULL_CANVAS_BOX
+                        // Per-element boundary (obs-layout-disappearing-elements-findings.md fix
+                        // #3, see ElementErrorBoundary.tsx for why it's per-element and why the
+                        // fallback is nothing): `resetKey={element}` so a config push that changes
+                        // THIS element — including one that fixes whatever was throwing — clears a
+                        // stuck error on the next render, without needing a page reload.
                         return (
-                            <ElementFrame key={key} box={effectiveBox} z={element.z ?? 0} clip={entry.hasBox}>
-                                <Component elementKey={key} element={element} box={effectiveBox} phase={state.phase} />
-                            </ElementFrame>
+                            <ElementErrorBoundary key={key} elementKey={key} resetKey={element}>
+                                <ElementFrame box={effectiveBox} z={element.z ?? 0} clip={entry.hasBox}>
+                                    <Component elementKey={key} element={element} box={effectiveBox} phase={state.phase} />
+                                </ElementFrame>
+                            </ElementErrorBoundary>
                         )
                     })}
                 </Stage>
@@ -95,6 +102,12 @@ function LayoutStageContent({config, state}: {config: LayoutConfig; state: Overl
 
 function LayoutPageInner({channelId, devMode}: {channelId: number; devMode: boolean}) {
     const [config, setConfig] = useState<LayoutConfig>(() => defaultConfig())
+    // Mirrors `config` for the reconcile poll below: that closure is only re-created on
+    // `channelId` changing, so without a ref it would keep "current config" pinned to whatever
+    // `config` was at mount — exactly wrong for reconcileConfigResponse's failure/invalid fallback,
+    // which must return the config as it stands NOW, not as it stood 60s (or several polls) ago.
+    const configRef = useRef(config)
+    configRef.current = config
     const [state, setState] = useState<OverlayState>(() => defaultState())
     const [seq, setSeq] = useState(0)
     const [lastBusEventAt, setLastBusEventAt] = useState<number | null>(null)
@@ -154,19 +167,18 @@ function LayoutPageInner({channelId, devMode}: {channelId: number; devMode: bool
             ])
             if (cancelled) return
 
-            let nextConfig: LayoutConfig
-            const rawConfig = configResp?.config ?? null
-            if (rawConfig === null) {
-                nextConfig = defaultConfig()
-            } else {
-                const result = validateConfig(migrateConfig(rawConfig))
-                if (result.ok) {
-                    nextConfig = result.config
-                } else {
-                    console.error('[obs/layout] invalid config from backend, using default', result.errors)
-                    nextConfig = defaultConfig()
-                }
+            // A FAILED config response (backend 500, network drop, non-JSON body — see
+            // isBackendFailure in lib/backend.ts) must never be treated as "no config row yet":
+            // that conflation used to fall back to defaultConfig() on a mere backend hiccup,
+            // wiping every element on screen (obs-layout-disappearing-elements-findings.md fix
+            // #1). reconcileConfigResponse (config.ts) is the pure decision; 'failed' and
+            // 'invalid' both hand back `configRef.current` unchanged.
+            const configResult = reconcileConfigResponse(configResp, configRef.current)
+            if (configResult.reason === 'failed') {
+                console.warn('[obs/layout] config poll failed, keeping current config', configResp)
             }
+            const nextConfig = configResult.config
+
             // A FRACTIONAL last-accepted seq means an uncommitted draft from the controls page is
             // live on this canvas (useControls.emitDraft — a box being dragged). The DB config is
             // then known to be behind it, and applying it here would snap the dragged element
@@ -175,7 +187,20 @@ function LayoutPageInner({channelId, devMode}: {channelId: number; devMode: bool
             // -Infinity (nothing accepted yet) is not a draft: the mount fetch must apply.
             const lastSeen = guardRef.current.last()
             const draftLive = Number.isFinite(lastSeen) && !Number.isInteger(lastSeen)
-            if (!draftLive) setConfig(nextConfig)
+            // A failed poll skips setConfig outright rather than relying on `nextConfig` being
+            // reference-equal to the current config (it always is, for 'failed'/'invalid') — the
+            // point is that a failed poll is a no-op, not merely a harmless one.
+            if (configResult.reason !== 'failed' && !draftLive) setConfig(nextConfig)
+
+            // A FAILED state response gets the same explicit skip, rather than the previous
+            // behaviour of feeding a fake `seq: 0` into the guard and relying on the guard's
+            // <=-last-accepted check to drop it — that happened to work, but only by accident (a
+            // channel whose last accepted seq is negative, e.g. right after a draft reset, would
+            // have accepted the fake 0 and reset the visible state to defaultState()).
+            if (isBackendFailure(stateResp)) {
+                console.warn('[obs/layout] state poll failed, keeping current state', stateResp)
+                return
+            }
 
             const incomingSeq = typeof stateResp?.seq === 'number' ? stateResp.seq : 0
             if (guardRef.current.accept(incomingSeq)) {

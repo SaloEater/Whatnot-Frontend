@@ -3,7 +3,7 @@
 // so everything that touches a config/state coming off the network must go through `migrateConfig`
 // / `migrateState` and then `validateConfig` / `validateState` before it is trusted.
 
-import type { Box, Cue, DurableCue, Element, LayoutConfig, OverlayState, Phase, PlacementKey, Sides, Stage, TransientCue } from './schema'
+import type { Box, Cue, DurableCue, Element, ElementKind, LayoutConfig, OverlayState, Phase, PlacementKey, Sides, Stage, TransientCue } from './schema'
 import {
     ANIMATION_IDS,
     BOARD_VARIANTS,
@@ -21,6 +21,7 @@ import type { RegistryId } from './registry'
 import { REGISTRY, registryIdOf } from './registry'
 import type { SceneEventName } from './sceneEvents'
 import { isSceneEventName } from './sceneEvents'
+import { isBackendFailure } from '@/app/lib/backend'
 
 export function defaultConfig(): LayoutConfig {
     return {
@@ -34,6 +35,40 @@ export function defaultConfig(): LayoutConfig {
 
 export function defaultState(): OverlayState {
     return { phase: 'selling' }
+}
+
+// What the obs/layout page's 60s reconcile poll (and anything else polling layout_config_get)
+// should DO with one response, decided as a pure function so it can be exercised without a
+// browser (obs-layout-disappearing-elements-findings.md fix #1). The bug this replaces: every
+// FAILURE of the request (a backend 500, a network drop, a non-JSON body — see `isBackendFailure`
+// in lib/backend.ts) resolves to the same "no `.config`" shape as a genuine "no row for this
+// channel yet" response, and both used to fall back to `defaultConfig()` — wiping a live config
+// to zero elements on a mere backend hiccup. The four outcomes:
+//   'failed'  — the request itself failed (isBackendFailure). Keep `current` — a failed poll must
+//               be a no-op, never a reset.
+//   'no-row'  — the request succeeded and genuinely returned `{config: null}`: this channel has
+//               no config row yet, which IS real information. `defaultConfig()`.
+//   'invalid' — the request succeeded but the payload doesn't pass validateConfig (corrupt row /
+//               schema drift). Keep `current` rather than blanking a working layout over a bad
+//               write — same reasoning as 'failed'.
+//   'ok'      — a genuine, valid config. Use it.
+export function reconcileConfigResponse(
+    resp: unknown,
+    current: LayoutConfig
+): { config: LayoutConfig; reason: 'failed' | 'no-row' | 'invalid' | 'ok' } {
+    if (isBackendFailure(resp)) {
+        return { config: current, reason: 'failed' }
+    }
+    const rawConfig = (resp as { config?: unknown } | null | undefined)?.config ?? null
+    if (rawConfig === null) {
+        return { config: defaultConfig(), reason: 'no-row' }
+    }
+    const result = validateConfig(migrateConfig(rawConfig))
+    if (!result.ok) {
+        console.error('[obs/layout] invalid config from backend, keeping current config', result.errors)
+        return { config: current, reason: 'invalid' }
+    }
+    return { config: result.config, reason: 'ok' }
 }
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
@@ -468,6 +503,182 @@ function validateImageBoxFields(key: string, rawEl: Record<string, unknown>): st
     return errors
 }
 
+// ---- per-kind validators -----------------------------------------------------------------------
+// One function per ElementKind, dispatched from a lookup table (see KIND_VALIDATORS below) rather
+// than the `if (kind === 'board') … else if (kind === 'widget') …` chain this replaced. The
+// `satisfies Record<ElementKind, KindValidator>` on that table is what makes adding a kind to
+// ElementKind (schema.ts) without adding an entry here a COMPILE error — an object type can't be
+// exhaustively `switch`ed the way a discriminated union can, so `satisfies` is this shape's
+// equivalent of the `const _exhaustive: never` idiom registryIdOf/makeElement (registry.ts) use.
+
+type KindValidatorCtx = {
+    key: string
+    rawEl: Record<string, unknown>
+    elementsRaw: Record<string, unknown> // for cross-element checks (animation `target`)
+    stages: Stage[]
+}
+
+/** Kind-specific checks only — `z`/`reactions`/`mirrorOf` are shared across every kind and are
+ *  validated by the caller (validateConfig) before a KindValidator ever runs. Returns the registry
+ *  id the element resolves to, or undefined when its own discriminant (variant/widget/animation) is
+ *  invalid — the caller then skips `validatePlacements` and the singleton-group bookkeeping for
+ *  this element, exactly as the old chain did by leaving `regId` unset. */
+type KindValidator = (ctx: KindValidatorCtx) => { errors: string[]; regId?: RegistryId }
+
+function validateBoardKind({ key, rawEl, stages }: KindValidatorCtx): { errors: string[]; regId?: RegistryId } {
+    const variant = rawEl.variant
+    if (typeof variant !== 'string' || !(VALID_BOARD_VARIANTS as readonly string[]).includes(variant)) {
+        return { errors: [`element "${key}": invalid board variant ${JSON.stringify(variant)}`] }
+    }
+    const regId = `board:${variant}` as RegistryId
+    return { errors: validatePlacements(key, rawEl.placements, regId, stages), regId }
+}
+
+function validateWidgetKind({ key, rawEl, stages }: KindValidatorCtx): { errors: string[]; regId?: RegistryId } {
+    const widget = rawEl.widget
+    if (typeof widget !== 'string' || !(VALID_WIDGET_IDS as readonly string[]).includes(widget)) {
+        return { errors: [`element "${key}": invalid widget id ${JSON.stringify(widget)}`] }
+    }
+    const regId = `widget:${widget}` as RegistryId
+    return { errors: validatePlacements(key, rawEl.placements, regId, stages), regId }
+}
+
+function validateResultsKind({ key, rawEl, stages }: KindValidatorCtx): { errors: string[]; regId?: RegistryId } {
+    const regId: RegistryId = 'results'
+    const errors = validatePlacements(key, rawEl.placements, regId, stages)
+    if (
+        rawEl.columns !== undefined &&
+        (!isFiniteNumber(rawEl.columns) || !Number.isInteger(rawEl.columns) || rawEl.columns < 1)
+    ) {
+        errors.push(`element "${key}": columns must be an integer >= 1`)
+    }
+    if (
+        rawEl.sort !== undefined &&
+        (typeof rawEl.sort !== 'string' || !(VALID_RESULTS_SORTS as readonly string[]).includes(rawEl.sort))
+    ) {
+        errors.push(`element "${key}": sort must be one of ${VALID_RESULTS_SORTS.join(', ')}`)
+    }
+    return { errors, regId }
+}
+
+// `cards`/`ripbar`/`reserved` share one branch today — a plain, boxed element with no fields of
+// its own beyond `placements`. A factory keeps that sharing without losing the per-kind entry the
+// `satisfies` check needs to see all three kinds explicitly covered.
+function plainKind(regId: RegistryId): KindValidator {
+    return ({ key, rawEl, stages }) => ({ errors: validatePlacements(key, rawEl.placements, regId, stages), regId })
+}
+
+function validateResultsThinKind({ key, rawEl, stages }: KindValidatorCtx): { errors: string[]; regId?: RegistryId } {
+    const regId: RegistryId = 'resultsThin'
+    return {
+        errors: [...validatePlacements(key, rawEl.placements, regId, stages), ...validateResultsThinFields(key, rawEl)],
+        regId,
+    }
+}
+
+function validateFrameKind({ key, rawEl, stages }: KindValidatorCtx): { errors: string[]; regId?: RegistryId } {
+    const errors: string[] = []
+    let regId: RegistryId | undefined
+    const variant = rawEl.variant
+    if (typeof variant !== 'string' || !(VALID_FRAME_VARIANTS as readonly string[]).includes(variant)) {
+        errors.push(`element "${key}": invalid frame variant ${JSON.stringify(variant)}`)
+    } else {
+        regId = `frame:${variant}` as RegistryId
+        errors.push(...validatePlacements(key, rawEl.placements, regId, stages))
+    }
+    errors.push(...validateBorders(key, rawEl.borders, stages))
+    errors.push(...validateFrameWidth(key, rawEl.frameWidth))
+    return { errors, regId }
+}
+
+function validateAnimationKind({
+    key,
+    rawEl,
+    elementsRaw,
+    stages,
+}: KindValidatorCtx): { errors: string[]; regId?: RegistryId } {
+    const errors: string[] = []
+    let regId: RegistryId | undefined
+    const animation = rawEl.animation
+    if (typeof animation !== 'string' || !(VALID_ANIMATION_IDS as readonly string[]).includes(animation)) {
+        errors.push(`element "${key}": invalid animation id ${JSON.stringify(animation)}`)
+    } else {
+        regId = `animation:${animation}` as RegistryId
+        errors.push(...validatePlacements(key, rawEl.placements, regId, stages))
+    }
+    // `target`, if set, must name another existing element (obs-layout-plan.md
+    // §1.9) — no self-reference, since an element can't glue itself to its own box.
+    if (rawEl.target !== undefined) {
+        if (typeof rawEl.target !== 'string') {
+            errors.push(`element "${key}": target must be a string`)
+        } else if (rawEl.target === key) {
+            errors.push(`element "${key}": target cannot reference itself`)
+        } else if (!(rawEl.target in elementsRaw)) {
+            errors.push(`element "${key}": target "${rawEl.target}" is not an existing element`)
+        }
+    }
+    if (rawEl.pad !== undefined && !isFiniteNumber(rawEl.pad)) {
+        errors.push(`element "${key}": pad must be a finite number`)
+    }
+    if (rawEl.laneFontSize !== undefined && !isFiniteNumber(rawEl.laneFontSize)) {
+        errors.push(`element "${key}": laneFontSize must be a finite number`)
+    }
+    if (rawEl.bandThickness !== undefined && !isFiniteNumber(rawEl.bandThickness)) {
+        errors.push(`element "${key}": bandThickness must be a finite number`)
+    }
+    if (rawEl.speed !== undefined && !isFiniteNumber(rawEl.speed)) {
+        errors.push(`element "${key}": speed must be a finite number`)
+    }
+    if (rawEl.rate !== undefined && (!isFiniteNumber(rawEl.rate) || rawEl.rate <= 0)) {
+        errors.push(`element "${key}": rate must be a finite number > 0`)
+    }
+    if (rawEl.holdMs !== undefined && !isFiniteNumber(rawEl.holdMs)) {
+        errors.push(`element "${key}": holdMs must be a finite number`)
+    }
+    return { errors, regId }
+}
+
+function validateTextKind({ key, rawEl, stages }: KindValidatorCtx): { errors: string[]; regId?: RegistryId } {
+    const regId: RegistryId = 'text'
+    return {
+        errors: [...validatePlacements(key, rawEl.placements, regId, stages), ...validateTextFields(key, rawEl)],
+        regId,
+    }
+}
+
+function validateImageBoxKind({ key, rawEl, stages }: KindValidatorCtx): { errors: string[]; regId?: RegistryId } {
+    const regId: RegistryId = 'image-box'
+    return {
+        errors: [...validatePlacements(key, rawEl.placements, regId, stages), ...validateImageBoxFields(key, rawEl)],
+        regId,
+    }
+}
+
+function validatePriceRangesKind({ key, rawEl, stages }: KindValidatorCtx): { errors: string[]; regId?: RegistryId } {
+    const regId: RegistryId = 'priceRanges'
+    return {
+        errors: [...validatePlacements(key, rawEl.placements, regId, stages), ...validatePriceRangesFields(key, rawEl)],
+        regId,
+    }
+}
+
+// The enforcement this whole section exists for: a kind added to ElementKind (schema.ts) with no
+// entry below fails `tsc` right here — see the section's header comment.
+const KIND_VALIDATORS = {
+    board: validateBoardKind,
+    widget: validateWidgetKind,
+    results: validateResultsKind,
+    resultsThin: validateResultsThinKind,
+    cards: plainKind('cards'),
+    ripbar: plainKind('ripbar'),
+    reserved: plainKind('reserved'),
+    frame: validateFrameKind,
+    animation: validateAnimationKind,
+    text: validateTextKind,
+    imageBox: validateImageBoxKind,
+    priceRanges: validatePriceRangesKind,
+} satisfies Record<ElementKind, KindValidator>
+
 // `config.stages`: non-empty, every entry `{id: non-empty string, label: non-empty string}`,
 // unique ids, 'all' reserved (it's the persistent-placement key, not a real stage), and every
 // built-in id (BUILT_IN_STAGES) present — order among them is free, since reordering built-ins is
@@ -565,110 +776,16 @@ export function validateConfig(
             ]
             let regId: RegistryId | undefined
 
+            // Dispatch on `kind` through KIND_VALIDATORS (defined above, near validateStages)
+            // rather than an if/else chain — see that table's header comment for why.
             const kind = rawEl.kind
-            if (kind === 'board') {
-                const variant = rawEl.variant
-                if (typeof variant !== 'string' || !(VALID_BOARD_VARIANTS as readonly string[]).includes(variant)) {
-                    elErrors.push(`element "${key}": invalid board variant ${JSON.stringify(variant)}`)
-                } else {
-                    regId = `board:${variant}` as RegistryId
-                    elErrors.push(...validatePlacements(key, rawEl.placements, regId, stages))
-                }
-            } else if (kind === 'widget') {
-                const widget = rawEl.widget
-                if (typeof widget !== 'string' || !(VALID_WIDGET_IDS as readonly string[]).includes(widget)) {
-                    elErrors.push(`element "${key}": invalid widget id ${JSON.stringify(widget)}`)
-                } else {
-                    regId = `widget:${widget}` as RegistryId
-                    elErrors.push(...validatePlacements(key, rawEl.placements, regId, stages))
-                }
-            } else if (kind === 'results') {
-                regId = 'results'
-                elErrors.push(...validatePlacements(key, rawEl.placements, regId, stages))
-                if (
-                    rawEl.columns !== undefined &&
-                    (!isFiniteNumber(rawEl.columns) || !Number.isInteger(rawEl.columns) || rawEl.columns < 1)
-                ) {
-                    elErrors.push(`element "${key}": columns must be an integer >= 1`)
-                }
-                if (
-                    rawEl.sort !== undefined &&
-                    (typeof rawEl.sort !== 'string' ||
-                        !(VALID_RESULTS_SORTS as readonly string[]).includes(rawEl.sort))
-                ) {
-                    elErrors.push(`element "${key}": sort must be one of ${VALID_RESULTS_SORTS.join(', ')}`)
-                }
-            } else if (kind === 'cards' || kind === 'ripbar' || kind === 'reserved') {
-                regId = kind as RegistryId
-                elErrors.push(...validatePlacements(key, rawEl.placements, regId, stages))
-            } else if (kind === 'resultsThin') {
-                regId = 'resultsThin'
-                elErrors.push(...validatePlacements(key, rawEl.placements, regId, stages))
-                elErrors.push(...validateResultsThinFields(key, rawEl))
-            } else if (kind === 'frame') {
-                const variant = rawEl.variant
-                if (typeof variant !== 'string' || !(VALID_FRAME_VARIANTS as readonly string[]).includes(variant)) {
-                    elErrors.push(`element "${key}": invalid frame variant ${JSON.stringify(variant)}`)
-                } else {
-                    regId = `frame:${variant}` as RegistryId
-                    elErrors.push(...validatePlacements(key, rawEl.placements, regId, stages))
-                }
-                elErrors.push(...validateBorders(key, rawEl.borders, stages))
-                elErrors.push(...validateFrameWidth(key, rawEl.frameWidth))
-            } else if (kind === 'animation') {
-                const animation = rawEl.animation
-                if (typeof animation !== 'string' || !(VALID_ANIMATION_IDS as readonly string[]).includes(animation)) {
-                    elErrors.push(`element "${key}": invalid animation id ${JSON.stringify(animation)}`)
-                } else {
-                    regId = `animation:${animation}` as RegistryId
-                    elErrors.push(...validatePlacements(key, rawEl.placements, regId, stages))
-                }
-                // `target`, if set, must name another existing element (obs-layout-plan.md
-                // §1.9) — no self-reference, since an element can't glue itself to its own box.
-                if (rawEl.target !== undefined) {
-                    if (typeof rawEl.target !== 'string') {
-                        elErrors.push(`element "${key}": target must be a string`)
-                    } else if (rawEl.target === key) {
-                        elErrors.push(`element "${key}": target cannot reference itself`)
-                    } else if (!(rawEl.target in elementsRaw)) {
-                        elErrors.push(`element "${key}": target "${rawEl.target}" is not an existing element`)
-                    }
-                }
-                if (rawEl.pad !== undefined && !isFiniteNumber(rawEl.pad)) {
-                    elErrors.push(`element "${key}": pad must be a finite number`)
-                }
-                if (rawEl.laneFontSize !== undefined && !isFiniteNumber(rawEl.laneFontSize)) {
-                    elErrors.push(`element "${key}": laneFontSize must be a finite number`)
-                }
-                if (rawEl.bandThickness !== undefined && !isFiniteNumber(rawEl.bandThickness)) {
-                    elErrors.push(`element "${key}": bandThickness must be a finite number`)
-                }
-                if (rawEl.speed !== undefined && !isFiniteNumber(rawEl.speed)) {
-                    elErrors.push(`element "${key}": speed must be a finite number`)
-                }
-                if (
-                    rawEl.rate !== undefined &&
-                    (!isFiniteNumber(rawEl.rate) || rawEl.rate <= 0)
-                ) {
-                    elErrors.push(`element "${key}": rate must be a finite number > 0`)
-                }
-                if (rawEl.holdMs !== undefined && !isFiniteNumber(rawEl.holdMs)) {
-                    elErrors.push(`element "${key}": holdMs must be a finite number`)
-                }
-            } else if (kind === 'text') {
-                regId = 'text'
-                elErrors.push(...validatePlacements(key, rawEl.placements, regId, stages))
-                elErrors.push(...validateTextFields(key, rawEl))
-            } else if (kind === 'imageBox') {
-                regId = 'image-box'
-                elErrors.push(...validatePlacements(key, rawEl.placements, regId, stages))
-                elErrors.push(...validateImageBoxFields(key, rawEl))
-            } else if (kind === 'priceRanges') {
-                regId = 'priceRanges'
-                elErrors.push(...validatePlacements(key, rawEl.placements, regId, stages))
-                elErrors.push(...validatePriceRangesFields(key, rawEl))
-            } else {
+            const validator = (KIND_VALIDATORS as Record<string, KindValidator | undefined>)[String(kind)]
+            if (!validator) {
                 elErrors.push(`element "${key}": unknown kind ${JSON.stringify(kind)}`)
+            } else {
+                const kindResult = validator({ key, rawEl, elementsRaw, stages })
+                elErrors.push(...kindResult.errors)
+                regId = kindResult.regId
             }
 
             if (elErrors.length > 0) {

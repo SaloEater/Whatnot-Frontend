@@ -40,6 +40,13 @@ import {get, getEndpoints, post, seriesPricesEndpoint} from '@/app/lib/backend'
 import {enqueue} from './requestQueue'
 import type {LayoutConfig} from './schema'
 import {useCueBus} from './cueBus'
+// `registryIdOf` from the dependency-free elementId.ts, NOT from registry.ts — registry.ts imports
+// every element component, and those import this file, so importing registry.ts here at runtime
+// would be a cycle (obs-layout-adding-elements-plan.md §A "Decisions (fixed)"). `NEEDS_BY_ID` is
+// the data-needs table `deriveNeeds` below folds over; see needs.ts's header for why it replaced
+// the old hand-written if-chain.
+import {registryIdOf} from './elementId'
+import {NEEDS_BY_ID} from './needs'
 
 // Every spine read goes through the shared limiter (requestQueue.ts) rather than calling
 // post()/get() directly: the pollers below all tick together, and an unbounded burst just queues
@@ -73,7 +80,9 @@ const qGet = (endpoint: string) => enqueue(() => get(endpoint))
 
 // ---- shape derivation from config -----------------------------------------------------------
 
-type Needs = {
+// Exported so needs.ts can define `NeedFlag = keyof Needs` (type-only import — see that file's
+// header for why this isn't a runtime cycle).
+export type Needs = {
     needsCobra: boolean
     needsSeries: boolean
     needsCount: boolean
@@ -84,41 +93,30 @@ type Needs = {
     needsSeriesPriceRanges: boolean
 }
 
+// A fold over NEEDS_BY_ID (needs.ts) instead of a hand-written if-chain: for every element, look up
+// its registry id's declared flags and OR them on. Equivalent to the old chain (each flag starts
+// false and is set true if ANY element in the config declares it — same as the old per-kind `if`
+// checks, which never unset a flag once true), but a registry id missing from NEEDS_BY_ID now fails
+// to compile instead of silently deriving no needs (obs-layout-adding-elements-plan.md §A).
 function deriveNeeds(config: LayoutConfig): Needs {
-    let needsCobra = false
-    let needsName = false
-    let needsCount = false
-    let needsPick2 = false
-    let needsStashOrPass = false
-    let needsBoxesPerBreak = false
-    let needsCards = false
-    let needsSeriesPriceRanges = false
+    const needs: Needs = {
+        needsCobra: false,
+        needsSeries: false,
+        needsCount: false,
+        needsPick2: false,
+        needsStashOrPass: false,
+        needsBoxesPerBreak: false,
+        needsCards: false,
+        needsSeriesPriceRanges: false,
+    }
 
     for (const element of Object.values(config.elements)) {
-        if (element.kind === 'board' && (element.variant === 'cobra' || element.variant === 'cobra_flat')) needsCobra = true
-        if (element.kind === 'cards') needsCards = true
-        if (element.kind === 'priceRanges') needsSeriesPriceRanges = true
-        if (element.kind === 'widget') {
-            if (element.widget === 'name') needsName = true
-            if (element.widget === 'boxesLeft' || element.widget === 'chasersLeft') needsCount = true
-            if (element.widget === 'pick2') needsPick2 = true
-            if (element.widget === 'stashorpass') needsStashOrPass = true
-            if (element.widget === 'boxesPerBreak') needsBoxesPerBreak = true
+        for (const flag of NEEDS_BY_ID[registryIdOf(element)]) {
+            needs[flag] = true
         }
     }
 
-    return {
-        needsCobra,
-        // `priceRanges` renders `series.kind` too (PriceRangesElement.tsx), so it needs the same
-        // `series` source the cobra board and `name` widget already pull.
-        needsSeries: needsCobra || needsName || needsSeriesPriceRanges,
-        needsCount,
-        needsPick2,
-        needsStashOrPass,
-        needsBoxesPerBreak,
-        needsCards,
-        needsSeriesPriceRanges,
-    }
+    return needs
 }
 
 // `post()`/`get()` never throw for HTTP/network failures — they resolve `{error}` instead

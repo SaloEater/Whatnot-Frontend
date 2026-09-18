@@ -115,6 +115,21 @@ async function getEnvVar(): Promise<string> {
     return cachedEnvVar;
 }
 
+// What post()/get()/postMultipart() resolve to, and which of those are FAILURES vs real data
+// (obs-layout-disappearing-elements-findings.md). `handleResponse` below returns `data.data` from
+// the backend's `{data, error}` envelope, so the three shapes a caller can see are:
+//   1. Backend 500 (or any `{error: "...", data: null}` envelope) -> `data.data` is `undefined`.
+//   2. Network error / non-JSON body (gateway HTML, etc.) -> the catch below resolves `{error}`.
+//   3. A genuinely successful call -> whatever `data.data` was, e.g. `{config: null}` for "no row
+//      yet", which is NOT a failure — callers must tell that apart from cases 1/2 themselves.
+// `isBackendFailure` is the one shared test for "was this call itself a failure" (cases 1 and 2);
+// it says nothing about whether the payload inside a successful response makes sense — that is
+// still on the caller (e.g. reconcileConfigResponse's 'invalid' case).
+export function isBackendFailure(resp: unknown): boolean {
+    if (resp === null || typeof resp !== 'object') return true
+    return 'error' in (resp as Record<string, unknown>) && Object.keys(resp as object).length === 1
+}
+
 export async function post(endpoint: string, data: {}) {
     const host = await getEnvVar()
     let url = getUrl(host, endpoint)

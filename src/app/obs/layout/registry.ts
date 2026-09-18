@@ -21,6 +21,13 @@ import { PriceRangesElement } from './elements/price-ranges/PriceRangesElement'
 import type { AnimationId, BoardVariant, Box, Element, ElementKind, FrameVariant, Phase, WidgetId } from './schema'
 import { ANIMATION_IDS, DEFAULT_FRAME_BORDERS, DEFAULT_FRAME_WIDTH } from './schema'
 import type { SceneEventName } from './sceneEvents'
+// `registryIdOf` moved to elementId.ts (obs-layout-adding-elements-plan.md §A.1) — that module has
+// no runtime imports, so useLayoutData.tsx/needs.ts can call it without pulling in this file's
+// whole element-component tree (the cycle it avoids: this file imports every element component,
+// and those import useLayoutData). Re-exported here so every existing
+// `import {registryIdOf} from '.../registry'` keeps resolving to the same function unchanged.
+import { registryIdOf } from './elementId'
+export { registryIdOf }
 
 export type RegistryId =
     | 'board:flat'
@@ -486,39 +493,6 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         hasBox: true,
         reactsTo: [],
     },
-}
-
-export function registryIdOf(element: Element): RegistryId {
-    switch (element.kind) {
-        case 'board':
-            return `board:${element.variant}` as RegistryId
-        case 'widget':
-            return `widget:${element.widget}` as RegistryId
-        case 'results':
-            return 'results'
-        case 'resultsThin':
-            return 'resultsThin'
-        case 'cards':
-            return 'cards'
-        case 'ripbar':
-            return 'ripbar'
-        case 'reserved':
-            return 'reserved'
-        case 'frame':
-            return `frame:${element.variant}` as RegistryId
-        case 'animation':
-            return `animation:${element.animation}` as RegistryId
-        case 'text':
-            return 'text'
-        case 'imageBox':
-            return 'image-box'
-        case 'priceRanges':
-            return 'priceRanges'
-        default: {
-            const _exhaustive: never = element
-            throw new Error(`registryIdOf: unhandled element ${JSON.stringify(_exhaustive)}`)
-        }
-    }
 }
 
 /** Narrows a registry id's suffix to a real AnimationId, refusing anything ANIMATION_IDS lacks. */
