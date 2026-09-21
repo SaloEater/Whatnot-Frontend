@@ -1,0 +1,37 @@
+/* `lightning` effect (obs-scene-element-plan.md §1.2/§5). Classes prefixed `scene-` only. The base
+ * class alone is a static, invisible fill (no animation attached) — LightningEffect.tsx only ever
+ * adds `--flash` on a FRESH element (a bumped `key`), so the keyframe always plays once, from a
+ * clean start, and never accidentally replays merely because some other prop re-rendered this
+ * component. Animates `opacity` only (§1.4). */
+
+.scene-lightning {
+    position: absolute;
+    inset: 0;
+    background: #fff;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.scene-lightning--flash {
+    animation: scene-lightning-flash 600ms ease-out;
+}
+
+/* obs-scene-element-plan.md §5: "opacity 0 -> 0.9 (40 ms) -> 0.1 -> 0.6 -> 0" over 600ms total —
+ * a quick bright strike, a dip, a dimmer second pulse, then fade out. */
+@keyframes scene-lightning-flash {
+    0% {
+        opacity: 0;
+    }
+    6.7% {
+        opacity: 0.9;
+    }
+    25% {
+        opacity: 0.1;
+    }
+    58% {
+        opacity: 0.6;
+    }
+    100% {
+        opacity: 0;
+    }
+}

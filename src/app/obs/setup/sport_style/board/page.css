@@ -1,0 +1,123 @@
+/* football-field-board-plan.md §4/§5.1 — `/obs/setup/sport_style/board` playground (moved from
+   `/test/board`). Black page background; the
+   preview box and every geometric element inside it (strips/cells/ticks) are positioned with
+   inline px styles computed by fieldGeometry.ts, so this file only carries non-geometric chrome:
+   the preview box's dashed outline and the mock cells' look (copied from
+   obs/layout/elements/board-cobra-flat/CobraFlatBoard.css, "regular" tier only — tiers are
+   irrelevant to the lines being tuned here). No `vh`/`vw`/`color-mix()`. */
+
+.field-page {
+    background: #000;
+    min-height: 100vh;
+    color: #eee;
+}
+
+.field-preview {
+    position: relative;
+    overflow: hidden;
+    background: #000;
+    outline: 1px dashed #666;
+    outline-offset: -1px;
+}
+
+.field-turf-canvas {
+    position: absolute;
+    inset: 0;
+}
+
+/* The painted `field` region (task spec part 1) — a second, inner dashed outline so it's visible
+   against the box's own outline (`.field-preview`'s `outline`). Pointer-events off so it never
+   blocks the mock cells/strips/ticks positioned on top of it. */
+.field-outline {
+    position: absolute;
+    box-sizing: border-box;
+    border: 1px dashed #4a90d9;
+    pointer-events: none;
+}
+
+/* Clip group A — turf canvas only, clipped to the oval field via an inline `clip-path`
+   (`round rx / ry`, computed from `geometry.field`). The cells sit between this and clip group B
+   (task spec part 1) so they stay unclipped while the lines above them are clipped. */
+.field-clip-turf {
+    position: absolute;
+    inset: 0;
+}
+
+/* Clip group B — column/row strips + hash ticks + seam ticks, above the (unclipped) cells, clipped
+   to the same oval field as clip group A above. */
+.field-clip-lines {
+    position: absolute;
+    inset: 0;
+}
+
+/* R2.2 border — a ring drawn at exactly `field`, above both clip groups and above the mock cells
+   (task spec part 1's layer 4); color/width/radius are all inline (dynamic), this only fixes
+   position/box model. */
+.field-border {
+    position: absolute;
+    box-sizing: border-box;
+    pointer-events: none;
+}
+
+.field-strip {
+    position: absolute;
+}
+
+.field-tick {
+    position: absolute;
+}
+
+/* ── Mock cell chrome, copied from CobraFlatBoard.css's `.cbf-cell`/`.cbf-cell--regular` ──
+   Sizing (width/height/left/top) is set inline per cell from `cellBox`; only the visual chrome
+   (background, radius, logo inset) lives here. No border — the yard-line strips/ticks are the
+   only white/neon elements on this page now, so the per-tier `#ebdb61` cell border is dropped for
+   this test regardless of tier. */
+.field-cell {
+    position: absolute;
+    box-sizing: border-box;
+    border: none;
+    border-radius: 6px;
+    background:
+        radial-gradient(circle at 50% 0%, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 72%),
+        #000000;
+    overflow: hidden;
+}
+
+.field-cell__logo {
+    position: absolute;
+    inset: 6%;
+    width: 88%;
+    height: 88%;
+    object-fit: contain;
+}
+
+/* Sold cell look, mirrors CobraFlatBoard.css's `.cbf-cell--sold`: dark grey fill with a light grey
+   45° hatch, no border, no glow. */
+.field-cell--sold {
+    background:
+        repeating-linear-gradient(45deg, rgba(200,200,205,0.35) 0 2px, transparent 2px 16px),
+        #1c1c1e;
+}
+
+.field-readout-compact {
+    white-space: nowrap;
+    overflow-x: auto;
+}
+
+.field-settings__textarea {
+    background: #111;
+    color: #eee;
+    border: 1px solid #333;
+    font-size: 0.75rem;
+    resize: vertical;
+}
+
+.field-settings__textarea:focus {
+    background: #111;
+    color: #eee;
+}
+
+.field-reference {
+    display: block;
+    height: auto;
+}

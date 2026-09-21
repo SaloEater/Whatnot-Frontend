@@ -43,8 +43,11 @@ export type ElementKind =
     | 'text'
     | 'imageBox'
     | 'priceRanges'
+    | 'priceSign'
+    | 'scene'
+    | 'ticker'
 
-export const BOARD_VARIANTS = ['flat', 'classic', 'cobra', 'cobra_flat'] as const
+export const BOARD_VARIANTS = ['flat', 'classic', 'cobra', 'cobra_flat', 'sport_style'] as const
 export type BoardVariant = (typeof BOARD_VARIANTS)[number]
 
 // `count` split into `boxesLeft`/`chasersLeft` (obs-layout-plan.md §2.7) — mirrors upstream commit
@@ -54,6 +57,30 @@ export type BoardVariant = (typeof BOARD_VARIANTS)[number]
 export const WIDGET_IDS = ['pick2', 'stashorpass', 'name', 'boxesPerBreak', 'boxesLeft', 'chasersLeft'] as const
 export type WidgetId = (typeof WIDGET_IDS)[number]
 
+// `ticker` (obs-ticker-plan.md §3): one FIXED slot per WidgetId — the operator switches each on/off
+// and recolours it; order is always the canonical WIDGET_IDS order, never a free list. `label`
+// overrides the default label text ("Pick 2", …, see TickerElement.tsx's DEFAULT_TICKER_LABELS);
+// empty/undefined = default. Colours are `#rrggbb` (validated by config.ts's ticker validator);
+// undefined = the component's own DEFAULT_LABEL_COLOR/DEFAULT_VALUE_COLOR.
+export type TickerSlot = {
+    enabled: boolean
+    label?: string // max 40 chars
+    labelColor?: string // CSS hex '#rrggbb', default '#9fd6ff'
+    valueColor?: string // CSS hex '#rrggbb', default '#ffffff'
+    // chasersLeft ONLY (config.ts rejects it on any other slot): colour of the "/" in a
+    // "<count> / <pct>%" value. Undefined = the slot's value colour.
+    slashColor?: string // CSS hex '#rrggbb'
+}
+export type TickerDirection = 'left' | 'right'
+export const TICKER_DIRECTIONS = ['left', 'right'] as const
+
+// Seeded by `makeElement` (registry.ts) for a freshly-placed ticker — all six widgets on, no label/
+// colour overrides. Cloned per element (never shared by reference) the same way `DEFAULT_SCENE_EFFECTS`
+// is cloned in `makeElement`'s `scene` case.
+export const DEFAULT_TICKER_SLOTS: Record<WidgetId, TickerSlot> = Object.fromEntries(
+    WIDGET_IDS.map((id) => [id, { enabled: true }])
+) as Record<WidgetId, TickerSlot>
+
 export const FRAME_VARIANTS = ['static'] as const
 export type FrameVariant = (typeof FRAME_VARIANTS)[number]
 
@@ -61,7 +88,12 @@ export type FrameVariant = (typeof FRAME_VARIANTS)[number]
 // animation rebuilt on a local label timeline (stash-or-pass-timeline-plan.md). The two are
 // deliberately both available so they can be placed together and compared; whichever wins, the
 // other is deleted and this union goes back to one member.
-export const ANIMATION_IDS = ['stashOrPassWrap', 'stashOrPassWrapTl', 'stashOrPassWrapRing'] as const
+export const ANIMATION_IDS = [
+    'stashOrPassWrap',
+    'stashOrPassWrapTl',
+    'stashOrPassWrapRing',
+    'stashOrPassSportStyle',
+] as const
 export type AnimationId = (typeof ANIMATION_IDS)[number]
 
 // How an `imageBox`'s uploaded image fits its box — maps 1:1 onto CSS `object-fit`: contain =
@@ -90,7 +122,7 @@ export type Reactions = Partial<Record<SceneEventName, boolean>>
 // Single source of truth: the controls page shows the Mirror button only for these kinds, and
 // config.ts's validator refuses a `mirrorOf` whose source is any other kind. Add a kind here to
 // make it mirrorable; nothing else needs to change (`resolveEffective` is kind-agnostic).
-export const MIRRORABLE_KINDS = ['text'] as const satisfies readonly ElementKind[]
+export const MIRRORABLE_KINDS = ['text', 'scene'] as const satisfies readonly ElementKind[]
 export type MirrorableKind = (typeof MIRRORABLE_KINDS)[number]
 
 // Present on every element kind so a mirror can be of any kind the allowlist admits. A mirror
@@ -101,8 +133,102 @@ export type MirrorableKind = (typeof MIRRORABLE_KINDS)[number]
 // this a mirror" / "who mirrors this"), never to itself merge properties.
 export type MirrorFields = { mirrorOf?: string }
 
+// `scene` — a layered 2.5D living background (obs-scene-element-plan.md §1/§2). Delivered in three
+// independent iterations; this file carries iteration 1's three effect ids (sky/mountain/clouds),
+// iteration 2's `rain`/`lightning` (§5), and iteration 3's `birds` (§6) — each appended to
+// `SceneEffect`/`SCENE_EFFECT_IDS`/`DEFAULT_SCENE_EFFECTS` in turn, never reordering or removing
+// what's already here (a stored config's `effects` array survives across iterations on that
+// promise).
+export const SKY_MOODS = ['day', 'dusk', 'night'] as const
+export type SkyMood = (typeof SKY_MOODS)[number]
+
+export const SCENE_QUALITIES = ['full', 'reduced'] as const
+export type SceneQuality = (typeof SCENE_QUALITIES)[number]
+
+// One entry per effect. `enabled` is on every member so the settings panel can render a uniform
+// toggle column. `y`/`yMin`/`yMax` are percentages of the element's own box height (0 = top edge,
+// 100 = bottom edge) — see obs-scene-element-plan.md §1.1 for which edge of each ART layer they
+// anchor (`mountain`'s bottom edge, a `clouds` strip's vertical centre). Fill layers (`sky`) have
+// no `y`. `clouds` may appear twice in one `effects` array (`layer: 'far' | 'near'`, §1.2) — the
+// two copies are otherwise-independent effect instances, not two fields of one effect.
+export type SceneEffect =
+    | { id: 'sky'; enabled: boolean; mood: SkyMood }
+    | { id: 'mountain'; enabled: boolean; y: number } // bottom edge at y
+    | { id: 'clouds'; enabled: boolean; layer: 'far' | 'near'; speed: number; opacity: number; y: number } // centre at y
+    // iteration 2 (obs-scene-element-plan.md §5) — appended, never inserted earlier in the union:
+    // a stored config's `effects` array is order-independent by id, but SCENE_EFFECT_IDS/DEFAULT_
+    // SCENE_EFFECTS below read this union's member order for nothing load-bearing, so keeping new
+    // members at the end is just discipline, not a hard requirement.
+    | { id: 'rain'; enabled: boolean; intensity: number } // 0..1
+    | { id: 'lightning'; enabled: boolean; ambientIntervalSec: number | null } // null = cue-only, no ambient timer
+    // iteration 3 (obs-scene-element-plan.md §6): a flock of a random `countMin..countMax` birds
+    // (integer, inclusive, re-rolled per flock) spawns every `intervalSec` (± jitter) and flies the
+    // box's width inside the `yMin..yMax` band (art layer, z 40 — see effectRegistry.ts's
+    // `LAYER_Z`). A legacy single `count` is migrated to `countMin = countMax = count` by
+    // config.ts's `sanitizeSceneEffects`.
+    | { id: 'birds'; enabled: boolean; countMin: number; countMax: number; intervalSec: number; yMin: number; yMax: number }
+
+export type SceneEffectId = SceneEffect['id']
+
+// Effect ids actually implemented so far — grows in lockstep with the `SceneEffect` union above as
+// §5/§6 append members. Used by config.ts to decide which stored effect ids are "known" (kept) vs.
+// "unknown" (dropped, not rejected — obs-scene-element-plan.md §2.2: a config saved by a newer
+// build must still load on an older one, and vice versa).
+export const SCENE_EFFECT_IDS: readonly SceneEffectId[] = ['sky', 'mountain', 'clouds', 'rain', 'lightning', 'birds']
+
+export function isSceneEffectId(v: unknown): v is SceneEffectId {
+    return typeof v === 'string' && (SCENE_EFFECT_IDS as readonly string[]).includes(v)
+}
+
+// Seeded by `makeElement` (registry.ts) for a freshly-placed scene, and by config.ts's
+// `migrateConfig` whenever a stored `effects` array is missing/empty/entirely-unknown-ids —
+// obs-scene-element-plan.md §2.1/§2.2. Order matches the layer table's back-to-front reading order
+// (sky, clouds-far, mountain, clouds-near) though paint order is actually decided by
+// `elements/scene/effectRegistry.ts`'s `LAYER_Z`, not this array's order.
+export const DEFAULT_SCENE_EFFECTS: SceneEffect[] = [
+    { id: 'sky', enabled: true, mood: 'day' },
+    { id: 'clouds', enabled: true, layer: 'far', speed: 12, opacity: 0.7, y: 35 },
+    { id: 'mountain', enabled: true, y: 100 },
+    { id: 'clouds', enabled: true, layer: 'near', speed: 28, opacity: 0.9, y: 80 },
+    // iteration 2 (obs-scene-element-plan.md §5): both OFF by default — weather is a cue-driven
+    // mood (the 'storm' scene event), not the resting state of the scene. `config.ts`'s
+    // `sanitizeSceneEffects` appends these two (append-if-missing, not substitute-all) onto any
+    // iteration-1 config that predates them.
+    { id: 'rain', enabled: false, intensity: 0.5 },
+    { id: 'lightning', enabled: false, ambientIntervalSec: null },
+    // iteration 3 (obs-scene-element-plan.md §6): on by default — birds are ambient scenery, not a
+    // cue-driven mood like the weather effects above. `config.ts`'s `sanitizeSceneEffects` appends
+    // this (append-if-missing, not substitute-all) onto any iteration-1/2 config that predates it.
+    { id: 'birds', enabled: true, countMin: 2, countMax: 5, intervalSec: 25, yMin: 15, yMax: 45 },
+]
+
 export type Element = (
-    | { kind: 'board'; variant: BoardVariant; placements: Partial<Record<PlacementKey, Box>>; z?: number; reactions?: Reactions }
+    // `sport_style` (sport-style-board-plan.md §2, R1 fix 5, R3) carries extra fields, read only by
+    // that variant and left `undefined` by every other board: `cols` (cells per row,
+    // operator-set), `turf`/`patch` (opaque JSON blobs the operator pastes from the
+    // /obs/setup/sport_style/* playgrounds' own Export output — `unknown` on purpose, never
+    // validated here, see SportStyleBoard.tsx's deep-merge over its own defaults), `margin` (px,
+    // transparent band between the element's edge and the painted field on every side; default
+    // 0). The field's own edge gap — field edge to the outer strips — is NOT here: it is the
+    // `edgeGap` key of the `turf` blob, the same knob the board playground exports.
+    // `edgeMode`/`sortMode` (R3.4) are chosen from two selects in SportStyleBoardSettings, same
+    // config path (`onPatchElement`), no validation — the component narrows with defaults exactly
+    // like `cols`. `edgeMode: 'tiered'` draws a per-tier medal edge (tierSkins.ts) instead of
+    // today's auto-palette wear; `sortMode: 'centered'` deals cells `board:cobra_flat`'s way
+    // (value-centred, sold pushed to the edges) instead of alphabetically.
+    | {
+          kind: 'board'
+          variant: BoardVariant
+          cols?: number
+          turf?: unknown
+          patch?: unknown
+          margin?: number
+          edgeMode?: 'plain' | 'tiered'
+          sortMode?: 'alphabetical' | 'centered'
+          placements: Partial<Record<PlacementKey, Box>>
+          z?: number
+          reactions?: Reactions
+      }
     | { kind: 'widget'; widget: WidgetId; placements: Partial<Record<PlacementKey, Box>>; z?: number; reactions?: Reactions }
     | { kind: 'cards' | 'ripbar' | 'reserved'; placements: Partial<Record<PlacementKey, Box>>; z?: number; reactions?: Reactions }
     // `results` carries its own column count (obs-layout-plan.md §2.3 + the 1f refactor); the
@@ -164,6 +290,14 @@ export type Element = (
           kind: 'animation'
           animation: AnimationId
           target?: string
+          // board-anchors-plan.md §3: which of `target`'s registry-declared `anchors`
+          // (registry.ts's `RegistryEntry.anchors`) to glue to instead of its plain resolved box —
+          // undefined means "the whole box" (useTargetShape, anchors.tsx). Deliberately NOT
+          // cross-checked against the target's current registry entry here or in config.ts: a board
+          // variant swap must not invalidate the whole config. A stale/unpublished name simply falls
+          // back to the box at render time, and the settings panel flags it (see
+          // StashOrPassWrapSettings.tsx's "Attach to" select).
+          targetAnchor?: string
           pad?: number
           bandThickness?: number // deprecated: bands now size themselves to their text
           laneFontSize?: number
@@ -177,6 +311,16 @@ export type Element = (
            * it replaces. Unused by `stashOrPassWrap`.
            */
           rate?: number
+          /**
+           * `animation:stashOrPassSportStyle` only (stash-or-pass-quarters-plan.md Revision 2,
+           * R1). The lane is a filled ring shape, not a stroked centreline: `cornerWidth` is the
+           * OUTER corner radius in canvas px (default: the element's own lane thickness), and
+           * `cornerRoundness` (0..1) sets the INNER corner radius as a fraction of `cornerWidth`
+           * (default 0.5). Both are clamped at render to fit the rect they round. Unused by every
+           * other animation id.
+           */
+          cornerWidth?: number
+          cornerRoundness?: number
           placements: Partial<Record<PlacementKey, Box>>
           z?: number
           reactions?: Reactions
@@ -225,6 +369,59 @@ export type Element = (
           kind: 'priceRanges'
           labelFontSize?: number
           badgeFontSize?: number
+          placements: Partial<Record<PlacementKey, Box>>
+          z?: number
+          reactions?: Reactions
+      }
+    // A second readout of the same `price_ranges` series as `priceRanges` above, styled as a
+    // wooden shop sign hanging by two chains from a wall bracket, swaying gently in a fake wind
+    // (obs-price-sign-plan.md). Same data source, different skin — see
+    // elements/price-sign/PriceSignElement.tsx. Not in MIRRORABLE_KINDS (mirroring a hanging sign
+    // makes no sense the way mirroring a text/scene layer does). All fields optional — component
+    // defaults (DEFAULT_* constants, PriceSignElement.tsx) apply when unset, same convention as
+    // `priceRanges`'s labelFontSize/badgeFontSize.
+    | {
+          kind: 'priceSign'
+          labelFontSize?: number // canvas px, default 44 (same as priceRanges)
+          badgeFontSize?: number // canvas px, default 40
+          boardWidthPct?: number // board width as % of box.w, any finite number > 0 (may exceed 100), default 72
+          chainLength?: number // canvas px of visible chain between the two hooks, 0..1000, default 120
+          windStrength?: number // 0..2 multiplier on swing amplitude, default 1; 0 = static
+          placements: Partial<Record<PlacementKey, Box>>
+          z?: number
+          reactions?: Reactions
+      }
+    // Layered 2.5D living background (obs-scene-element-plan.md §1/§2/§4) — a normal boxed element
+    // sized entirely from its own resolved `box`, no reference resolution/aspect assumption (§1.1).
+    // `quality` defaults to 'full' when absent (registry default; see SceneElement.tsx). `effects`
+    // is REQUIRED (unlike most other kinds' optional settings-with-a-component-default pattern)
+    // because it is a list, not a scalar — there is no single sane "leave it unset" for an array of
+    // independently-toggled layers; `makeElement` seeds it from DEFAULT_SCENE_EFFECTS.
+    | {
+          kind: 'scene'
+          quality?: SceneQuality
+          effects: SceneEffect[]
+          placements: Partial<Record<PlacementKey, Box>>
+          z?: number
+          reactions?: Reactions
+      }
+    // Curved LED-band text ticker (obs-ticker-plan.md) — a static `curve.png` texture with one line
+    // of "label: value" parts compiled from the six circle widgets' data, looped forever along the
+    // band's centreline. The circle widgets themselves are not placed; this only reuses their data
+    // sources and settings panels (elements/ticker/TickerElement.tsx,
+    // controls/elements/TickerSettings.tsx). `slots` is REQUIRED, like `scene.effects` above — a
+    // list of six independently-toggled entries has no single sane "leave it unset" default; a
+    // freshly-added ticker is seeded with `DEFAULT_TICKER_SLOTS` (all six enabled, no overrides).
+    // Every other field is optional — component defaults (TickerElement.tsx's DEFAULT_* constants)
+    // apply when unset, same convention as `priceSign`'s labelFontSize/badgeFontSize/etc. Not in
+    // MIRRORABLE_KINDS (§3: "a moving ticker mirrored elsewhere would drift out of phase").
+    | {
+          kind: 'ticker'
+          slots: Record<WidgetId, TickerSlot>
+          separator?: string // default '   •   '; capped at MAX_TEXT_LENGTH
+          fontSize?: number // canvas px, default 48
+          speed?: number // canvas px/s, 0..600, default 90; 0 = static
+          direction?: TickerDirection // default 'left' (text travels right→left)
           placements: Partial<Record<PlacementKey, Box>>
           z?: number
           reactions?: Reactions
@@ -301,6 +498,12 @@ export type TransientCue =
     // Rides the TRANSIENT bus (BUS_CUE_EVENT_NAME below), never a BusPayload: it fires on mouse
     // movement, and the BusPayload path writes state to the backend and bumps `seq` on every emit.
     | { kind: 'highlight-photo'; photoId: number | null }
+    // The board:sport_style settings panel's "Regenerate turf"/"Regenerate teams" buttons
+    // (sport-style-board-plan.md R1 fix 6) — re-rolls one of the element's two module-level seeds
+    // (turf render, or every team's edge wear) and re-renders. No backend write: like
+    // `highlight-photo`, it means nothing a moment after it fires, so the TRANSIENT bus (never a
+    // BusPayload) is the right channel.
+    | { kind: 'sport-style-regenerate'; target: 'turf' | 'wear' }
 
 export type Cue = DurableCue | TransientCue
 
@@ -351,6 +554,16 @@ export const MAX_TEXT_LENGTH = 500
 
 export const BUS_EVENT_NAME = 'mob:trigger'
 export const DEV_CHANNEL_NAME = 'mob:bus'
+
+// ── Return path: layout -> controls ─────────────────────────────────────────────────────────
+// The ONLY channel that flows this direction (obs-browser-event-bus.md §8). The `cards` element
+// (pending-sold-cards-plan.md §2.3) publishes which photo ids are pending-removal so the controls
+// page's CardsSettings (§3) can tint the matching cards. Plain BroadcastChannel, no obs-websocket
+// involved: works because an OBS browser source and an OBS custom browser dock share one Chromium
+// profile, so it does nothing in a plain Chrome tab controls page (accepted — the tint is missing
+// there, nothing else breaks).
+export const PENDING_CHANNEL_NAME = 'mob:pending'
+export type PendingPayload = { kind: 'pending-photos'; channelId: number; photoIds: number[]; sentAt: number }
 
 // ── Transient cue channel ────────────────────────────────────────────────────────────────────
 // A second, deliberately separate bus event carrying a cue and NOTHING else. `BusPayload` is the

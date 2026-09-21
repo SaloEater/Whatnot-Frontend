@@ -1,0 +1,143 @@
+/* animation:stashOrPassSportStyle — appearance only. CSS owns look, TS owns time (same rule as
+ * ring/StashOrPassRing.css): no transition/animation/duration here — the timeline drives every
+ * opacity, transform and stroke-dashoffset directly via WAAPI.
+ *
+ * Classes are prefixed `sopq-`, distinct from `sopw-`/`soptl-`/`soptlr-`, so all four stash-or-pass
+ * builds can sit on one canvas and be compared.
+ *
+ * Revision 2 removed the board cover (`sopq-cover`/`sopq-cover--on`) — the board is never dimmed —
+ * and R1 replaced the stroked centreline (`sopq-edge`/`sopq-body`) with two filled ring shapes
+ * (`sopq-lane-white`/`sopq-lane-blue`) revealed through a `<mask>` of the same `sopq-quarter` paths
+ * that used to be stroked directly.
+ */
+
+@font-face {
+    font-family: 'Grechka SHA';
+    src: url('/fonts/Grechka%20SHA_0.otf') format('opentype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: block;
+}
+
+.sopq-root {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: visible;
+    --sopq-blue: #1f4fd8;
+    --sopq-white: #fff;
+    /* --sopq-headline is set inline per instance (headlineSize(box)). */
+}
+
+.sopq-measure {
+    position: absolute;
+    left: -9999px;
+    top: 0;
+    visibility: hidden;
+    pointer-events: none;
+    white-space: nowrap;
+    line-height: 1;
+    font-family: 'Grechka SHA', 'Arial Narrow', sans-serif;
+    font-weight: 400;
+}
+
+/* ---- fill + word + copies (R2 rig, mounted only during `entrance`) ------------------------- */
+
+/* The blue wash under the word — same colour as the lane. Base opacity 0; the `fill lights`/
+   `fill drains` tracks own it start to finish, so unlike `.sopq-quarter--on` there is no "--on"
+   class here: `fill` never exists outside the entrance, so there is no steady state to jump to. */
+.sopq-fill {
+    position: absolute;
+    background: var(--sopq-blue);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.sopq-anchor {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    /* Paired with .sopq-svg's z-index below: the rig is also rendered after <Lane/> in DOM order,
+       so this is belt-and-braces against any future reordering, not the only thing doing the job. */
+    z-index: 2;
+}
+
+.sopq-word,
+.sopq-copy {
+    font-family: 'Grechka SHA', 'Arial Narrow', sans-serif;
+    font-weight: 400;
+    font-size: var(--sopq-headline, 96px);
+    line-height: 1;
+    white-space: nowrap;
+    transform-origin: center;
+    opacity: 0;
+    /* Both the word and its copies get the dark outline — R2: there is no gold fill under the word
+       any more (Revision 1 had none either, but ring/'s word sat on a gold panel; this one sits
+       directly on the board), so it needs the same contrast trick ring/'s copies use. */
+    -webkit-text-stroke: calc(var(--sopq-headline, 96px) * 0.055) #000;
+    paint-order: stroke fill;
+}
+
+.sopq-word {
+    letter-spacing: 0.02em;
+}
+
+/* ---- the four quarter-lanes ----------------------------------------------------------------
+ * The <svg> spans the whole canvas so the ring can be described in the same canvas coordinates as
+ * everything else; it never intercepts input and never paints outside the lane.
+ */
+
+.sopq-svg {
+    position: absolute;
+    inset: 0;
+    overflow: visible;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* One quarter's mask stroke. `stroke-dasharray: 1` pairs with `pathLength={1}` on the <path> so
+   the dash length is normalised regardless of the quarter's real length; the `quarter <side> draws`
+   / `quarter <side> retracts` tracks animate `stroke-dashoffset` directly on this element. */
+.sopq-quarter {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+}
+/* Fully drawn without a WAAPI animation holding it: the page loaded (or the target box appeared)
+   while the event was already latched on, so the orbit began without an entrance. In `orbit`
+   after a real play the entrance's own track also says 0, so the two agree; in `exit` the class is
+   off and the exit timeline's track owns the offset from its first frame. */
+.sopq-quarter--on {
+    stroke-dashoffset: 0;
+}
+
+/* R1: the two filled ring shapes, painted white-then-blue inside the mask'd <g> — see
+   geometry.ts's `laneShapes` for how the blue shape is inset so an edge-width strip of the white
+   shows along both sides of the lane. */
+.sopq-lane-white {
+    fill: var(--sopq-white);
+}
+.sopq-lane-blue {
+    fill: var(--sopq-blue);
+}
+
+.sopq-text {
+    opacity: 0;
+}
+.sopq-text--on {
+    opacity: 1;
+}
+
+.sopq-lane-text {
+    font-family: 'Grechka SHA', 'Arial Narrow', sans-serif;
+    font-weight: 400; /* never synthesise bold — see ring/'s note on this typeface */
+    fill: var(--sopq-white);
+}
+
+/* R3: the star between phrases. Deliberately NOT Grechka SHA — that face is not expected to carry
+   U+2605, and a fallback there would be silent and font-dependent. */
+.sopq-lane-star {
+    font-family: 'Arial', 'Helvetica', sans-serif;
+    fill: var(--sopq-white);
+}

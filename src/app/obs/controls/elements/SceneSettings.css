@@ -1,0 +1,19 @@
+/* Compact numeric fields for SceneSettings.tsx. Every class here is prefixed `scene-settings-` so
+   it can't collide with anything in controls.css or another element panel's own stylesheet. */
+
+/* Narrow numeric input (replaces the old full-width `form-range` sliders) — ~5rem, enough for
+   3-4 digits plus spinner without eating the row. */
+.scene-settings-num {
+    width: 4.5rem;
+}
+
+/* One effect = one flex-wrap row: checkbox, label, then its inline label+input groups. Wrapping
+   (rather than the old stacked column-of-sliders) is what buys back the vertical space. */
+.scene-settings-row {
+    row-gap: 0.5rem;
+}
+
+/* A single label+input (or label+input–input) pair inside a row. */
+.scene-settings-group {
+    white-space: nowrap;
+}

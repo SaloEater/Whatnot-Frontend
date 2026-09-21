@@ -1,0 +1,97 @@
+/* sport-style-board-plan.md §4.5 — box-relative `board:sport_style` element. All classes prefixed
+   `sps-` (distinct from every other element's own prefix); no `body`/`html` rules (the layout page
+   owns the page background); no `vh`/`vw`/`vmin` anywhere; no `color-mix()` (OBS ships an older CEF
+   than that needs). Every geometric value (strip/tick rects, cell footprint) comes from
+   fieldGeometry.ts as absolute, integer px — nothing here is measured from the DOM.
+
+   Sizing model (plan §4.2): the field block is exactly `box.w` wide and `fieldH` tall (rows*cellPx
+   + 2*edgeGap, both derived from the box width and the operator's `cols` setting) and is centred,
+   both axes, inside `.sps-root` (== the element's box). If `fieldH` exceeds `box.h` the field
+   overflows `.sps-root` on purpose — `.sps-root` does NOT clip (no `overflow: hidden`) so the
+   layout page's own ElementFrame is what crops it to the box, exactly as the settings panel's
+   height readout describes. */
+
+.sps-root {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    font-family: var(--font-exo2), sans-serif;
+}
+
+.sps-waiting {
+    color: #fff;
+    text-align: center;
+}
+
+/* The field block itself — canvas, strips, cells and ticks are all absolutely positioned inside
+   this, at the exact px `fieldGeometry.ts` computed. */
+.sps-field {
+    position: relative;
+    flex: 0 0 auto;
+}
+
+/* The painted field, inset by the element's `margin` on every side (inline left/top/width/height). */
+.sps-inner {
+    position: absolute;
+}
+
+/* Clip group A — turf canvas only, clipped to the oval field via an inline `clip-path`
+   (`round rx / ry`, computed from `geometry.field`). The cells (`.sps-cell`) sit between this and
+   clip group B below (task spec part 1) so they stay unclipped while the lines above them are
+   clipped. */
+.sps-clip-turf {
+    position: absolute;
+    inset: 0;
+}
+
+/* Clip group B — column/row strips + hash ticks + seam ticks, above the (unclipped) cells, clipped
+   to the same oval field as clip group A above. */
+.sps-clip-lines {
+    position: absolute;
+    inset: 0;
+}
+
+.sps-turf-canvas {
+    position: absolute;
+    left: 0;
+    top: 0;
+}
+
+/* `edgeMode: 'tiered'` — a black fill covering `geometry.field`, replacing the turf canvas's grass
+   paint inside the same oval clip (`.sps-clip-turf`). It carries the same weak white bloom centred
+   on the top edge that cobra_flat's cells have (CobraFlatBoard.css `.cbf-cell` background,
+   unchanged values), here spread across the whole field. Fixed values, so not inline like the
+   geometric rects around it. */
+.sps-field-black {
+    position: absolute;
+    background:
+        radial-gradient(circle at 50% 50%, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0) 95%),
+        #000000;
+}
+
+.sps-strip {
+    position: absolute;
+}
+
+.sps-tick {
+    position: absolute;
+}
+
+/* R2.2 border — a ring drawn at exactly `field`, above both clip groups and above the cells (task
+   spec part 1's layer 4); color/width/radius are all inline (dynamic), this only fixes
+   position/box model. */
+.sps-border {
+    position: absolute;
+    box-sizing: border-box;
+    pointer-events: none;
+}
+
+/* Absolute wrapper around one PatchCell (plan §4.5 "Cells — PatchCell per event ... (position:
+   absolute wrapper)") — PatchCell sizes itself from its own `style.size`, this wrapper only places
+   it at the grid position fieldGeometry.ts computed. */
+.sps-cell {
+    position: absolute;
+}

@@ -1,0 +1,12 @@
+/* `rain` effect (obs-scene-element-plan.md §1.2/§5). Classes prefixed `scene-` only. `inset: 0`
+ * sizes the canvas's RENDERED (CSS) box to exactly fill its `.scene-layer` parent — which is
+ * already sized to the element's own box in px (SceneElement.css) — while the DRAWING BUFFER
+ * (the `width`/`height` ATTRIBUTES, set imperatively in RainEffect.tsx) is kept numerically equal
+ * to that same box size, so nothing is ever actually stretched/scaled, only positioned. */
+
+.scene-rain {
+    position: absolute;
+    inset: 0;
+    display: block;
+    pointer-events: none;
+}

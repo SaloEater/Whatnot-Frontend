@@ -30,10 +30,20 @@ import type { ElementProps } from '../../registry'
 import { useLayoutData } from '../../useLayoutData'
 import { useCueBus } from '../../cueBus'
 import { centerByPrice, packList, PackedRow } from './packing'
+import { normalizeTeam, usePendingSoldCards } from './usePendingSoldCards'
+import { usePendingBroadcast } from './usePendingBroadcast'
 import './CardsElement.css'
 
 const FALLBACK_ASPECT = 3 / 4
 const GALLERY_INTERVAL_MS = 5000
+
+// Pending-sold-cards (pending-sold-cards-plan.md §2.2): a card whose team just sold, still shown
+// (marked) until the operator acknowledges it by hovering it in the controls grid — which zooms it
+// here, the same zoom-out that ends the highlight — or this timeout elapses.
+const PENDING_TIMEOUT_MS = 30_000
+// How often `usePendingBroadcast` re-sends the pending set to the controls page while it's
+// non-empty, so a dock opened late catches up and a dead layout's tint expires there.
+const PENDING_HEARTBEAT_MS = 3_000
 
 // Fractions of the box reproducing the old fixed-viewport page's hardcoded px values (board-card-area:
 // 85% width, 60% height of the viewport; gallery base card width ~27.8% of viewport width; gallery
@@ -56,12 +66,28 @@ function shortestRotation(deg: number): number {
     return (((deg % 360) + 540) % 360) - 180
 }
 
-function normalizeTeam(team: string): string {
-    return team.trim().toLowerCase()
-}
-
 export function CardsElement({ box }: ElementProps) {
-    const { photos, cardsBoardSettings, events: breakEvents, stream } = useLayoutData()
+    const { photos, cardsBoardSettings, events: breakEvents, stream, channel } = useLayoutData()
+
+    // Pending-sold-cards (pending-sold-cards-plan.md): a team just becoming taken doesn't drop its
+    // card off the board immediately — it goes pending (still shown, via the filter below) until
+    // the operator acknowledges it (see the 220ms elevation timers below) or PENDING_TIMEOUT_MS
+    // elapses. Declared early (ahead of the hover-zoom handlers, which call `acknowledge`) so
+    // those handlers don't reference it before its declaration. `usePendingBroadcast` tells the
+    // controls page which ids are pending so it can tint them — unconditional, not gated on
+    // devMode (it's the return path documented in obs-browser-event-bus.md §8).
+    const { pendingIds, acknowledge } = usePendingSoldCards({
+        enabled: (cardsBoardSettings?.show_only_available_teams ?? false) && !!stream?.active_break_id,
+        activeBreakId: stream?.active_break_id ?? null,
+        events: breakEvents,
+        photos,
+        timeoutMs: PENDING_TIMEOUT_MS,
+    })
+    usePendingBroadcast({
+        channelId: channel?.id ?? 0,
+        pendingIds,
+        heartbeatMs: PENDING_HEARTBEAT_MS,
+    })
 
     const [displayPhotos, setDisplayPhotos] = useState<Photo[]>([])
     const prevIdsRef = useRef<string>('')
@@ -81,6 +107,12 @@ export function CardsElement({ box }: ElementProps) {
     const rootRef = useRef<HTMLDivElement>(null)
     const [hoveredId, setHoveredId] = useState<number | null>(null)
     const [elevatedId, setElevatedId] = useState<number | null>(null)
+    // Mirrors `elevatedId` synchronously (a ref update isn't batched behind a re-render like the
+    // state is), so the 220ms elevation timers below can read "which id was elevated" at the
+    // moment they're scheduled without adding `elevatedId` to their effect's dependency array —
+    // that array is otherwise about geometry inputs (box/photos/dims), and adding state this same
+    // effect also sets would re-run it an extra time on its own update.
+    const elevatedIdRef = useRef<number | null>(null)
     const hoverData = useRef({ scale: 1, dx: 0, dy: 0 })
     const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const elevationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -142,9 +174,14 @@ export function CardsElement({ box }: ElementProps) {
                 hoverSourceRef.current = null
                 setHoveredId(null)
                 if (elevationTimerRef.current) clearTimeout(elevationTimerRef.current)
+                // Capture which id was elevated before the state clears — acknowledge() is a no-op
+                // for a non-pending id (pending-sold-cards-plan.md §2.2 "Acknowledge on zoom-out").
+                const zoomedId = elevatedIdRef.current
                 elevationTimerRef.current = setTimeout(() => {
                     setElevatedId(null)
+                    elevatedIdRef.current = null
                     elevationTimerRef.current = null
+                    if (zoomedId !== null) acknowledge(zoomedId)
                 }, 220)
             }
             return
@@ -163,9 +200,10 @@ export function CardsElement({ box }: ElementProps) {
             elevationTimerRef.current = null
         }
         setElevatedId(remoteId)
+        elevatedIdRef.current = remoteId
         setHoveredId(remoteId)
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- zoomFor closes over refs and box
-    }, [remoteId, displayPhotos, cardDims, box.w, box.h])
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- zoomFor closes over refs and box (acknowledge is stable, from usePendingSoldCards)
+    }, [remoteId, displayPhotos, cardDims, box.w, box.h, acknowledge])
 
     /**
      * Zoom transform for one card, in CANVAS units. Shared by the local mouse hover and the remote
@@ -205,6 +243,7 @@ export function CardsElement({ box }: ElementProps) {
             hoverData.current = fresh
             hoverSourceRef.current = 'local'
             setElevatedId(photo.id)
+            elevatedIdRef.current = photo.id
             setHoveredId(photo.id)
         }, 500)
     }
@@ -220,11 +259,16 @@ export function CardsElement({ box }: ElementProps) {
         hoverSourceRef.current = null
         setHoveredId(null)
         if (elevationTimerRef.current) clearTimeout(elevationTimerRef.current)
+        // Capture which id was elevated before the state clears — acknowledge() is a no-op for a
+        // non-pending id (pending-sold-cards-plan.md §2.2 "Acknowledge on zoom-out").
+        const zoomedId = elevatedIdRef.current
         // Held briefly after the zoom releases so the full-res image is not swapped back to the
         // thumbnail mid-transition.
         elevationTimerRef.current = setTimeout(() => {
             setElevatedId(null)
+            elevatedIdRef.current = null
             elevationTimerRef.current = null
+            if (zoomedId !== null) acknowledge(zoomedId)
         }, 220)
     }
     const [galleryIndex, setGalleryIndex] = useState(0)
@@ -246,7 +290,7 @@ export function CardsElement({ box }: ElementProps) {
     useEffect(() => {
         const unsold = photos.filter((p) =>
             !p.is_sold && !p.is_deleted &&
-            (availableTeams === null || !p.team?.trim() || availableTeams.has(normalizeTeam(p.team)))
+            (availableTeams === null || !p.team?.trim() || availableTeams.has(normalizeTeam(p.team)) || pendingIds.has(p.id))
         )
         const ids = unsold
             .slice()
@@ -257,7 +301,7 @@ export function CardsElement({ box }: ElementProps) {
             prevIdsRef.current = ids
             setDisplayPhotos([...unsold].sort((a, b) => b.price - a.price))
         }
-    }, [photos, availableTeams])
+    }, [photos, availableTeams, pendingIds])
 
     useEffect(() => {
         if (orientation !== 'gallery' || displayPhotos.length <= 1) return
@@ -384,10 +428,11 @@ export function CardsElement({ box }: ElementProps) {
                             const swap = rotateInBox && rotation % 180 !== 0
                             const hovered = hoveredId === photo.id
                             const isElevated = hovered || elevatedId === photo.id
+                            const isPending = pendingIds.has(photo.id)
                             return (
                                 <div
                                     key={photo.id}
-                                    className="crd-card"
+                                    className={`crd-card${isPending ? ' crd-card--pending' : ''}`}
                                     style={{
                                         width: `${row.widths[ci]}px`,
                                         height: `${row.cardHeights[ci]}px`,

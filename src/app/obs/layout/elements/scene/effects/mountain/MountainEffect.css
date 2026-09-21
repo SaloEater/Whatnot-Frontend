@@ -1,0 +1,43 @@
+/* `mountain` effect (obs-scene-element-plan.md §1.2/§4/§5). Classes prefixed `scene-` only. Width is
+ * set inline (box.w, from artLayerStyle) so `left: 0` alone places it flush with the box's own left
+ * edge — never a percentage of the viewport. `position: relative` is what lets the lit variant
+ * stack on top of the base image via `position: absolute; inset: 0` (§5) at the exact same size. */
+
+.scene-mountain {
+    position: relative;
+    left: 0;
+    transition: top 300ms ease;
+}
+
+.scene-mountain-img {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* Iteration 2 (§5): the lit variant sits directly over the base image, invisible at rest. Only
+ * `opacity` is animated (§1.4) — the peak value comes from `--scene-mountain-lit-strength`, set
+ * inline per flash (MountainEffect.tsx), the same technique CloudsEffect.css uses for its scroll
+ * distance. `--flash` is only ever added to a FRESH element (a bumped `key`), so the keyframe
+ * always plays once from a clean start. */
+.scene-mountain-lit-img {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+}
+
+.scene-mountain-lit-img--flash {
+    animation: scene-mountain-lit-flash 600ms ease-out;
+}
+
+@keyframes scene-mountain-lit-flash {
+    0% {
+        opacity: 0;
+    }
+    50% {
+        opacity: var(--scene-mountain-lit-strength, 1);
+    }
+    100% {
+        opacity: 0;
+    }
+}

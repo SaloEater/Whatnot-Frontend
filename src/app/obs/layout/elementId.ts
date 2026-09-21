@@ -35,6 +35,12 @@ export function registryIdOf(element: Element): RegistryId {
             return 'image-box'
         case 'priceRanges':
             return 'priceRanges'
+        case 'priceSign':
+            return 'priceSign'
+        case 'scene':
+            return 'scene'
+        case 'ticker':
+            return 'ticker'
         default: {
             const _exhaustive: never = element
             throw new Error(`registryIdOf: unhandled element ${JSON.stringify(_exhaustive)}`)

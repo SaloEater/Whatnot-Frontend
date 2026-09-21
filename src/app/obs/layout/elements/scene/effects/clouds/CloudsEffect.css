@@ -1,0 +1,37 @@
+/* `clouds` effect (obs-scene-element-plan.md §1.2/§4). Classes prefixed `scene-` only. The keyframe
+ * reads `--scene-w` (set on .scene-root, SceneElement.css — inherited through the DOM tree, since
+ * custom properties inherit by default) and `--scene-clouds-mult` (set per instance,
+ * CloudsEffect.tsx) rather than a literal pixel distance, so the distance/duration in
+ * CloudsEffect.tsx can change on every render without ever touching this file or restarting the
+ * animation mid-loop. Only `transform` is animated — everything stays on the compositor (§1.4). */
+
+.scene-clouds {
+    position: absolute;
+    left: 0;
+    width: 100%;
+}
+
+.scene-clouds-track {
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: flex;
+    animation-name: scene-clouds-scroll;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+    will-change: transform;
+}
+
+.scene-clouds-img {
+    display: block;
+    flex: none;
+}
+
+@keyframes scene-clouds-scroll {
+    from {
+        transform: translateX(0);
+    }
+    to {
+        transform: translateX(calc(var(--scene-clouds-mult, -2) * var(--scene-w, 0px)));
+    }
+}

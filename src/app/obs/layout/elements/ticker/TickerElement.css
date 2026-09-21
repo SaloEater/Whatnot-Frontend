@@ -1,0 +1,45 @@
+/* `ticker` (obs-ticker-plan.md §5.4). Classes prefixed `tkr-` only — no html/body rules, no
+ * .container/.row/.col, no vh/vw/vmin (the root always fills its box, sized by ElementFrame, so a
+ * plain 100%/100% is exactly right — same convention as the other boxed elements' CSS). The SVG
+ * itself works entirely in the texture's own 2170x725 coordinate system (TickerElement.tsx), so
+ * nothing here needs box-relative sizing either.
+ */
+
+.tkr-root {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tkr-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.tkr-text {
+    font-family: var(--font-exo2), sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    /* SVG text collapses runs of spaces like HTML does, which would squash the default
+       '   •   ' separator to ' • '. `pre` keeps every space the operator typed, in the hidden
+       measuring <text> and the real <textPath> alike, so measured and rendered widths agree. */
+    white-space: pre;
+}
+
+/* The hidden measuring `<text>` (TickerElement.tsx) shares `.tkr-text`'s font metrics (family,
+   weight, letter-spacing) so `getComputedTextLength()` matches the real render exactly, but must
+   never actually paint. */
+.tkr-text-measure {
+    opacity: 0;
+}
+
+/* Glow for VALUES only (the under-layer in TickerElement.tsx; labels and separators get none).
+   Originally the whole line glowed with drop-shadow(0 0 6px #4fb8ff); per operator feedback
+   (2026-09-21) labels lost it and values kept it at 70% strength: same radius, colour at 0.7 alpha.
+   Tune the alpha to change strength, the radius to change spread. */
+.tkr-glow {
+    filter: drop-shadow(0 0 6px rgba(79, 184, 255, 0.7));
+}

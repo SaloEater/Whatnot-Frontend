@@ -29,6 +29,7 @@ import {usePhotoBoard} from '@/app/channel/[id]/photos/usePhotoBoard'
 import {splitName, nameFontSize} from '@/app/common/cardName'
 import {TeamIconSrc} from '@/app/common/teams'
 import {useSettingWrite} from './useSettingWrite'
+import {usePendingFromLayout} from './usePendingFromLayout'
 
 const CARD_SIZE_KEY = 'photos-controls-card-size'
 const SORT_KEY = 'photos-controls-sort'
@@ -101,6 +102,11 @@ export default function CardsSettings({channelId, elementKey, onFireCue, onEmitC
     // ---- card grid (ported from channel/[id]/photos/controls/page.tsx) --------------------------
 
     const {photos, markSold} = usePhotoBoard(channelId, true)
+
+    // Pending-sold-cards (pending-sold-cards-plan.md §3): the layout is the single source of
+    // truth for which cards are pending removal — this is read-only, no events poll or tracker of
+    // its own here.
+    const pending = usePendingFromLayout(channelId)
 
     const [cardSize, setCardSize] = useState(() => {
         if (typeof localStorage === 'undefined') return 70
@@ -222,7 +228,13 @@ export default function CardsSettings({channelId, elementKey, onFireCue, onEmitC
     const byTeamThenPrice = (a: Photo, b: Photo) =>
         (a.team || '').localeCompare(b.team || '') || byPriceDesc(a, b)
     const sorter = sortMode === 'team' ? byTeamThenPrice : byPriceDesc
-    const unsold = photos.filter((p) => !p.is_sold && !p.is_deleted).sort(sorter)
+    // Pending cards sort to the front so they're easy to find (pending-sold-cards-plan.md §3).
+    const pendingFirst = (a: Photo, b: Photo) => {
+        const ap = pending.has(a.id) ? 0 : 1
+        const bp = pending.has(b.id) ? 0 : 1
+        return ap - bp || sorter(a, b)
+    }
+    const unsold = photos.filter((p) => !p.is_sold && !p.is_deleted).sort(pendingFirst)
     const sold   = photos.filter((p) =>  p.is_sold && !p.is_deleted).sort(sorter)
 
     // Fits the name inside the card width, capped at 3x the base size.
@@ -232,6 +244,7 @@ export default function CardsSettings({channelId, elementKey, onFireCue, onEmitC
 
     function renderCard(photo: Photo) {
         const nameLines = splitName(photo.name || '—')
+        const isPending = pending.has(photo.id)
         return (
             <div key={photo.id}
                  onMouseEnter={() => handleCardEnter(photo)}
@@ -250,6 +263,7 @@ export default function CardsSettings({channelId, elementKey, onFireCue, onEmitC
                     textAlign: 'center',
                     whiteSpace: 'nowrap',
                     marginBottom: '2px',
+                    ...(isPending ? {background: 'rgba(255, 196, 0, 0.55)', borderRadius: '3px'} : {}),
                 }}>
                     {nameLines.map((line, i) => <div key={i}>{line}</div>)}
                 </div>

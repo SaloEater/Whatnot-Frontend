@@ -3,7 +3,7 @@
 // so everything that touches a config/state coming off the network must go through `migrateConfig`
 // / `migrateState` and then `validateConfig` / `validateState` before it is trusted.
 
-import type { Box, Cue, DurableCue, Element, ElementKind, LayoutConfig, OverlayState, Phase, PlacementKey, Sides, Stage, TransientCue } from './schema'
+import type { Box, Cue, DurableCue, Element, ElementKind, LayoutConfig, OverlayState, Phase, PlacementKey, SceneEffectId, Sides, Stage, TransientCue } from './schema'
 import {
     ANIMATION_IDS,
     BOARD_VARIANTS,
@@ -11,11 +11,16 @@ import {
     CANVAS,
     DEFAULT_FRAME_BORDERS,
     DEFAULT_FRAME_WIDTH,
+    DEFAULT_SCENE_EFFECTS,
     DEFAULT_STAGES,
     FRAME_VARIANTS,
     IMAGE_FITS,
     MAX_TEXT_LENGTH,
     RESULTS_SORTS,
+    SCENE_EFFECT_IDS,
+    SCENE_QUALITIES,
+    SKY_MOODS,
+    TICKER_DIRECTIONS,
     WIDGET_IDS, MIRRORABLE_KINDS} from './schema'
 import type { RegistryId } from './registry'
 import { REGISTRY, registryIdOf } from './registry'
@@ -129,6 +134,111 @@ function isSides(v: unknown): v is Sides {
 // this is pure, tolerant of already-migrated (or malformed) input, and idempotent — safe to call
 // unconditionally before validation, every time a config/state is read from the backend or the bus.
 
+// `scene.y` default per effect id (schema.ts's DEFAULT_SCENE_EFFECTS) — `clouds` has two different
+// defaults depending on `layer`, everything else has one. Used by `sanitizeSceneEffects` below to
+// fill a missing `y` rather than fail validation (obs-scene-element-plan.md §2.2).
+function sceneEffectDefaultY(id: string, layer: unknown): number {
+    if (id === 'clouds') {
+        const match = DEFAULT_SCENE_EFFECTS.find((d) => d.id === 'clouds' && d.layer === layer)
+        if (match && 'y' in match) return match.y
+    }
+    const fallback = DEFAULT_SCENE_EFFECTS.find((d) => d.id === id)
+    return fallback && 'y' in fallback ? fallback.y : 0
+}
+
+// `scene.effects` sanitization (obs-scene-element-plan.md §2.2) — same "strip what's no longer
+// recognized rather than reject the whole config" policy as the `reactions`/`sold`&`pick2` handling
+// below: an unknown effect id (from a newer build, or one since retired) is dropped, not rejected,
+// and an art-layer effect missing its own `y` gets that effect's own default rather than failing
+// validateConfig's per-kind check. If nothing usable is left after filtering, the whole array falls
+// back to DEFAULT_SCENE_EFFECTS — a `scene` element with an empty `effects` array would otherwise
+// render nothing rather than falling back to a sane default, which is exactly the "fallback to
+// empty CONFIG" failure mode this whole strip-don't-reject policy exists to avoid at the element
+// level. Lives in `migrateConfig` (not in `KIND_VALIDATORS.scene`, config.ts's per-kind validator
+// below) for the same reason the `reactions` strip above does: this MUTATES the stored shape into
+// something valid, which a `KindValidator` — which only ever validates the raw element it's handed,
+// never rewrites it, see `validateConfig`'s `elements[key] = rawEl as Element` — has no mechanism
+// to do; `validateSceneKind` below trusts that by the time it runs, migration has already made
+// `effects` conform.
+
+// Effect ids that were appended after iteration 1 (obs-scene-element-plan.md §5's `rain`/
+// `lightning`) — a stored `effects` array that predates them just gets the disabled default
+// APPENDED (not the whole array substituted), so an operator's tuned sky/mountain/clouds settings
+// survive the upgrade. Kept as its own list (rather than "every id not in some iteration-1 set")
+// so a future iteration's append-on-load ids are as explicit as this one.
+const SCENE_EFFECT_IDS_APPENDED_IN_ITERATION_2: readonly SceneEffectId[] = ['rain', 'lightning']
+
+// Same append-if-missing upgrade, one iteration later (obs-scene-element-plan.md §6's `birds`) — a
+// stored `effects` array that predates iteration 3 gets the enabled default appended.
+const SCENE_EFFECT_IDS_APPENDED_IN_ITERATION_3: readonly SceneEffectId[] = ['birds']
+
+function sanitizeSceneEffects(rawEffects: unknown): { effects: unknown[]; changed: boolean } {
+    if (!Array.isArray(rawEffects)) {
+        return { effects: DEFAULT_SCENE_EFFECTS.map((e) => ({ ...e })), changed: true }
+    }
+
+    let changed = false
+    const kept: unknown[] = []
+    for (const raw of rawEffects) {
+        if (!isPlainObject(raw) || typeof raw.id !== 'string' || !(SCENE_EFFECT_IDS as readonly string[]).includes(raw.id)) {
+            changed = true
+            continue
+        }
+        if ((raw.id === 'mountain' || raw.id === 'clouds') && raw.y === undefined) {
+            kept.push({ ...raw, y: sceneEffectDefaultY(raw.id, raw.layer) })
+            changed = true
+            continue
+        }
+        // A `lightning` entry's `ambientIntervalSec` must be `null` or an integer in [1, 600]
+        // (validateSceneEffect below). Unlike the missing-`y` case above, this can arrive not just
+        // missing but genuinely malformed (NaN, a string, 0, out of range) — e.g. a value that was
+        // `undefined` in memory and silently dropped by a JSON round-trip on the way to/from the
+        // backend, or an out-of-range leftover from before the settings panel clamped its slider.
+        // Same drop-don't-reject policy as the rest of this function: coerce to `null` ("cue only")
+        // rather than letting one bad stored field reject the WHOLE config (this is the fix for the
+        // "invalid config in payload ... ambientIntervalSec must be null or a number in [1, 600]"
+        // failure mode — see obs-scene-element-plan.md §5 and SceneSettings.tsx's lightning row).
+        if (raw.id === 'lightning' && raw.ambientIntervalSec !== null) {
+            const v = raw.ambientIntervalSec
+            if (!isFiniteNumber(v) || v < 1 || v > 600) {
+                kept.push({ ...raw, ambientIntervalSec: null })
+                changed = true
+                continue
+            }
+        }
+        // Legacy birds shape (single `count`, iteration 3 as first shipped) → `countMin`/`countMax`
+        // both equal to it, so an existing config keeps its exact flock size until edited.
+        if (raw.id === 'birds' && raw.countMin === undefined && raw.countMax === undefined) {
+            const { count, ...rest } = raw
+            const n = isFiniteNumber(count) && Number.isInteger(count) && count >= 1 && count <= 12 ? count : 3
+            kept.push({ ...rest, countMin: n, countMax: n })
+            changed = true
+            continue
+        }
+        kept.push(raw)
+    }
+
+    if (kept.length === 0) {
+        return { effects: DEFAULT_SCENE_EFFECTS.map((e) => ({ ...e })), changed: true }
+    }
+
+    // Append-if-missing upgrade (obs-scene-element-plan.md §5/§6): run only once something usable
+    // is already left in `kept` — an entirely-unknown/empty array already fell back to the FULL
+    // defaults above, which already include rain/lightning/birds.
+    for (const id of [...SCENE_EFFECT_IDS_APPENDED_IN_ITERATION_2, ...SCENE_EFFECT_IDS_APPENDED_IN_ITERATION_3]) {
+        const present = kept.some((e) => isPlainObject(e) && e.id === id)
+        if (!present) {
+            const fallback = DEFAULT_SCENE_EFFECTS.find((d) => d.id === id)
+            if (fallback) {
+                kept.push({ ...fallback })
+                changed = true
+            }
+        }
+    }
+
+    return { effects: kept, changed }
+}
+
 export function migrateConfig(raw: unknown): unknown {
     if (!isPlainObject(raw)) return raw
 
@@ -184,6 +294,16 @@ export function migrateConfig(raw: unknown): unknown {
             )
             if (Object.keys(kept).length !== Object.keys(reactionsRaw).length) {
                 el = { ...el, reactions: kept }
+                changed = true
+            }
+        }
+
+        // `scene.effects` (obs-scene-element-plan.md §2.2) — see sanitizeSceneEffects' own comment
+        // for why this lives here rather than in KIND_VALIDATORS.scene below.
+        if (el.kind === 'scene') {
+            const sanitized = sanitizeSceneEffects(el.effects)
+            if (sanitized.changed) {
+                el = { ...el, effects: sanitized.effects }
                 changed = true
             }
         }
@@ -617,6 +737,12 @@ function validateAnimationKind({
             errors.push(`element "${key}": target "${rawEl.target}" is not an existing element`)
         }
     }
+    // board-anchors-plan.md §3.4: present means "a non-empty string" only — deliberately NOT
+    // checked against the target's registry `anchors` (see schema.ts's comment on this field for
+    // why: a board variant swap must not invalidate the whole config).
+    if (rawEl.targetAnchor !== undefined && (typeof rawEl.targetAnchor !== 'string' || rawEl.targetAnchor.length === 0)) {
+        errors.push(`element "${key}": targetAnchor must be a non-empty string`)
+    }
     if (rawEl.pad !== undefined && !isFiniteNumber(rawEl.pad)) {
         errors.push(`element "${key}": pad must be a finite number`)
     }
@@ -634,6 +760,19 @@ function validateAnimationKind({
     }
     if (rawEl.holdMs !== undefined && !isFiniteNumber(rawEl.holdMs)) {
         errors.push(`element "${key}": holdMs must be a finite number`)
+    }
+    // `animation:stashOrPassSportStyle` only (Revision 2, R1) — see schema.ts's comment on these
+    // two fields. Validated for every animation id regardless, same as the other optional fields
+    // above: a stray value on the wrong animation id is harmless (the element ignores it) and not
+    // worth a kind-specific branch here.
+    if (rawEl.cornerWidth !== undefined && (!isFiniteNumber(rawEl.cornerWidth) || rawEl.cornerWidth < 0)) {
+        errors.push(`element "${key}": cornerWidth must be a finite number >= 0`)
+    }
+    if (
+        rawEl.cornerRoundness !== undefined &&
+        (!isFiniteNumber(rawEl.cornerRoundness) || rawEl.cornerRoundness < 0 || rawEl.cornerRoundness > 1)
+    ) {
+        errors.push(`element "${key}": cornerRoundness must be a finite number between 0 and 1`)
     }
     return { errors, regId }
 }
@@ -662,6 +801,240 @@ function validatePriceRangesKind({ key, rawEl, stages }: KindValidatorCtx): { er
     }
 }
 
+// `priceSign` field validation (obs-price-sign-plan.md §3). `labelFontSize`/`badgeFontSize` reuse
+// `validatePriceRangesFields`'s rule verbatim (copied, not imported — ADDING_AN_ELEMENT.md's copy
+// convention); the three new numbers each get their own range check.
+function validatePriceSignFields(key: string, rawEl: Record<string, unknown>): string[] {
+    const errors = validatePriceRangesFields(key, rawEl)
+    if (
+        rawEl.boardWidthPct !== undefined &&
+        (!isFiniteNumber(rawEl.boardWidthPct) || rawEl.boardWidthPct <= 0)
+    ) {
+        errors.push(`element "${key}": boardWidthPct must be a finite number > 0`)
+    }
+    if (
+        rawEl.chainLength !== undefined &&
+        (!isFiniteNumber(rawEl.chainLength) || rawEl.chainLength < 0 || rawEl.chainLength > 1000)
+    ) {
+        errors.push(`element "${key}": chainLength must be a finite number in [0, 1000]`)
+    }
+    if (
+        rawEl.windStrength !== undefined &&
+        (!isFiniteNumber(rawEl.windStrength) || rawEl.windStrength < 0 || rawEl.windStrength > 2)
+    ) {
+        errors.push(`element "${key}": windStrength must be a finite number in [0, 2]`)
+    }
+    return errors
+}
+
+function validatePriceSignKind({ key, rawEl, stages }: KindValidatorCtx): { errors: string[]; regId?: RegistryId } {
+    const regId: RegistryId = 'priceSign'
+    return {
+        errors: [...validatePlacements(key, rawEl.placements, regId, stages), ...validatePriceSignFields(key, rawEl)],
+        regId,
+    }
+}
+
+// `scene.effects[i]` field validation (obs-scene-element-plan.md §2.2/§5/§6): ranges match the
+// plan's table (speed 0..200, opacity/intensity 0..1, y 0..100, ambientIntervalSec null or 1..600,
+// birds count 1..12/intervalSec 5..600/yMin,yMax 0..100 with yMin <= yMax). By the time this runs,
+// `migrateConfig`'s
+// `sanitizeSceneEffects` has already dropped unknown ids and filled a missing `y` with its
+// effect's default (see that function's comment) — the `default` branch below is reached only if
+// `validateConfig` is ever called on data that skipped migration, and errors rather than silently
+// dropping, since dropping-without-rejecting is deliberately migrateConfig's job alone (doing it
+// twice, in two different failure modes, is how the two would drift).
+function validateSceneEffect(key: string, index: number, raw: unknown): string[] {
+    if (!isPlainObject(raw)) {
+        return [`element "${key}": effects[${index}] must be an object`]
+    }
+    const errors: string[] = []
+    if (typeof raw.enabled !== 'boolean') {
+        errors.push(`element "${key}": effects[${index}].enabled must be a boolean`)
+    }
+    switch (raw.id) {
+        case 'sky':
+            if (typeof raw.mood !== 'string' || !(SKY_MOODS as readonly string[]).includes(raw.mood)) {
+                errors.push(`element "${key}": effects[${index}] (sky) mood must be one of ${SKY_MOODS.join(', ')}`)
+            }
+            break
+        case 'mountain':
+            if (!isFiniteNumber(raw.y) || raw.y < 0 || raw.y > 100) {
+                errors.push(`element "${key}": effects[${index}] (mountain) y must be a number in [0, 100]`)
+            }
+            break
+        case 'clouds':
+            if (raw.layer !== 'far' && raw.layer !== 'near') {
+                errors.push(`element "${key}": effects[${index}] (clouds) layer must be "far" or "near"`)
+            }
+            if (!isFiniteNumber(raw.speed) || raw.speed < 0 || raw.speed > 200) {
+                errors.push(`element "${key}": effects[${index}] (clouds) speed must be a number in [0, 200]`)
+            }
+            if (!isFiniteNumber(raw.opacity) || raw.opacity < 0 || raw.opacity > 1) {
+                errors.push(`element "${key}": effects[${index}] (clouds) opacity must be a number in [0, 1]`)
+            }
+            if (!isFiniteNumber(raw.y) || raw.y < 0 || raw.y > 100) {
+                errors.push(`element "${key}": effects[${index}] (clouds) y must be a number in [0, 100]`)
+            }
+            break
+        case 'rain':
+            if (!isFiniteNumber(raw.intensity) || raw.intensity < 0 || raw.intensity > 1) {
+                errors.push(`element "${key}": effects[${index}] (rain) intensity must be a number in [0, 1]`)
+            }
+            break
+        case 'lightning':
+            if (
+                raw.ambientIntervalSec !== null &&
+                (!isFiniteNumber(raw.ambientIntervalSec) || raw.ambientIntervalSec < 1 || raw.ambientIntervalSec > 600)
+            ) {
+                errors.push(
+                    `element "${key}": effects[${index}] (lightning) ambientIntervalSec must be null or a number in [1, 600]`
+                )
+            }
+            break
+        // obs-scene-element-plan.md §6: countMin/countMax 1..12 (integers, min <= max), intervalSec
+        // 5..600, yMin/yMax 0..100 with yMin <= yMax.
+        case 'birds':
+            for (const field of ['countMin', 'countMax'] as const) {
+                const v = raw[field]
+                if (!isFiniteNumber(v) || !Number.isInteger(v) || v < 1 || v > 12) {
+                    errors.push(`element "${key}": effects[${index}] (birds) ${field} must be an integer in [1, 12]`)
+                }
+            }
+            if (isFiniteNumber(raw.countMin) && isFiniteNumber(raw.countMax) && raw.countMin > raw.countMax) {
+                errors.push(`element "${key}": effects[${index}] (birds) countMin must be <= countMax`)
+            }
+            if (!isFiniteNumber(raw.intervalSec) || raw.intervalSec < 5 || raw.intervalSec > 600) {
+                errors.push(`element "${key}": effects[${index}] (birds) intervalSec must be a number in [5, 600]`)
+            }
+            if (!isFiniteNumber(raw.yMin) || raw.yMin < 0 || raw.yMin > 100) {
+                errors.push(`element "${key}": effects[${index}] (birds) yMin must be a number in [0, 100]`)
+            }
+            if (!isFiniteNumber(raw.yMax) || raw.yMax < 0 || raw.yMax > 100) {
+                errors.push(`element "${key}": effects[${index}] (birds) yMax must be a number in [0, 100]`)
+            }
+            if (isFiniteNumber(raw.yMin) && isFiniteNumber(raw.yMax) && raw.yMin > raw.yMax) {
+                errors.push(`element "${key}": effects[${index}] (birds) yMin must be <= yMax`)
+            }
+            break
+        default:
+            errors.push(`element "${key}": effects[${index}] has unknown id ${JSON.stringify(raw.id)}`)
+    }
+    return errors
+}
+
+function validateSceneKind({ key, rawEl, stages }: KindValidatorCtx): { errors: string[]; regId?: RegistryId } {
+    const regId: RegistryId = 'scene'
+    const errors = validatePlacements(key, rawEl.placements, regId, stages)
+
+    if (
+        rawEl.quality !== undefined &&
+        (typeof rawEl.quality !== 'string' || !(SCENE_QUALITIES as readonly string[]).includes(rawEl.quality))
+    ) {
+        errors.push(`element "${key}": quality must be one of ${SCENE_QUALITIES.join(', ')}`)
+    }
+
+    if (!Array.isArray(rawEl.effects)) {
+        errors.push(`element "${key}": effects must be an array`)
+    } else {
+        rawEl.effects.forEach((raw, i) => {
+            errors.push(...validateSceneEffect(key, i, raw))
+        })
+    }
+
+    return { errors, regId }
+}
+
+// `ticker.slots[widgetId]` validation (obs-ticker-plan.md §3): `enabled` a boolean, `label` an
+// optional string capped at 40 chars (a slot's own override of the default label), `labelColor`/
+// `valueColor` optional `#rrggbb` hex colours — the `<input type="color">` in the settings panel
+// only ever emits that exact form.
+const TICKER_HEX_COLOR_RE = /^#[0-9a-f]{6}$/i
+const MAX_TICKER_LABEL_LENGTH = 40
+
+function validateTickerSlot(key: string, widgetId: string, raw: unknown): string[] {
+    if (!isPlainObject(raw)) {
+        return [`element "${key}": slots["${widgetId}"] must be an object`]
+    }
+    const errors: string[] = []
+    if (typeof raw.enabled !== 'boolean') {
+        errors.push(`element "${key}": slots["${widgetId}"].enabled must be a boolean`)
+    }
+    if (raw.label !== undefined && (typeof raw.label !== 'string' || raw.label.length > MAX_TICKER_LABEL_LENGTH)) {
+        errors.push(`element "${key}": slots["${widgetId}"].label must be a string of at most ${MAX_TICKER_LABEL_LENGTH} characters`)
+    }
+    if (raw.labelColor !== undefined && (typeof raw.labelColor !== 'string' || !TICKER_HEX_COLOR_RE.test(raw.labelColor))) {
+        errors.push(`element "${key}": slots["${widgetId}"].labelColor must be a "#rrggbb" hex colour`)
+    }
+    if (raw.valueColor !== undefined && (typeof raw.valueColor !== 'string' || !TICKER_HEX_COLOR_RE.test(raw.valueColor))) {
+        errors.push(`element "${key}": slots["${widgetId}"].valueColor must be a "#rrggbb" hex colour`)
+    }
+    if (raw.slashColor !== undefined) {
+        // Only chasersLeft's value can contain a "/" ("3 / 25%"), so the field means nothing elsewhere.
+        if (widgetId !== 'chasersLeft') {
+            errors.push(`element "${key}": slots["${widgetId}"].slashColor is only allowed on chasersLeft`)
+        } else if (typeof raw.slashColor !== 'string' || !TICKER_HEX_COLOR_RE.test(raw.slashColor)) {
+            errors.push(`element "${key}": slots["${widgetId}"].slashColor must be a "#rrggbb" hex colour`)
+        }
+    }
+    return errors
+}
+
+// `ticker` field validation (obs-ticker-plan.md §3): `slots` must be a plain object keyed by
+// EXACTLY the six `WIDGET_IDS` — a missing key is rejected (an old/hand-edited config never
+// half-renders with some widgets silently absent) and an unrecognized key is rejected too, same
+// "no stray keys" policy as every other kind's fixed shape. `separator` is capped at
+// MAX_TEXT_LENGTH like `text.text`; `fontSize`/`speed`/`direction` each get their own range check.
+function validateTickerFields(key: string, rawEl: Record<string, unknown>): string[] {
+    const errors: string[] = []
+
+    const slotsRaw = rawEl.slots
+    if (!isPlainObject(slotsRaw)) {
+        errors.push(`element "${key}": slots must be an object`)
+    } else {
+        const presentKeys = Object.keys(slotsRaw)
+        const missing = VALID_WIDGET_IDS.filter((id) => !(id in slotsRaw))
+        const unknown = presentKeys.filter((k) => !(VALID_WIDGET_IDS as readonly string[]).includes(k))
+        if (missing.length > 0) {
+            errors.push(`element "${key}": slots is missing widget id(s) ${missing.join(', ')}`)
+        }
+        if (unknown.length > 0) {
+            errors.push(`element "${key}": slots has unknown key(s) ${unknown.join(', ')}`)
+        }
+        for (const id of VALID_WIDGET_IDS) {
+            if (id in slotsRaw) {
+                errors.push(...validateTickerSlot(key, id, slotsRaw[id]))
+            }
+        }
+    }
+
+    if (rawEl.separator !== undefined && (typeof rawEl.separator !== 'string' || rawEl.separator.length > MAX_TEXT_LENGTH)) {
+        errors.push(`element "${key}": separator must be a string of at most ${MAX_TEXT_LENGTH} characters`)
+    }
+    if (rawEl.fontSize !== undefined && (!isFiniteNumber(rawEl.fontSize) || rawEl.fontSize < 8 || rawEl.fontSize > 300)) {
+        errors.push(`element "${key}": fontSize must be a finite number in [8, 300]`)
+    }
+    if (rawEl.speed !== undefined && (!isFiniteNumber(rawEl.speed) || rawEl.speed < 0 || rawEl.speed > 600)) {
+        errors.push(`element "${key}": speed must be a finite number in [0, 600]`)
+    }
+    if (
+        rawEl.direction !== undefined &&
+        (typeof rawEl.direction !== 'string' || !(TICKER_DIRECTIONS as readonly string[]).includes(rawEl.direction))
+    ) {
+        errors.push(`element "${key}": direction must be one of ${TICKER_DIRECTIONS.join(', ')}`)
+    }
+
+    return errors
+}
+
+function validateTickerKind({ key, rawEl, stages }: KindValidatorCtx): { errors: string[]; regId?: RegistryId } {
+    const regId: RegistryId = 'ticker'
+    return {
+        errors: [...validatePlacements(key, rawEl.placements, regId, stages), ...validateTickerFields(key, rawEl)],
+        regId,
+    }
+}
+
 // The enforcement this whole section exists for: a kind added to ElementKind (schema.ts) with no
 // entry below fails `tsc` right here — see the section's header comment.
 const KIND_VALIDATORS = {
@@ -677,6 +1050,9 @@ const KIND_VALIDATORS = {
     text: validateTextKind,
     imageBox: validateImageBoxKind,
     priceRanges: validatePriceRangesKind,
+    priceSign: validatePriceSignKind,
+    scene: validateSceneKind,
+    ticker: validateTickerKind,
 } satisfies Record<ElementKind, KindValidator>
 
 // `config.stages`: non-empty, every entry `{id: non-empty string, label: non-empty string}`,
@@ -1161,11 +1537,17 @@ export function validateCue(input: unknown): { ok: true; cue: Cue } | { ok: fals
         }
         return { ok: true, cue: { kind: 'highlight-photo', photoId: input.photoId as number | null } }
     }
+    if (kind === 'sport-style-regenerate') {
+        if (input.target !== 'turf' && input.target !== 'wear') {
+            return { ok: false, errors: ['cue.target must be "turf" or "wear"'] }
+        }
+        return { ok: true, cue: { kind: 'sport-style-regenerate', target: input.target } }
+    }
     return {
         ok: false,
         errors: [
-            'cue.kind must be one of event, photos-changed, refetch, highlight-photo — ' +
-                `got ${JSON.stringify(kind)}`,
+            'cue.kind must be one of event, photos-changed, refetch, highlight-photo, ' +
+                `sport-style-regenerate — got ${JSON.stringify(kind)}`,
         ],
     }
 }
@@ -1189,6 +1571,7 @@ function isDurableCue(cue: Cue): cue is DurableCue {
         case 'refetch':
             return true
         case 'highlight-photo':
+        case 'sport-style-regenerate':
             return false
         default: {
             const _exhaustive: never = cue

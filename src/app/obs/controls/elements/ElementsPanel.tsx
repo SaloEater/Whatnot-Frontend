@@ -589,7 +589,14 @@ export default function ElementsPanel({controls, channelId, seriesId, onPushResu
                 </div>
             )}
 
-            <div className="ctl-el-list" style={{'--ctl-el-columns': listColumns} as React.CSSProperties}>
+            {/* `--ctl-el-inner-columns` is the INVERSE of the slider (1->3, 2->2, 3->1), inherited by
+                wide blocks that lay out their own sub-cards in a grid (the ticker's slot cards): a
+                wide block spans the full list, so it has the most room exactly when the list has
+                the fewest columns. */}
+            <div
+                className="ctl-el-list"
+                style={{'--ctl-el-columns': listColumns, '--ctl-el-inner-columns': 4 - listColumns} as React.CSSProperties}
+            >
                 {elementsInPhase.map(([key, el]) => (
                     <ElementBlock
                         key={key}

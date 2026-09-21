@@ -23,6 +23,7 @@ import {useBusChannel} from '../useBusChannel'
 import {CueBusProvider, useCueBus} from '../cueBus'
 import {LayoutDataProvider} from '../useLayoutData'
 import {ResolvedBoxesProvider} from '../resolvedBoxes'
+import {AnchorsProvider} from '../anchors'
 import {EventActiveProvider} from '../eventActive'
 import {Stage} from './Stage'
 import {ElementFrame} from './ElementFrame'
@@ -75,26 +76,30 @@ function LayoutStageContent({config, state}: {config: LayoutConfig; state: Overl
     return (
         <EventActiveProvider active={state.active}>
             <ResolvedBoxesProvider boxes={resolvedBoxes}>
-                <Stage>
-                    {elements.map(({key, element, box}) => {
-                        if (!isEffectivelyVisible(config, state, key)) return null
-                        const entry = REGISTRY[registryIdOf(element)]
-                        const Component = entry.component
-                        const effectiveBox = entry.hasBox ? box : FULL_CANVAS_BOX
-                        // Per-element boundary (obs-layout-disappearing-elements-findings.md fix
-                        // #3, see ElementErrorBoundary.tsx for why it's per-element and why the
-                        // fallback is nothing): `resetKey={element}` so a config push that changes
-                        // THIS element — including one that fixes whatever was throwing — clears a
-                        // stuck error on the next render, without needing a page reload.
-                        return (
-                            <ElementErrorBoundary key={key} elementKey={key} resetKey={element}>
-                                <ElementFrame box={effectiveBox} z={element.z ?? 0} clip={entry.hasBox}>
-                                    <Component elementKey={key} element={element} box={effectiveBox} phase={state.phase} />
-                                </ElementFrame>
-                            </ElementErrorBoundary>
-                        )
-                    })}
-                </Stage>
+                {/* Innermost of the two providers — obviously a layout-page-only concern, never
+                    mounted by the controls page (anchors.tsx's own header explains why that's safe). */}
+                <AnchorsProvider>
+                    <Stage>
+                        {elements.map(({key, element, box}) => {
+                            if (!isEffectivelyVisible(config, state, key)) return null
+                            const entry = REGISTRY[registryIdOf(element)]
+                            const Component = entry.component
+                            const effectiveBox = entry.hasBox ? box : FULL_CANVAS_BOX
+                            // Per-element boundary (obs-layout-disappearing-elements-findings.md fix
+                            // #3, see ElementErrorBoundary.tsx for why it's per-element and why the
+                            // fallback is nothing): `resetKey={element}` so a config push that changes
+                            // THIS element — including one that fixes whatever was throwing — clears a
+                            // stuck error on the next render, without needing a page reload.
+                            return (
+                                <ElementErrorBoundary key={key} elementKey={key} resetKey={element}>
+                                    <ElementFrame box={effectiveBox} z={element.z ?? 0} clip={entry.hasBox}>
+                                        <Component elementKey={key} element={element} box={effectiveBox} phase={state.phase} />
+                                    </ElementFrame>
+                                </ElementErrorBoundary>
+                            )
+                        })}
+                    </Stage>
+                </AnchorsProvider>
             </ResolvedBoxesProvider>
         </EventActiveProvider>
     )

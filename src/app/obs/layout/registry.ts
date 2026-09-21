@@ -8,10 +8,12 @@ import { FrameElement } from './elements/frame/FrameElement'
 import { StashOrPassWrap } from './elements/animation/StashOrPassWrap'
 import { StashOrPassTl } from './elements/animation/tl/StashOrPassTl'
 import { StashOrPassRing } from './elements/animation/ring/StashOrPassRing'
+import { StashOrPassQuarters } from './elements/animation/quarters/StashOrPassQuarters'
 import { FlatBoard } from './elements/board-flat/FlatBoard'
 import { ClassicBoard } from './elements/board-classic/ClassicBoard'
 import { CobraBoard } from './elements/board-cobra/CobraBoard'
 import { CobraFlatBoard } from './elements/board-cobra-flat/CobraFlatBoard'
+import { SportStyleBoard } from './elements/board-sport-style/SportStyleBoard'
 import { ResultsElement } from './elements/results/ResultsElement'
 import { ThinResults } from './elements/results-thin/ThinResults'
 import { CircleWidget } from './elements/circle/CircleWidget'
@@ -19,8 +21,14 @@ import { CardsElement } from './elements/cards/CardsElement'
 import { TextElement } from './elements/text/TextElement'
 import { ImageBoxElement } from './elements/image-box/ImageBoxElement'
 import { PriceRangesElement } from './elements/price-ranges/PriceRangesElement'
-import type { AnimationId, BoardVariant, Box, Element, ElementKind, FrameVariant, Phase, WidgetId } from './schema'
-import { ANIMATION_IDS, DEFAULT_FRAME_BORDERS, DEFAULT_FRAME_WIDTH } from './schema'
+import { PriceSignElement } from './elements/price-sign/PriceSignElement'
+import { SceneElement } from './elements/scene/SceneElement'
+import { SCENE_PRELOAD } from './elements/scene/assets'
+import { SIGN_PRELOAD } from './elements/price-sign/assets'
+import { TickerElement } from './elements/ticker/TickerElement'
+import { TICKER_PRELOAD } from './elements/ticker/assets'
+import type { AnimationId, BoardVariant, Box, Element, ElementKind, FrameVariant, Phase, TickerSlot, WidgetId } from './schema'
+import { ANIMATION_IDS, DEFAULT_FRAME_BORDERS, DEFAULT_FRAME_WIDTH, DEFAULT_SCENE_EFFECTS, DEFAULT_TICKER_SLOTS, WIDGET_IDS } from './schema'
 import type { SceneEventName } from './sceneEvents'
 // `registryIdOf` moved to elementId.ts (obs-layout-adding-elements-plan.md §A.1) — that module has
 // no runtime imports, so useLayoutData.tsx/needs.ts can call it without pulling in this file's
@@ -35,6 +43,7 @@ export type RegistryId =
     | 'board:classic'
     | 'board:cobra'
     | 'board:cobra_flat'
+    | 'board:sport_style'
     | 'widget:pick2'
     | 'widget:stashorpass'
     | 'widget:name'
@@ -50,9 +59,13 @@ export type RegistryId =
     | 'animation:stashOrPassWrap'
     | 'animation:stashOrPassWrapTl'
     | 'animation:stashOrPassWrapRing'
+    | 'animation:stashOrPassSportStyle'
     | 'text'
     | 'image-box'
     | 'priceRanges'
+    | 'priceSign'
+    | 'scene'
+    | 'ticker'
 
 // Shared prop contract every registry component (placeholder now, real components in Phase 2)
 // implements.
@@ -100,6 +113,13 @@ export type RegistryEntry = {
     // declared reaction off per element instance (see config.ts `effectiveReactions()`); it can
     // never turn ON one the type doesn't implement.
     reactsTo: SceneEventName[]
+    // Anchor NAMES this element type publishes (board-anchors-plan.md §3), in the order the
+    // "Attach to" select (controls/elements/StashOrPassWrapSettings.tsx) should list them. Absent
+    // (or empty) means "no anchors" — the select is hidden and a wrap animation targeting this
+    // element always uses its plain box. [convention]: nothing checks that the component actually
+    // publishes these via `usePublishAnchors` (anchors.tsx) — a stale/wrong name here just means the
+    // runtime falls back to the box at render time (useTargetShape), never a build/type error.
+    anchors?: readonly string[]
 }
 
 function widgetDefaultBox(index: number): Box {
@@ -120,6 +140,12 @@ const COBRA_FLAT_BOX: Box = { x: 0, y: 300, w: 1080, h: 340 }
 // roughly 2.1:1, landscape (obs-layout-plan.md §2.10.4). BOARD_BOX is 1080x1300 (0.83:1, portrait)
 // and would leave two-thirds of the box empty, same reasoning as COBRA_FLAT_BOX above.
 const CLASSIC_BOX: Box = { x: 0, y: 620, w: 1080, h: 560 }
+// sport-style-board-plan.md §2: 10 cols of a 1080-wide box gives 96px cells (edgeGap 60 each side);
+// 4 rows of 96px cells plus 2*60px edge gap = 504, rounded up to 520 for a little slack. Purely a
+// starting point — height/cell-size are derived from box width + cols (§4.2), so the operator only
+// ever tunes the box's width and the Cells-per-row setting; the Fit height button (§5) resizes the
+// box to whatever the current break's slot count actually needs.
+const SPORT_STYLE_BOX: Box = { x: 0, y: 300, w: 1080, h: 520 }
 const FULL_BOX: Box = { x: 0, y: 0, w: 1080, h: 1920 }
 const RIPBAR_BOX: Box = { x: 0, y: 0, w: 1080, h: 120 }
 const RESERVED_BOX: Box = { x: 1080 - 480, y: 0, w: 480, h: 270 }
@@ -139,6 +165,20 @@ const IMAGE_BOX: Box = { x: 300, y: 720, w: 480, h: 480 }
 // Same starting corner as TEXT_BOX (the one gap the other defaults leave clear, see that comment)
 // but taller — a price-ranges list is a handful of stacked lines, not one line of copy.
 const PRICE_RANGES_BOX: Box = { x: 40, y: 130, w: 560, h: 400 }
+// obs-price-sign-plan.md §3: right edge flush with the 1080 canvas so the wall bracket/plate reads
+// as actually mounted on the edge rather than floating mid-canvas. h: 1000 (revised 2026-09-21,
+// was 700) — the assembled sign (bracket + chains + board) needs roughly 920px at this width with
+// a typical 4-row board and the default chainLength (120); see PriceSignElement.tsx's header
+// comment for the derivation.
+const PRICE_SIGN_BOX: Box = { x: 300, y: 120, w: 780, h: 1000 }
+// obs-scene-element-plan.md §1.1: the stage is the box itself, no reference aspect assumed — this
+// is a starting point only (roughly the "upper third" the plan's intro describes replacing), same
+// as every other registry default box; the operator resizes it in the builder like any other.
+const SCENE_BOX: Box = { x: 0, y: 0, w: 1080, h: 640 }
+// obs-ticker-plan.md §4: full canvas width, texture aspect (361 = 1080 * 725 / 2170) — same
+// starting-point convention as every other registry default box; the operator resizes/repositions
+// it in the builder like anything else.
+const TICKER_BOX: Box = { x: 0, y: 1500, w: 1080, h: 361 }
 
 export const REGISTRY: Record<RegistryId, RegistryEntry> = {
     'board:flat': {
@@ -224,6 +264,29 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         // Left `[]`, matching what those entries actually declare; see CobraFlatBoard.tsx's header
         // for the full note. The board still catches up within one events poll (5s) of a sale.
         reactsTo: [],
+    },
+    'board:sport_style': {
+        id: 'board:sport_style',
+        kind: 'board',
+        label: 'Board — Sport style',
+        // Not a singleton: several boards may coexist, same convention as every other board entry.
+        singleton: false,
+        singletonGroup: 'board:sport_style',
+        defaultBox: SPORT_STYLE_BOX,
+        // Turf/patch are opaque JSON pasted by the operator (schema.ts) — nothing to preload here;
+        // team logos resolve at render time from /images/teams/ like every other patch-based board.
+        preload: [],
+        component: SportStyleBoard,
+        available: true,
+        hasBox: true,
+        // The settings panel carries the Cells-per-row/Slots/Fit-height controls plus two JSON
+        // textareas (turf recipe, patch style) — same reasoning as `cards`/`board:cobra`: a narrow
+        // column would squash the textareas.
+        wideBlock: true,
+        reactsTo: [],
+        // board-anchors-plan.md §3.3/§3.5: the painted (clipped) turf area, and the cell grid alone
+        // — see SportStyleBoard.tsx's `usePublishAnchors` call for what each one resolves to.
+        anchors: ['field', 'grid'],
     },
     'widget:pick2': {
         id: 'widget:pick2',
@@ -455,6 +518,23 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         hasBox: false,
         reactsTo: ['stash_or_pass'],
     },
+    // Fourth stash-or-pass build (stash-or-pass-quarters-plan.md): four blue/white quarter-lanes
+    // that grow from the side midpoints instead of copies flying in, but the same continuous-ring
+    // text and cue/config surface as `stashOrPassWrapRing`. All four wrap builds can be placed at
+    // once, each `target`ed at a different board.
+    'animation:stashOrPassSportStyle': {
+        id: 'animation:stashOrPassSportStyle',
+        kind: 'animation',
+        label: 'Stash or Pass — sport style',
+        singleton: false,
+        singletonGroup: 'animation:stashOrPassSportStyle',
+        defaultBox: FULL_BOX,
+        preload: ['/fonts/Grechka SHA_0.otf'],
+        component: StashOrPassQuarters,
+        available: true,
+        hasBox: false,
+        reactsTo: ['stash_or_pass'],
+    },
     text: {
         id: 'text',
         kind: 'text',
@@ -500,6 +580,61 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         component: PriceRangesElement,
         available: true,
         hasBox: true,
+        reactsTo: [],
+    },
+    priceSign: {
+        id: 'priceSign',
+        kind: 'priceSign',
+        label: 'Price sign',
+        // Own group, separate from `priceRanges` (own singleton group too) — obs-price-sign-plan.md
+        // §3: a different skin over the same series data, so the two may coexist on one canvas.
+        singleton: true,
+        singletonGroup: 'priceSign',
+        defaultBox: PRICE_SIGN_BOX,
+        preload: SIGN_PRELOAD,
+        component: PriceSignElement,
+        available: true,
+        hasBox: true,
+        reactsTo: [],
+    },
+    scene: {
+        id: 'scene',
+        kind: 'scene',
+        label: 'Scene',
+        // One living background per config, like `results`/`cards`/`priceRanges` — there's no use
+        // case for two stacked on the same canvas.
+        singleton: true,
+        singletonGroup: 'scene',
+        defaultBox: SCENE_BOX,
+        preload: SCENE_PRELOAD,
+        component: SceneElement,
+        available: true,
+        hasBox: true,
+        // obs-scene-element-plan.md §5: 'storm' latches rain + ambient lightning on (via
+        // SceneElement.tsx's storm-override, read through the same `useEventActive` context
+        // StashOrPassWrap.tsx uses); 'thunder' is a momentary single strike, relayed to the
+        // lightning effect as a `strike` SceneCue.
+        reactsTo: ['storm', 'thunder'],
+    },
+    ticker: {
+        id: 'ticker',
+        kind: 'ticker',
+        label: 'Ticker (curved LED)',
+        // Not a singleton (obs-ticker-plan.md §4): an operator may want one at the top and one at
+        // the bottom of the canvas, so each instance gets its own group and `singleton: false`
+        // alone is what allows multiple copies — same convention as `text`/the wrap animations.
+        singleton: false,
+        singletonGroup: 'ticker',
+        defaultBox: TICKER_BOX,
+        preload: TICKER_PRELOAD,
+        component: TickerElement,
+        available: true,
+        hasBox: true,
+        // The settings panel mounts all six widgets' own settings panels (Pick2Settings,
+        // StashOrPassSettings, NameSettings, BoxesPerBreakSettings, CountSettings) plus its own
+        // line/slot controls — same reasoning as `cards`/`board:cobra`/`scene`: a narrow column
+        // would squash it.
+        wideBlock: true,
         reactsTo: [],
     },
 }
@@ -590,6 +725,31 @@ export function makeElement(registryId: RegistryId): Element {
             // convention as `text`'s fontSize above. The ranges themselves are series data, not
             // layout config, so there is nothing else to seed here.
             return { kind: 'priceRanges', placements }
+        case 'priceSign':
+            // labelFontSize/badgeFontSize/boardWidthPct/chainLength/windStrength all left unset —
+            // the component's own DEFAULT_* constants apply (PriceSignElement.tsx), same
+            // convention as `priceRanges` above.
+            return { kind: 'priceSign', placements }
+        case 'scene':
+            // Unlike text/imageBox's "leave it unset, the component's own default applies"
+            // convention, `effects` is a REQUIRED array (schema.ts's Element union) — there is no
+            // single sane "unset" for a list of independently-toggled layers, so a freshly-added
+            // scene is seeded with its own copy of DEFAULT_SCENE_EFFECTS. `quality` is left unset
+            // (SceneElement.tsx's own default, 'full', applies).
+            return { kind: 'scene', placements, effects: DEFAULT_SCENE_EFFECTS.map((e) => ({ ...e })) }
+        case 'ticker':
+            // `slots` is REQUIRED (schema.ts, same reasoning as `scene.effects` above) — a
+            // freshly-added ticker is seeded with its own copy of DEFAULT_TICKER_SLOTS (all six
+            // widgets enabled, no label/colour overrides). separator/fontSize/speed/direction are
+            // left unset — TickerElement.tsx's own DEFAULT_* constants apply.
+            return {
+                kind: 'ticker',
+                placements,
+                slots: Object.fromEntries(WIDGET_IDS.map((id) => [id, { ...DEFAULT_TICKER_SLOTS[id] }])) as Record<
+                    WidgetId,
+                    TickerSlot
+                >,
+            }
         default: {
             const _exhaustive: never = entry.kind
             throw new Error(`makeElement: unhandled kind ${JSON.stringify(_exhaustive)}`)

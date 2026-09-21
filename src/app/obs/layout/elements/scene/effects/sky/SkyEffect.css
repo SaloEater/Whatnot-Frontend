@@ -1,0 +1,31 @@
+/* `sky` effect (obs-scene-element-plan.md §1.2/§4). Classes prefixed `scene-` only — no html/body
+ * rules, no vw/vh/rem (this element lives inside the shared /obs/layout/[id] page, which owns
+ * that). Fills the whole box exactly; art layers stacked on top never stretch. */
+
+.scene-sky {
+    position: absolute;
+    inset: 0;
+}
+
+.scene-sky-layer {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 1.5s ease;
+}
+
+.scene-sky-layer--active {
+    opacity: 1;
+}
+
+.scene-sky-layer--day {
+    background: linear-gradient(to bottom, #5fa8e0 0%, #bfe3f2 55%, #eef8ec 100%);
+}
+
+.scene-sky-layer--dusk {
+    background: linear-gradient(to bottom, #2c2049 0%, #7c4468 42%, #d97a45 75%, #f3b768 100%);
+}
+
+.scene-sky-layer--night {
+    background: linear-gradient(to bottom, #04060d 0%, #0d1530 55%, #1c2748 100%);
+}

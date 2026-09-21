@@ -1,0 +1,48 @@
+/* `birds` effect (obs-scene-element-plan.md §1.2/§6). Classes prefixed `scene-` only. Two divs per
+ * bird: `.scene-bird` (the "path" div — positioned/flown across the box) wraps `.scene-bird-sprite`
+ * (the sprite — flap animation + the static per-direction mirror transform, §6: "transform on the
+ * inner sprite div, not the path div"). Only `offset-distance`/`transform` (flight) and
+ * `background-position-x` (flap) are ever animated — everything here stays off layout/paint (§1.4),
+ * `offset-distance` and `background-position-x` both being compositor-eligible in Chromium/CEF.
+ *
+ * Speed modulation (§6): `.scene-bird`'s flight is NOT a CSS `@keyframes` animation — a single
+ * linear keyframe can't vary its easing per flap cycle the way the per-cycle
+ * decelerate-then-restore profile needs. Instead `BirdsEffect.tsx`'s `BirdView` drives
+ * `offset-distance` (primary path, `offset-path` set inline) or `transform` (fallback, `translate()`
+ * waypoints) with `Element.animate()` (Web Animations API), using a per-bird keyframe list built by
+ * `buildFlightPoints` (named constants `SPEED_MIN_FACTOR`, `SPEED_RESTORE_FRAME`). The inline base
+ * `offset-distance: 0%` / `transform: translate(...)` set per bird below is just the pre-WAAPI-mount
+ * value (avoids a one-frame flash at the wrong position); everything past mount is WAAPI-owned. */
+
+.scene-bird {
+    position: absolute;
+    top: 0;
+    left: 0;
+    will-change: offset-distance, transform;
+}
+
+.scene-bird-sprite {
+    position: absolute;
+    inset: 0;
+    background-repeat: no-repeat;
+    /* `--scene-bird-frames` (asset.ts's `birds.frames`, set inline) stretches the sheet to N times
+     * this div's own width — see BirdsEffect.tsx's header comment for the full frame-stepping math
+     * worked out for n = 8. */
+    background-size: calc(var(--scene-bird-frames, 8) * 100%) 100%;
+    animation-name: scene-bird-flap;
+    animation-iteration-count: infinite;
+    /* `--scene-bird-flap-steps` = frames (8 for the shipped sheet) — see BirdsEffect.tsx's header
+     * comment for why `steps(n, jump-none)` (n output values at i/(n-1)) over a 0% -> 100% keyframe
+     * lands on every one of the n frame stops exactly once per cycle. */
+    animation-timing-function: steps(var(--scene-bird-flap-steps, 8), jump-none);
+    will-change: background-position-x;
+}
+
+@keyframes scene-bird-flap {
+    from {
+        background-position-x: 0%;
+    }
+    to {
+        background-position-x: 100%;
+    }
+}

@@ -19,6 +19,11 @@ export const NEEDS_BY_ID = {
     // `needsCobra`/`needsSeries` in useLayoutData's pollers.
     'board:cobra': ['needsCobra', 'needsSeries'],
     'board:cobra_flat': ['needsCobra', 'needsSeries'],
+    // Reads `stream`/`events` (always-on sources) plus a lazily-loaded, self-cached team palette
+    // (teamPalette.ts, no flag needed) — and, since R3 (tiered edges + centered sort), the same
+    // price-range/team-price sources `board:cobra`/`board:cobra_flat` gate behind
+    // `needsCobra`/`needsSeries`, so a team lands on the same tier here as on those boards.
+    'board:sport_style': ['needsCobra', 'needsSeries'],
     'widget:pick2': ['needsPick2'],
     'widget:stashorpass': ['needsStashOrPass'],
     // Only needs the shared `series` source, not a flag of its own — mirrors the old code's local
@@ -36,9 +41,21 @@ export const NEEDS_BY_ID = {
     'animation:stashOrPassWrap': [],
     'animation:stashOrPassWrapTl': [],
     'animation:stashOrPassWrapRing': [],
+    'animation:stashOrPassSportStyle': [],
     text: [],
     'image-box': [],
     // `priceRanges` also renders `series.kind` (PriceRangesElement.tsx), so it needs the same
     // `series` source the cobra board and `name` widget pull, in addition to its own ranges list.
     priceRanges: ['needsSeriesPriceRanges', 'needsSeries'],
+    // Same data source as `priceRanges` — a second skin over the same series ranges list
+    // (obs-price-sign-plan.md §3).
+    priceSign: ['needsSeriesPriceRanges', 'needsSeries'],
+    // Reads no break/stream data (obs-scene-element-plan.md §2.2) — everything it renders comes
+    // from its own element config.
+    scene: [],
+    // The UNION of every one of the six widgets' flags (obs-ticker-plan.md §4): the operator can
+    // enable any slot at runtime and needs are static per registry id, so every source a slot might
+    // read has to be on. Over-fetches when only a couple of slots are enabled — accepted, the
+    // spine's pollers are cheap and per-element dynamic needs don't exist yet.
+    ticker: ['needsPick2', 'needsStashOrPass', 'needsSeries', 'needsBoxesPerBreak', 'needsCount'],
 } as const satisfies Record<RegistryId, readonly NeedFlag[]>

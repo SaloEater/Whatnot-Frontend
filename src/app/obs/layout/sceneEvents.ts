@@ -4,7 +4,7 @@
 // `RegistryEntry.reactsTo` in registry.ts, `effectiveReactions()` in config.ts, and the
 // `useSceneEvent()` hook in sceneEventBus.tsx. This list is expected to grow over time.
 
-export type SceneEventName = 'stash_or_pass'
+export type SceneEventName = 'stash_or_pass' | 'storm' | 'thunder'
 
 export type SceneEventDef = {
     name: SceneEventName

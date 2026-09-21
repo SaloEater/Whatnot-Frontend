@@ -27,5 +27,10 @@ file contains — that rots; the code and its WHY-comments are the source for th
    `useSettingWrite` with a real `LayoutDataSourceKey`, or an explicit `null` if nothing needs
    pushing to OBS (the push-to-OBS rule).
 6. **[convention]** add a per-element section to `obs-layout-plan.md`, with a **Test** paragraph.
-7. **[workflow]** verify with `npx tsc --noEmit -p .` + `npx eslint <files>` only — never
+7. **[convention]** a board that paints inside its box (inset by a margin, centred, clipped, …)
+   should declare `anchors` in its `registry.ts` entry and publish them with `usePublishAnchors`, in
+   canvas coordinates — see `anchors.tsx` and `board:sport_style`/`SportStyleBoard.tsx` for the
+   pattern (board-anchors-plan.md). Nothing checks that a declared anchor is actually published; a
+   board that paints edge-to-edge (flat/classic/cobra/cobra_flat today) has nothing to gain from one.
+8. **[workflow]** verify with `npx tsc --noEmit -p .` + `npx eslint <files>` only — never
    `npm run build` while `next dev` is running; they share `.next/` and will corrupt each other.

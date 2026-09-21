@@ -22,6 +22,10 @@ import {
     DEFAULT_RATE,
     DEFAULT_HOLD_MS as DEFAULT_HOLD_MS_TL,
 } from '@/app/obs/layout/elements/animation/tl/StashOrPassTl'
+import {
+    DEFAULT_CORNER_ROUNDNESS,
+    DEFAULT_CORNER_WIDTH,
+} from '@/app/obs/layout/elements/animation/quarters/StashOrPassQuarters'
 import type { PatchElement } from './ElementBlock'
 
 type Props = {
@@ -62,6 +66,18 @@ export default function StashOrPassWrapSettings({
     const storedTargetMissing =
         !!storedTarget && !targetChoices.some(([key]) => key === storedTarget)
 
+    // board-anchors-plan.md §3.6 — "Attach to": resolved the SAME way the animation components
+    // themselves resolve their target (`anim.target ?? first board key in config`, see e.g.
+    // StashOrPassQuarters.tsx), so the select's options always match what would actually render.
+    // Shown for every wrap build (not gated to sport style) since `targetAnchor` is on the shared
+    // schema and other builds may start reading it later — only `stashOrPassSportStyle` reads it so
+    // far.
+    const resolvedTargetKey = anim?.target ?? Object.entries(config.elements).find(([, el]) => el.kind === 'board')?.[0]
+    const resolvedTargetEl = resolvedTargetKey ? config.elements[resolvedTargetKey] : undefined
+    const anchorChoices = resolvedTargetEl ? REGISTRY[registryIdOf(resolvedTargetEl)].anchors ?? [] : []
+    const storedAnchor = anim?.targetAnchor
+    const storedAnchorMissing = !!storedAnchor && !anchorChoices.includes(storedAnchor)
+
     const pad = anim?.pad ?? DEFAULT_PAD
     // Pad is allowed to be NEGATIVE (bands sit inside the target's box, overlapping it) — the
     // schema and validator have always permitted it. It is edited through a draft string because
@@ -94,6 +110,10 @@ export default function StashOrPassWrapSettings({
     const holdMs = anim.holdMs ?? (isTimeline ? DEFAULT_HOLD_MS_TL : DEFAULT_HOLD_MS)
     // Timeline rebuild only — the original element bakes its pace in as TIME_SCALE.
     const rate = anim.rate ?? DEFAULT_RATE
+    // Sport-style build only (Revision 2, R1) — the filled-ring corner shape.
+    const isSportStyle = registryIdOf(element) === 'animation:stashOrPassSportStyle'
+    const cornerWidth = anim.cornerWidth ?? DEFAULT_CORNER_WIDTH
+    const cornerRoundness = anim.cornerRoundness ?? DEFAULT_CORNER_ROUNDNESS
 
     return (
         <div>
@@ -117,6 +137,28 @@ export default function StashOrPassWrapSettings({
                     ))}
                 </select>
             </div>
+            {anchorChoices.length > 0 && (
+                <div className="mb-2">
+                    <label className="form-label mb-0 small">Attach to</label>
+                    <select
+                        className="form-select form-select-sm"
+                        value={anim.targetAnchor ?? ''}
+                        onChange={(e) => onPatchElement(elementKey, { targetAnchor: e.target.value || undefined })}
+                    >
+                        <option value="">(whole box)</option>
+                        {storedAnchorMissing && (
+                            <option value={storedAnchor}>
+                                {storedAnchor} — not published by this target
+                            </option>
+                        )}
+                        {anchorChoices.map((name) => (
+                            <option key={name} value={name}>
+                                {name}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            )}
             <div className="d-flex gap-3 flex-wrap">
                 <div className="mb-2">
                     <label className="form-label mb-0 small">Pad</label>
@@ -184,6 +226,45 @@ export default function StashOrPassWrapSettings({
                             }}
                         />
                     </div>
+                )}
+                {isSportStyle && (
+                    <>
+                        <div className="mb-2">
+                            <label className="form-label mb-0 small">Corner width (px)</label>
+                            <input
+                                type="number"
+                                className="form-control form-control-sm"
+                                style={{ width: '100px' }}
+                                value={cornerWidth}
+                                title="Outer corner radius of the filled lane shape. Defaults to the lane's own thickness."
+                                onChange={(e) => {
+                                    const parsed = parseFloat(e.target.value)
+                                    if (Number.isFinite(parsed) && parsed >= 0) {
+                                        onPatchElement(elementKey, { cornerWidth: parsed })
+                                    }
+                                }}
+                            />
+                        </div>
+                        <div className="mb-2">
+                            <label className="form-label mb-0 small">Corner roundness (0–1)</label>
+                            <input
+                                type="number"
+                                step={0.05}
+                                min={0}
+                                max={1}
+                                className="form-control form-control-sm"
+                                style={{ width: '100px' }}
+                                value={cornerRoundness}
+                                title="Inner corner radius as a fraction of the corner width. 0 = sharp inner corner, 1 = as round as the outer."
+                                onChange={(e) => {
+                                    const parsed = parseFloat(e.target.value)
+                                    if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 1) {
+                                        onPatchElement(elementKey, { cornerRoundness: parsed })
+                                    }
+                                }}
+                            />
+                        </div>
+                    </>
                 )}
             </div>
         </div>

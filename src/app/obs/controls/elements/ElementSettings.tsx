@@ -21,6 +21,7 @@ import NameSettings from './NameSettings'
 import CountSettings from './CountSettings'
 import CardsSettings from './CardsSettings'
 import CobraBoardSettings from './CobraBoardSettings'
+import SportStyleBoardSettings from './SportStyleBoardSettings'
 import FrameSettings from './FrameSettings'
 import StashOrPassWrapSettings from './StashOrPassWrapSettings'
 import ResultsSettings from './ResultsSettings'
@@ -28,6 +29,9 @@ import ThinResultsSettings from './ThinResultsSettings'
 import TextSettings from './TextSettings'
 import ImageBoxSettings from './ImageBoxSettings'
 import PriceRangesSettings from './PriceRangesSettings'
+import PriceSignSettings from './PriceSignSettings'
+import SceneSettings from './SceneSettings'
+import TickerSettings from './TickerSettings'
 
 type Props = {
     registryId: RegistryId
@@ -72,6 +76,9 @@ const SETTINGS_PANELS = {
     // Price" card the panel also carries is irrelevant to cobra_flat but harmless.
     'board:cobra': ({channelId, seriesId, onFireCue}) => <CobraBoardSettings channelId={channelId} seriesId={seriesId} onFireCue={onFireCue}/>,
     'board:cobra_flat': ({channelId, seriesId, onFireCue}) => <CobraBoardSettings channelId={channelId} seriesId={seriesId} onFireCue={onFireCue}/>,
+    'board:sport_style': ({elementKey, element, currentPhase, onPatchElement, onEmitCue}) => (
+        <SportStyleBoardSettings elementKey={elementKey} element={element} currentPhase={currentPhase} onPatchElement={onPatchElement} onEmitCue={onEmitCue}/>
+    ),
     'widget:pick2': ({channelId, onFireCue}) => <Pick2Settings channelId={channelId} onFireCue={onFireCue}/>,
     'widget:stashorpass': ({channelId, onFireCue}) => <StashOrPassSettings channelId={channelId} onFireCue={onFireCue}/>,
     'widget:name': ({seriesId, onFireCue}) => <NameSettings seriesId={seriesId} onFireCue={onFireCue}/>,
@@ -96,6 +103,7 @@ const SETTINGS_PANELS = {
     'animation:stashOrPassWrap': wrapSettings,
     'animation:stashOrPassWrapTl': wrapSettings,
     'animation:stashOrPassWrapRing': wrapSettings,
+    'animation:stashOrPassSportStyle': wrapSettings,
     text: ({elementKey, element, onPatchElement}) => <TextSettings elementKey={elementKey} element={element} onPatchElement={onPatchElement}/>,
     'image-box': ({elementKey, element, channelId, currentPhase, onPatchElement}) => (
         <ImageBoxSettings
@@ -112,6 +120,31 @@ const SETTINGS_PANELS = {
             element={element}
             onPatchElement={onPatchElement}
             seriesId={seriesId}
+            onFireCue={onFireCue}
+        />
+    ),
+    priceSign: ({elementKey, element, onPatchElement, seriesId, onFireCue}) => (
+        <PriceSignSettings
+            elementKey={elementKey}
+            element={element}
+            onPatchElement={onPatchElement}
+            seriesId={seriesId}
+            onFireCue={onFireCue}
+        />
+    ),
+    scene: ({elementKey, element, onPatchElement}) => (
+        <SceneSettings elementKey={elementKey} element={element} onPatchElement={onPatchElement}/>
+    ),
+    // Full props set (obs-ticker-plan.md §6): it needs both the layout-config path
+    // (`onPatchElement`, for its own line/slot fields) and the backend path (`channelId`/
+    // `seriesId`/`onFireCue`, forwarded into the six mounted widget settings panels).
+    ticker: ({channelId, seriesId, elementKey, element, onPatchElement, onFireCue}) => (
+        <TickerSettings
+            channelId={channelId}
+            seriesId={seriesId}
+            elementKey={elementKey}
+            element={element}
+            onPatchElement={onPatchElement}
             onFireCue={onFireCue}
         />
     ),

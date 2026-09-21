@@ -251,6 +251,15 @@
     grid-column: 1 / -1;
 }
 
+/* A wide block's own sub-card grid (the ticker's six slot cards). Column count is the inverse of the
+   Columns slider, set on .ctl-el-list by ElementsPanel: 1 list column -> 3 here, 2 -> 2, 3 -> 1. */
+.ctl-el-inner-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--ctl-el-inner-columns, 1), minmax(0, 1fr));
+    align-items: start;
+    gap: 8px;
+}
+
 /* Hidden by the Visible toggle: still configured and still listed, just not rendered on the
    layout. Dimmed so that is obvious without opening the block. */
 .ctl-el-block--hidden {
