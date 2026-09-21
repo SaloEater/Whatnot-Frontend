@@ -10,7 +10,8 @@
 // `../circle/CircleWidget.tsx` (never imported/refactored out — ADDING_AN_ELEMENT.md's copy rule,
 // same as PriceSign's `formatRange`) — same four series-dependent widgets (`name`, `boxesPerBreak`,
 // `boxesLeft`, `chasersLeft`) render nothing without a `breakObject.series_id`, same
-// `chasersLeft` "show_percentage && pct > 15" rule.
+// `chasersLeft` "show_percentage && pct above a threshold" rule — except the threshold is the
+// slot's own `showPctMin` here instead of CircleWidget's hard-coded 15.
 //
 // Motion (obs-ticker-plan.md §5.3): a single `requestAnimationFrame` loop, started once on mount
 // (or whenever it crosses the static <-> moving boundary), computes `offset` from the ELAPSED WALL
@@ -59,7 +60,11 @@ const SERIES_DEPENDENT_WIDGETS: readonly WidgetId[] = ['name', 'boxesPerBreak', 
 // COPIED from CircleWidget.tsx's `switch (widget)` value resolution + `formatValue` table (never
 // imported/refactored out — see this file's header). Returns `null` exactly where CircleWidget
 // would render an empty value: a series-dependent widget with no current series, or missing data.
-function widgetValue(widget: WidgetId, data: LayoutData): string | null {
+// Default "Show %" line for chasersLeft. CircleWidget hides the percentage unless pct > 15; with
+// integer percentages and an at-or-above rule, 16 reproduces that exactly.
+export const DEFAULT_SHOW_PCT_MIN = 16
+
+function widgetValue(widget: WidgetId, data: LayoutData, showPctMin: number = DEFAULT_SHOW_PCT_MIN): string | null {
     if (SERIES_DEPENDENT_WIDGETS.includes(widget) && !data.breakObject?.series_id) {
         return null
     }
@@ -80,7 +85,7 @@ function widgetValue(widget: WidgetId, data: LayoutData): string | null {
             if (!seriesCount) return null
             const available = seriesCount.total_cards - seriesCount.used_cards
             const pct = available > 0 ? Math.round((seriesCount.unsold_count / available) * 100) : 0
-            return data.countSettings?.show_percentage && pct > 15
+            return data.countSettings?.show_percentage && pct >= showPctMin
                 ? `${seriesCount.unsold_count} / ${pct}%`
                 : String(seriesCount.unsold_count)
         }
@@ -121,7 +126,7 @@ function compileParts(data: LayoutData, slots: Record<WidgetId, TickerSlot>): Ti
     for (const id of WIDGET_IDS) {
         const slot = slots[id]
         if (!slot?.enabled) continue
-        const value = widgetValue(id, data)
+        const value = widgetValue(id, data, slot.showPctMin ?? DEFAULT_SHOW_PCT_MIN)
         if (value === null) continue
         parts.push({
             label: slot.label || DEFAULT_TICKER_LABELS[id],

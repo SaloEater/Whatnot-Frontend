@@ -70,6 +70,10 @@ export type TickerSlot = {
     // chasersLeft ONLY (config.ts rejects it on any other slot): colour of the "/" in a
     // "<count> / <pct>%" value. Undefined = the slot's value colour.
     slashColor?: string // CSS hex '#rrggbb'
+    // chasersLeft ONLY: the "Show %" line. The percentage is shown only while it is at or above
+    // this value (and the channel's show_percentage toggle is on); below it, only the card count.
+    // Integer 0..100. Undefined = the component's DEFAULT_SHOW_PCT_MIN.
+    showPctMin?: number
 }
 export type TickerDirection = 'left' | 'right'
 export const TICKER_DIRECTIONS = ['left', 'right'] as const

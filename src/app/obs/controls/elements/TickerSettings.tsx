@@ -34,6 +34,7 @@ import {
     DEFAULT_TICKER_SEPARATOR,
     DEFAULT_TICKER_SPEED,
     DEFAULT_VALUE_COLOR,
+    DEFAULT_SHOW_PCT_MIN,
 } from '@/app/obs/layout/elements/ticker/TickerElement'
 import Pick2Settings from './Pick2Settings'
 import StashOrPassSettings from './StashOrPassSettings'
@@ -100,6 +101,7 @@ function TickerSlotCard({
     onLabelColor,
     onValueColor,
     onSlashColor,
+    onShowPctMin,
     children,
 }: {
     widgetId: WidgetId
@@ -110,6 +112,8 @@ function TickerSlotCard({
     onValueColor: (color: string) => void
     // chasersLeft only; omitted for every other slot, which hides the picker.
     onSlashColor?: (color: string) => void
+    // chasersLeft only, like onSlashColor.
+    onShowPctMin?: (value: number) => void
     children: ReactNode
 }) {
     const defaultLabel = DEFAULT_TICKER_LABELS[widgetId]
@@ -191,6 +195,29 @@ function TickerSlotCard({
                                 &quot;/&quot; colour
                             </label>
                             <ColorField key={slashColor} value={slashColor} onCommit={onSlashColor} />
+                        </div>
+                    )}
+                    {onShowPctMin && (
+                        <div>
+                            <label
+                                className="form-label mb-0 small d-block"
+                                title="Below this percentage only the card count is shown. Also needs Show percentage on (below)."
+                            >
+                                Show % from
+                            </label>
+                            <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                step={1}
+                                className="form-control form-control-sm"
+                                style={{ width: '80px' }}
+                                value={slot.showPctMin ?? DEFAULT_SHOW_PCT_MIN}
+                                onChange={(e) => {
+                                    const parsed = parseInt(e.target.value, 10)
+                                    if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 100) onShowPctMin(parsed)
+                                }}
+                            />
                         </div>
                     )}
                 </div>
@@ -306,6 +333,7 @@ export default function TickerSettings({ channelId, seriesId, elementKey, elemen
                         onLabelColor={(labelColor) => patchSlot(id, { labelColor })}
                         onValueColor={(valueColor) => patchSlot(id, { valueColor })}
                         onSlashColor={id === 'chasersLeft' ? (slashColor) => patchSlot(id, { slashColor }) : undefined}
+                        onShowPctMin={id === 'chasersLeft' ? (showPctMin) => patchSlot(id, { showPctMin }) : undefined}
                     >
                         {id === 'pick2' && <Pick2Settings channelId={channelId} onFireCue={onFireCue} />}
                         {id === 'stashorpass' && <StashOrPassSettings channelId={channelId} onFireCue={onFireCue} />}

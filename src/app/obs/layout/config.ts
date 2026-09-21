@@ -977,6 +977,13 @@ function validateTickerSlot(key: string, widgetId: string, raw: unknown): string
             errors.push(`element "${key}": slots["${widgetId}"].slashColor must be a "#rrggbb" hex colour`)
         }
     }
+    if (raw.showPctMin !== undefined) {
+        if (widgetId !== 'chasersLeft') {
+            errors.push(`element "${key}": slots["${widgetId}"].showPctMin is only allowed on chasersLeft`)
+        } else if (!Number.isInteger(raw.showPctMin) || (raw.showPctMin as number) < 0 || (raw.showPctMin as number) > 100) {
+            errors.push(`element "${key}": slots["${widgetId}"].showPctMin must be an integer 0..100`)
+        }
+    }
     return errors
 }
 
