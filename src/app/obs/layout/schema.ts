@@ -46,6 +46,8 @@ export type ElementKind =
     | 'priceSign'
     | 'scene'
     | 'ticker'
+    | 'cameraShelf'
+    | 'obsToggle'
 
 export const BOARD_VARIANTS = ['flat', 'classic', 'cobra', 'cobra_flat', 'sport_style'] as const
 export type BoardVariant = (typeof BOARD_VARIANTS)[number]
@@ -234,7 +236,26 @@ export type Element = (
           reactions?: Reactions
       }
     | { kind: 'widget'; widget: WidgetId; placements: Partial<Record<PlacementKey, Box>>; z?: number; reactions?: Reactions }
-    | { kind: 'cards' | 'ripbar' | 'reserved'; placements: Partial<Record<PlacementKey, Box>>; z?: number; reactions?: Reactions }
+    // `cards` carries its own main-area/threshold settings (cards-main-area-plan.md §1) — split out
+    // of the old shared `cards | ripbar | reserved` variant it used to be lumped into (see that
+    // variant just below for the two kinds it still covers). `mainAreaHeightPct` is the top share
+    // of the box nothing covers, in % of box height (1..100), default DEFAULT_MAIN_AREA_HEIGHT_PCT
+    // (CardsElement.tsx). `mainAreaMaxCards` is the on-screen card-count threshold at/under which
+    // the board packs into that main area instead of the full box, default
+    // DEFAULT_MAIN_AREA_MAX_CARDS (0 = never use the main area, today's behaviour). Both optional —
+    // unset means "reproduce today's behaviour" (full box, always), so an existing config needs no
+    // migration.
+    | {
+          kind: 'cards'
+          mainAreaHeightPct?: number
+          mainAreaMaxCards?: number
+          placements: Partial<Record<PlacementKey, Box>>
+          z?: number
+          reactions?: Reactions
+      }
+    // `ripbar`/`reserved`: plain boxed elements with no fields of their own beyond `placements`
+    // (see config.ts's `plainKind` factory).
+    | { kind: 'ripbar' | 'reserved'; placements: Partial<Record<PlacementKey, Box>>; z?: number; reactions?: Reactions }
     // `results` carries its own column count (obs-layout-plan.md §2.3 + the 1f refactor); the
     // grid and the ordering interleave both read it, so they can never disagree.
     | {
@@ -426,6 +447,72 @@ export type Element = (
           fontSize?: number // canvas px, default 48
           speed?: number // canvas px/s, 0..600, default 90; 0 = static
           direction?: TickerDirection // default 'left' (text travels right→left)
+          // Anti-aliasing for the moving dot-matrix text: Gaussian blur radius in canvas px, 0..3,
+          // default 0.6; 0 = off. Averages each dot's edge over neighbouring pixels so sub-pixel
+          // motion stops making dots and the gaps between them flicker.
+          soften?: number
+          placements: Partial<Record<PlacementKey, Box>>
+          z?: number
+          reactions?: Reactions
+      }
+    // The "Current Break" cabinet with a live-camera window (obs-camera-shelf-plan.md, including
+    // its 2026-09-24 "Revisions" section) — a FIXED-SIZE cabinet drawing (header band, side posts,
+    // lit ledge) scaled uniformly off the box width, whose middle is a transparent window; the OBS
+    // camera source sits UNDER the layout browser source and shows through it, so real boxes
+    // appear to stand on the shelf. Reads no break/stream data (NEEDS_BY_ID is `[]`) — everything
+    // here is either static art or an OBS binding. Not in MIRRORABLE_KINDS: a mirror would show a
+    // second hole with no second camera behind it.
+    | {
+          kind: 'cameraShelf'
+          label?: string // header text; default DEFAULT_SHELF_LABEL ('CURRENT BREAK'), see the component
+          labelFontSize?: number // canvas px at scale 1 (i.e. for a 1080-wide box); default 40
+          // Label's top edge, in shelf.png pixels down from the art's top edge (scaled by `s` like
+          // every other rect); default SHELF_RECTS.label.y (assets.ts). Operator-tunable because
+          // the blank plate's position is hand-measured off the art, not printed by the build script.
+          labelOffsetY?: number
+          glare?: boolean // draw shelf_glare.png over the window; default true
+          glareOpacity?: number // 0..1; default 0.6
+          // CSS `#rrggbb` the gap fills (below) are painted in; default DEFAULT_FILL_COLOR (the
+          // component), sampled off the art's own dark blue-grey inner faces so the fill reads as
+          // more cabinet rather than as a black square sitting inside it.
+          fillColor?: string
+          // 0..100. 0 = the gap fills are the solid `fillColor` slab (default). Above 0 they paint no
+          // colour at all: only a `backdrop-filter` blur of that strength, so whatever LAYOUT
+          // element sits behind the shelf shows through the strips softened but untinted. (Only
+          // page content is behind the strips — the OBS camera is a separate source below the
+          // whole page and never reaches the gap area by construction.)
+          fillBlur?: number
+          // Vertical flip: the frame and glare art are mirrored top-to-bottom so the header plate
+          // sits UNDER the window (a shelf the boxes hang below, or a second shelf stacked upside
+          // down against the first). The label stays upright and its Y offset is then measured
+          // from the art's BOTTOM edge instead of its top. Default false.
+          flip?: boolean
+          // Camera source's own aspect ratio (w/h), read once from OBS via the settings panel's
+          // "Read from OBS" button (or typed by hand). The art's window has its own fixed aspect
+          // (SHELF_RECTS.window), so when the camera is a different shape, `cameraGaps` fills the
+          // difference with left/right or top/bottom strips of `fillColor` instead of stretching
+          // the camera picture (which the layout page cannot do to begin with — it never touches
+          // the camera pixels, only paints around them). Unset = no gap fill, the raw window shows.
+          cameraAspect?: number
+          // OBS enable/disable moved to the `obsToggle` element (obs-visibility-toggle-plan.md §11).
+          placements: Partial<Record<PlacementKey, Box>>
+          z?: number
+          reactions?: Reactions
+      }
+    // Boxless, invisible element that carries an operator-defined list of OBS scene item (source)
+    // names (obs-visibility-toggle-plan.md) — a generalisation of `cameraShelf`'s old two fixed
+    // `obsSource`/`obsBackingSource` fields into a dynamic list, with no art and no visual output.
+    // Through the stage-hooks mechanism (stageHooks.ts, elements/obs-toggle/mount.ts) it enables
+    // every listed source when a stage containing this element is entered, and disables them all
+    // when such a stage is left for one that does not contain it. Not in MIRRORABLE_KINDS — a
+    // mirror would just duplicate the same toggle with no visual meaning.
+    | {
+          kind: 'obsToggle'
+          // OBS scene item (source) names this element enables when a stage containing it is
+          // entered and disables when such a stage is left for one that lacks it — via the stage-
+          // hooks mechanism (stageHooks.ts, elements/obs-toggle/mount.ts). Empty/absent = no-op.
+          // Order is display order only; the toggles run concurrently.
+          sources?: string[]
           placements: Partial<Record<PlacementKey, Box>>
           z?: number
           reactions?: Reactions

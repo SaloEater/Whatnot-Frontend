@@ -240,25 +240,106 @@ export class MyOBSWebsocket {
 
     showAndHideMediaSource(scene: ObsScene, item: ObsItem, callback: () => void): Promise<void> {
         this.guardIsConnected()
-        return this.setSceneItemEnabled(scene, item, true).then(_ => {
+        return this.setSceneItemEnabled(scene.name, parseInt(item.uuid), true).then(_ => {
             this.addItemToHide(scene, item, callback)
         })
     }
 
-    private setSceneItemEnabled(scene: ObsScene, item: ObsItem, isEnabled: boolean) {
+    /**
+     * Enables/disables a scene item by scene name + numeric item id (`SetSceneItemEnabled`) — the
+     * shape the camera-shelf stage hook uses (obs-camera-shelf-plan.md §6:
+     * `elements/camera-shelf/mount.ts`), and also what `showAndHideMediaSource`/
+     * `mediaSourcePlaybackEnded` below reduce their `ObsScene`/`ObsItem` args to. Public (was a
+     * private `(scene: ObsScene, item: ObsItem, isEnabled)` overload of the same name before this)
+     * — every caller in this class now goes through this one signature instead of keeping two
+     * methods with the same name and incompatible parameter shapes.
+     */
+    setSceneItemEnabled(sceneName: string, sceneItemId: number, enabled: boolean): Promise<void> {
+        this.guardIsConnected()
         return this.webSocket.call('SetSceneItemEnabled', {
-            sceneName: scene.name,
-            sceneItemId: parseInt(item.uuid),
-            sceneItemEnabled: isEnabled,
-        });
+            sceneName,
+            sceneItemId,
+            sceneItemEnabled: enabled,
+        }).then(_ => {})
     }
 
     private mediaSourcePlaybackEnded(name: string, uuid: string) {
         let item = this.mediaSourcesHideAfterPlayback.find(i => i.item.name == name)
 
         if (item) {
-            this.setSceneItemEnabled(item.scene, item.item, false).then(_ => item.callback())
+            this.setSceneItemEnabled(item.scene.name, parseInt(item.item.uuid), false).then(_ => item.callback())
         }
+    }
+
+    /** Current program scene's name (`GetCurrentProgramScene`). `currentProgramSceneName` is the
+     *  request's newer field; `sceneName` is kept as a fallback for an older obs-websocket server
+     *  that only ever sent the deprecated name (obs-camera-shelf-plan.md §6). */
+    getCurrentProgramSceneName(): Promise<string> {
+        this.guardIsConnected()
+        return this.webSocket.call('GetCurrentProgramScene').then(r => r.currentProgramSceneName || r.sceneName)
+    }
+
+    /**
+     * Resolves an OBS source name to its scene item id WITHIN THE CURRENT PROGRAM SCENE
+     * (obs-camera-shelf-plan.md §6) — `null` if no item of that exact name sits directly in it.
+     * Items inside groups or nested scenes are not searched (a stated limitation, surfaced in
+     * CameraShelfSettings' OBS source help text: "the camera must be a direct item of the program
+     * scene").
+     */
+    findSceneItemInProgramScene(sourceName: string): Promise<{ scene: string; id: number } | null> {
+        this.guardIsConnected()
+        return this.getCurrentProgramSceneName().then(scene =>
+            this.webSocket.call('GetSceneItemList', { sceneName: scene }).then(r => {
+                const match = r.sceneItems.find(i => (i.sourceName ?? '').toString() === sourceName)
+                if (!match) return null
+                return { scene, id: parseInt((match.sceneItemId ?? '').toString(), 10) }
+            })
+        )
+    }
+
+    /** A scene item's RENDERED aspect ratio (w/h), source minus crop then scaled/bounded — what
+     *  CameraShelfSettings' "Read from OBS" button reads into `cameraAspect` (obs-camera-shelf-plan.md
+     *  §7) so the settings panel can show the gap-fill readout without the operator eyeballing it.
+     *
+     *  `boundsType`:
+     *  - `OBS_BOUNDS_NONE` — aspect = (cw * scaleX) / (ch * scaleY).
+     *  - `OBS_BOUNDS_SCALE_INNER` — the cropped source's own aspect (cw / ch): it is fit INSIDE the
+     *    bounds box, so the bounds box's own aspect is irrelevant to what's actually drawn.
+     *  - anything else (`SCALE_OUTER`/`STRETCH`/`MAX_ONLY`/`SCALE_TO_WIDTH`/`SCALE_TO_HEIGHT`) —
+     *    approximated as boundsWidth / boundsHeight (documented as approximate in the settings help
+     *    text). */
+    getSceneItemRenderedAspect(sceneName: string, sceneItemId: number): Promise<number> {
+        this.guardIsConnected()
+        return this.webSocket.call('GetSceneItemTransform', { sceneName, sceneItemId }).then(r => {
+            const t = r.sceneItemTransform as Record<string, unknown>
+            const n = (k: string, d = 0) => { const v = Number(t[k]); return Number.isFinite(v) ? v : d }
+            const cw = n('sourceWidth') - n('cropLeft') - n('cropRight')
+            const ch = n('sourceHeight') - n('cropTop') - n('cropBottom')
+            const bounds = String(t.boundsType ?? 'OBS_BOUNDS_NONE')
+
+            if (bounds === 'OBS_BOUNDS_NONE') {
+                const w = cw * n('scaleX', 1)
+                const h = ch * n('scaleY', 1)
+                return h > 0 ? w / h : 0
+            }
+            if (bounds === 'OBS_BOUNDS_SCALE_INNER') {
+                return ch > 0 ? cw / ch : 0
+            }
+            const bw = n('boundsWidth')
+            const bh = n('boundsHeight')
+            return bh > 0 ? bw / bh : 0
+        })
+    }
+
+    /** Names of every scene item directly in the current program scene — for the camera-shelf
+     *  settings panel's OBS-source dropdown (obs-camera-shelf-plan.md §7). */
+    getProgramSceneItemNames(): Promise<string[]> {
+        this.guardIsConnected()
+        return this.getCurrentProgramSceneName().then(scene =>
+            this.webSocket.call('GetSceneItemList', { sceneName: scene }).then(r =>
+                r.sceneItems.map(i => (i.sourceName ?? '').toString()).filter(n => n !== '')
+            )
+        )
     }
 
     private addItemToHide(scene: ObsScene, item: ObsItem, callback: () => void) {

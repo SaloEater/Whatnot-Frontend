@@ -29,11 +29,11 @@
 
 import {useEffect, useState} from 'react'
 import {getEndpoints, post} from '@/app/lib/backend'
-import {PriceRange, Series, WidgetPreset} from '@/app/entity/entities'
+import {Series, WidgetPreset} from '@/app/entity/entities'
 import type {DurableCue} from '@/app/obs/layout/schema'
 import {useSettingWrite} from './useSettingWrite'
-
-const TIER_ALIASES: Record<string, string> = {best: 'God', good: 'Giant', mid: 'Chaser'}
+import {useBoardPriceRanges} from './useBoardPriceRanges'
+import BoardPriceRangesCard, {TIER_ALIASES} from './BoardPriceRangesCard'
 
 function parsePrice(val: string): [string, string] {
     const range = val.match(/^\$(\d+)-\$(\d+)$/)
@@ -60,31 +60,9 @@ export default function CobraBoardSettings({channelId, seriesId, onFireCue}: {
     seriesId?: number | null
     onFireCue?: (cue: DurableCue) => void
 }) {
-    // ---- Board: Price Ranges (unchanged) -------------------------------------------------------
+    // ---- Board: Price Ranges (unchanged; extracted into useBoardPriceRanges.ts) -----------------
 
-    const [priceRanges, setPriceRanges] = useState<PriceRange[]>([])
-    const [rangeEdits, setRangeEdits] = useState<Record<string, string>>({})
-    const {save: writeRange} = useSettingWrite(onFireCue)
-
-    useEffect(() => {
-        post(getEndpoints().widget_board_price_ranges_list, {channel_id: channelId})
-            .then((d: { ranges: PriceRange[] }) => {
-                if (d?.ranges) {
-                    setPriceRanges(d.ranges)
-                    const edits: Record<string, string> = {}
-                    d.ranges.forEach(r => { edits[r.tier_id] = String(r.price_from) })
-                    setRangeEdits(edits)
-                }
-            })
-    }, [channelId])
-
-    async function savePriceRange(tierId: string) {
-        const priceFrom = parseInt(rangeEdits[tierId]) || 0
-        const result = await writeRange('priceRanges', () => post(getEndpoints().widget_board_price_ranges_update, {channel_id: channelId, tier_id: tierId, price_from: priceFrom}))
-        if (result.ok) {
-            setPriceRanges(prev => prev.map(r => r.tier_id === tierId ? {...r, price_from: priceFrom} : r))
-        }
-    }
+    const {priceRanges, setPriceRanges, rangeEdits, setRangeEdits, savePriceRange, writeRange} = useBoardPriceRanges(channelId, onFireCue)
 
     // ---- Series: Side Cards Price ---------------------------------------------------------------
 
@@ -258,36 +236,12 @@ export default function CobraBoardSettings({channelId, seriesId, onFireCue}: {
                 </div>
             </div>
 
-            <div className="card" style={{minWidth: '260px'}}>
-                <div className="card-body">
-                    <h6 className="card-title">Board: Price Ranges</h6>
-                    <table className="table table-sm mb-0" style={{maxWidth: '400px'}}>
-                        <thead><tr><th>Tier</th><th>Price From ($)</th><th></th></tr></thead>
-                        <tbody>
-                            {priceRanges.map(r => (
-                                <tr key={r.tier_id}>
-                                    <td>{TIER_ALIASES[r.tier_id] ?? r.tier_id}</td>
-                                    <td>
-                                        <input
-                                            type="number"
-                                            className="form-control form-control-sm"
-                                            style={{width: '90px'}}
-                                            value={rangeEdits[r.tier_id] ?? r.price_from}
-                                            onChange={e => setRangeEdits(prev => ({...prev, [r.tier_id]: e.target.value}))}
-                                        />
-                                    </td>
-                                    <td>
-                                        <button className="btn btn-sm btn-primary" onClick={() => savePriceRange(r.tier_id)}>Save</button>
-                                    </td>
-                                </tr>
-                            ))}
-                            {priceRanges.length === 0 && (
-                                <tr><td colSpan={3} className="text-secondary small">No price ranges.</td></tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            <BoardPriceRangesCard
+                priceRanges={priceRanges}
+                rangeEdits={rangeEdits}
+                setRangeEdits={setRangeEdits}
+                savePriceRange={savePriceRange}
+            />
 
             <div className="card" style={{minWidth: '240px'}}>
                 <div className="card-body">

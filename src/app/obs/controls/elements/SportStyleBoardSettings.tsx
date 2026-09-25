@@ -2,29 +2,37 @@
 
 // Settings for `board:sport_style` (sport-style-board-plan.md §5): the operator edits only the box
 // WIDTH (in the Box section every element block already has) and Cells per row here — height and
-// cell size are derived (SportStyleBoard.tsx §4.2). Everything below goes through `onPatchElement`
-// (ElementsPanel's `mutate` -> debounced `pushConfig`, same path every other config-stored setting
-// uses) — no `useSettingWrite`, since the config path already pushes to OBS and none of this lives
-// on the backend.
+// cell size are derived (SportStyleBoard.tsx §4.2). Everything below except the price-ranges card
+// goes through `onPatchElement` (ElementsPanel's `mutate` -> debounced `pushConfig`, same path
+// every other config-stored setting uses) — no `useSettingWrite` for those, since the config path
+// already pushes to OBS and none of it lives on the backend. The price-ranges card is the one
+// exception: tier thresholds are channel-wide backend state (`useBoardPriceRanges.ts`, shared with
+// CobraBoardSettings.tsx), not part of this element's own config.
 //
 // Turf recipe / patch style are opaque JSON blobs (schema.ts: `turf?: unknown; patch?: unknown`) —
 // this panel is deliberately copy/paste, not a knob-by-knob editor: paste the Export output from
 // /obs/setup/sport_style/board or /obs/setup/sport_style/team verbatim. Apply only ever checks that
 // the pasted text is valid JSON for a plain object; it never validates individual fields (an odd or
 // missing key is the running element's problem to cope with via its own merge-over-defaults, not
-// this panel's).
+// this panel's). Both editors sit in a collapsed `<details>` by default so they don't push the rest
+// of the panel below the fold — the summary line names each editor and whether it currently carries
+// a non-default blob.
 
 import {useEffect, useRef, useState} from 'react'
-import type {Element, Phase, TransientCue} from '@/app/obs/layout/schema'
+import type {DurableCue, Element, Phase, TransientCue} from '@/app/obs/layout/schema'
 import {DEFAULT_COLS, DEFAULT_PATCH, DEFAULT_TURF, FIELD} from '@/app/obs/sport_style/fieldConstants'
 import type {PatchElement} from './ElementBlock'
+import CobraBoardSettings from './CobraBoardSettings'
 
 type Props = {
     elementKey: string
     element: Element
     currentPhase: Phase
+    channelId: number
+    seriesId?: number | null
     onPatchElement: PatchElement
     onEmitCue?: (cue: TransientCue) => void
+    onFireCue?: (cue: DurableCue) => void
 }
 
 const DEFAULT_SLOTS = 40
@@ -42,6 +50,15 @@ function fieldHeightFor(boxW: number, cols: number, slots: number, margin: numbe
     const cellPx = rows > 0 ? Math.max(1, Math.floor((boxW - 2 * margin - 2 * edgeGap) / cols)) : 0
     const height = rows > 0 ? rows * cellPx + 2 * edgeGap + 2 * margin : 2 * edgeGap + 2 * margin
     return {rows, height}
+}
+
+/** Whether an element's blob (`turf`/`patch`) has actually been customised, for the collapsed
+ *  editor's summary line — a plain deep-equal-by-string-compare against the built-in default,
+ *  since `undefined`/`null` (never touched) and a value round-tripped back to the exact default
+ *  should both read as "default", not "custom". */
+function isCustomBlob(value: unknown, defaultValue: unknown): boolean {
+    if (value === undefined || value === null) return false
+    return JSON.stringify(value) !== JSON.stringify(defaultValue)
 }
 
 type JsonFieldProps = {
@@ -137,7 +154,7 @@ function JsonField({label, value, defaultValue, onApply}: JsonFieldProps) {
     )
 }
 
-export default function SportStyleBoardSettings({elementKey, element, currentPhase, onPatchElement, onEmitCue}: Props) {
+export default function SportStyleBoardSettings({elementKey, element, currentPhase, channelId, seriesId, onPatchElement, onEmitCue, onFireCue}: Props) {
     const [slots, setSlots] = useState(DEFAULT_SLOTS)
 
     if (element.kind !== 'board') return null
@@ -230,7 +247,15 @@ export default function SportStyleBoardSettings({elementKey, element, currentPha
                     </select>
                 </div>
             </div>
-            <div className="mb-2">
+
+            {/* The whole cobra Prices widget — Side Cards Price, Board: Price Ranges and Presets —
+                rendered as-is rather than re-styled copies: this board reads the same channel-wide
+                tier thresholds and the same series default price, so the three cards belong here
+                together and there is exactly one implementation of them (the same reasoning that
+                routes `board:cobra_flat` to this panel in ElementSettings.tsx). */}
+            <CobraBoardSettings channelId={channelId} seriesId={seriesId} onFireCue={onFireCue}/>
+
+            <div className="mb-2 mt-3">
                 <label className="form-label mb-0 small" title="Display-only — not saved. Feeds the height readout below with a slot count, since this panel has no live event data of its own.">
                     Slots (for height readout)
                 </label>
@@ -268,18 +293,28 @@ export default function SportStyleBoardSettings({elementKey, element, currentPha
                 </button>
             </div>
 
-            <JsonField
-                label="Turf recipe (JSON)"
-                value={element.turf}
-                defaultValue={DEFAULT_TURF}
-                onApply={(parsed) => onPatchElement(elementKey, {turf: parsed})}
-            />
-            <JsonField
-                label="Patch style (JSON)"
-                value={element.patch}
-                defaultValue={DEFAULT_PATCH}
-                onApply={(parsed) => onPatchElement(elementKey, {patch: parsed})}
-            />
+            <details className="mb-3">
+                <summary className="small">
+                    Turf recipe ({isCustomBlob(element.turf, DEFAULT_TURF) ? 'custom' : 'default'})
+                </summary>
+                <JsonField
+                    label="Turf recipe (JSON)"
+                    value={element.turf}
+                    defaultValue={DEFAULT_TURF}
+                    onApply={(parsed) => onPatchElement(elementKey, {turf: parsed})}
+                />
+            </details>
+            <details className="mb-3">
+                <summary className="small">
+                    Patch style ({isCustomBlob(element.patch, DEFAULT_PATCH) ? 'custom' : 'default'})
+                </summary>
+                <JsonField
+                    label="Patch style (JSON)"
+                    value={element.patch}
+                    defaultValue={DEFAULT_PATCH}
+                    onApply={(parsed) => onPatchElement(elementKey, {patch: parsed})}
+                />
+            </details>
         </div>
     )
 }

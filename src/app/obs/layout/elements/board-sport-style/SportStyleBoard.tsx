@@ -406,7 +406,11 @@ export function SportStyleBoard({elementKey, element, box}: ElementProps) {
     // same clip group as the canvas) so the neon tier skins read against a plain backdrop. This is
     // an `edgeMode` decision, not a `sortMode` one — 'centered' paints turf again like any other mode
     // when `edgeMode` is 'plain'.
-    const paintTurf = turf.enabled && edgeMode !== 'tiered'
+    // TEMPORARY (revert me): turf + white lines are forced ON in tiered mode too, to compare the
+    // neon tier skins against the football field. Restore the three `edgeMode` guards marked
+    // "TEMPORARY" in this file to go back to the black field with no lines.
+    const TEMP_FIELD_IN_TIERED = true
+    const paintTurf = turf.enabled && (TEMP_FIELD_IN_TIERED || edgeMode !== 'tiered')
 
     // R1 fix 6: re-rolling `seeds.turf`/`seeds.wear` (module state) doesn't by itself trigger a
     // re-render — each mounted board keeps its own counter, bumped when a matching cue arrives, so
@@ -488,7 +492,8 @@ export function SportStyleBoard({elementKey, element, box}: ElementProps) {
                         black fill instead) only, clipped to the oval field. */}
                     <div className="sps-clip-turf" style={{clipPath: fieldClip, WebkitClipPath: fieldClip}}>
                         <canvas ref={canvasRef} className="sps-turf-canvas" width={innerW} height={innerH} />
-                        {edgeMode === 'tiered' && (
+                        {/* TEMPORARY: `&& !TEMP_FIELD_IN_TIERED` keeps the black fill off while the field is forced on. */}
+                        {edgeMode === 'tiered' && !TEMP_FIELD_IN_TIERED && (
                             <div
                                 className="sps-field-black"
                                 style={{left: geometry.field.x, top: geometry.field.y, width: geometry.field.w, height: geometry.field.h}}
@@ -498,14 +503,14 @@ export function SportStyleBoard({elementKey, element, box}: ElementProps) {
 
                     {/* Layer 2 — cells, unclipped by the oval. */}
                     {placedEvents.map(({event, row, col, rowLen}) => {
-                        // A short last row (`rowLen < cols`) is centred. Plain mode centres it by
-                        // WHOLE cells so it stays on the column strips (R1 fix 2, revised). Tiered
-                        // mode draws no strips, so it centres exactly, by pixels — a half-cell
-                        // offset when the empty count is odd.
-                        const rowShiftPx = edgeMode === 'tiered'
-                            ? Math.floor(((cols - rowLen) * geometry.cellPx) / 2)
-                            : Math.floor((cols - rowLen) / 2) * geometry.cellPx
-                        const footprintX = geometry.gridLeft + col * geometry.cellPx + rowShiftPx
+                        // A short last row (`rowLen < cols`) always lands ON the column formation —
+                        // whole cells, every edge mode — and takes the most central ones, so the
+                        // empty columns are split as evenly as possible between the two sides. With
+                        // an odd number of empty columns an exact split is impossible on a cell
+                        // grid; the spare column then sits on the right.
+                        const emptyCols = cols - rowLen
+                        const colShift = Math.floor(emptyCols / 2)
+                        const footprintX = geometry.gridLeft + (col + colShift) * geometry.cellPx
                         const footprintY = geometry.gridTop + row * geometry.cellPx
                         // R1 fix 1: the patch is centred inside its own `cellPx × cellPx`
                         // footprint, not flush with fieldGeometry.ts's seam-derived `cellBox`.
@@ -533,7 +538,8 @@ export function SportStyleBoard({elementKey, element, box}: ElementProps) {
                         the cells, clipped to the same oval field as clip group A above. Task spec
                         part 2: every white line is hidden in `edgeMode: 'tiered'` — the black field
                         and the cells are all that remain. */}
-                    {edgeMode !== 'tiered' && (
+                    {/* TEMPORARY: `TEMP_FIELD_IN_TIERED ||` forces the white lines on in tiered mode. */}
+                    {(TEMP_FIELD_IN_TIERED || edgeMode !== 'tiered') && (
                         <div className="sps-clip-lines" style={{clipPath: fieldClip, WebkitClipPath: fieldClip}}>
                             {geometry.vStrips.map((s, i) => (
                                 <div key={`v-${i}`} className="sps-strip" style={{left: s.x, top: s.y, width: s.w, height: s.h, backgroundColor: lineColor}} />

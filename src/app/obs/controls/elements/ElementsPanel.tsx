@@ -11,6 +11,7 @@ import {REGISTRY, makeElement, registryIdOf} from '@/app/obs/layout/registry'
 import type {RegistryId} from '@/app/obs/layout/registry'
 import {defaultConfig, isEffectivelyVisible, resolveBox} from '@/app/obs/layout/config'
 import type {useControls} from '@/app/obs/controls/useControls'
+import type {MyOBSWebsocket} from '@/app/entity/my_obs_websocket'
 import ElementBlock from './ElementBlock'
 
 function baseKeyFor(regId: RegistryId): string {
@@ -36,11 +37,14 @@ type Props = {
     seriesId?: number | null
     /** Reports every save so the page can raise its notice — see doPush(). */
     onPushResult?: (result: {error?: string; warning?: string}) => void
+    // Forwarded straight into every ElementBlock/ElementSettings (obs-camera-shelf-plan.md §7).
+    obs: MyOBSWebsocket | null
+    isConnected: boolean
 }
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
-export default function ElementsPanel({controls, channelId, seriesId, onPushResult}: Props) {
+export default function ElementsPanel({controls, channelId, seriesId, onPushResult, obs, isConnected}: Props) {
     const {config, setConfigLocal, pushConfig, apply, state, emitCue, emitDraft} = controls
     const currentPhase = state.phase
 
@@ -619,6 +623,8 @@ export default function ElementsPanel({controls, channelId, seriesId, onPushResu
                         canMoveDown={canMove(key, 1)}
                         onFireCue={fireCue}
                         onEmitCue={emitCue}
+                        obs={obs}
+                        isConnected={isConnected}
                     />
                 ))}
                 {elementsInPhase.length === 0 && (

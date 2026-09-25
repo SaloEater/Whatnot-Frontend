@@ -13,10 +13,10 @@
 //     the spine itself (useLayoutData.tsx), not here — this component just reads whatever `photos`
 //     currently holds.
 //   - Geometry is derived from `box` instead of the old page's module-level VIEWPORT_W/H=1080/1920:
-//     the card area stays 85% of box.w by 60% of box.h — the exact fractions the old fixed-viewport
-//     page hardcoded as 918/1152 px — so this looks identical at a 1080x1920 box and rescales
-//     proportionally at any other size. The row-packing math (packing.ts) takes that width/height
-//     budget as plain arguments instead of closing over the old module constants.
+//     in list mode the card area IS the element box (top-aligned, no fraction of it held back), and
+//     in carousel mode the cards size to fit both axes of the box, centred horizontally, with the
+//     side cards overhanging the box edges (drawn outside it, registry `unclipped`). The row-packing math (packing.ts) takes that
+//     width/height budget as plain arguments instead of closing over the old module constants.
 //   - Hover-zoom (hoveredId/elevatedId, the mouseenter/mouseleave handlers, the translate/scale
 //     transform) is KEPT, but re-based: the original sized it against the fixed 1080x1920 viewport,
 //     whereas here it centres on this element's own box and converts rect offsets back through the
@@ -24,9 +24,11 @@
 //     check a board, which is exactly when it is wanted.
 //   - CSS is prefixed `crd-` (`board-`/`gallery-` are too generic for the shared layout page).
 
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { NoCustomer, Photo } from '@/app/entity/entities'
 import type { ElementProps } from '../../registry'
+import { CANVAS } from '../../schema'
 import { useLayoutData } from '../../useLayoutData'
 import { useCueBus } from '../../cueBus'
 import { centerByPrice, packList, PackedRow } from './packing'
@@ -37,6 +39,25 @@ import './CardsElement.css'
 const FALLBACK_ASPECT = 3 / 4
 const GALLERY_INTERVAL_MS = 5000
 
+// Main area / card-count threshold (cards-main-area-plan.md §1): the operator sometimes covers the
+// bottom of the box with semi-transparent elements drawn over it, so a crowded board should use the
+// full box while a sparse one packs into the uncovered top share instead. Exported so the settings
+// panel (CardsSettings.tsx) shows the same numbers a freshly-added/unset element actually renders
+// at, same convention as CameraShelfElement.tsx's DEFAULT_* constants.
+export const DEFAULT_MAIN_AREA_HEIGHT_PCT = 100
+export const DEFAULT_MAIN_AREA_MAX_CARDS = 0
+
+// Copied from ImageBoxElement.tsx / CameraShelfElement.tsx (ADDING_AN_ELEMENT.md's copy rule —
+// never imported/refactored out). Read after mount: `window` does not exist during SSR, and the
+// first client render must match the server's (empty) markup byte for byte.
+function readDevMode(): boolean {
+    try {
+        return new URLSearchParams(window.location.search).get('dev') === '1'
+    } catch {
+        return false
+    }
+}
+
 // Pending-sold-cards (pending-sold-cards-plan.md §2.2): a card whose team just sold, still shown
 // (marked) until the operator acknowledges it by hovering it in the controls grid — which zooms it
 // here, the same zoom-out that ends the highlight — or this timeout elapses.
@@ -45,14 +66,9 @@ const PENDING_TIMEOUT_MS = 30_000
 // non-empty, so a dock opened late catches up and a dead layout's tint expires there.
 const PENDING_HEARTBEAT_MS = 3_000
 
-// Fractions of the box reproducing the old fixed-viewport page's hardcoded px values (board-card-area:
-// 85% width, 60% height of the viewport; gallery base card width ~27.8% of viewport width; gallery
-// gap ~2.2% of viewport width) — see file header. Expressed as decimals rather than a ratio of two
-// viewport-sized literals so no 1080/1920 constant survives in the sizing path.
-const CARD_AREA_W_FRACTION = 0.85
-const CARD_AREA_H_FRACTION = 0.6
-const GALLERY_BASE_W_FRACTION = 0.277778
-const GALLERY_GAP_FRACTION = 0.022222
+// useLayoutEffect only warns during SSR — same fallback as Stage.tsx.
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
+
 
 // How long a remote highlight survives without being renewed. The controls page re-sends the cue
 // it is holding every second (CardsSettings' HIGHLIGHT_HEARTBEAT_MS), so this is the backstop for
@@ -66,8 +82,106 @@ function shortestRotation(deg: number): number {
     return (((deg % 360) + 540) % 360) - 180
 }
 
-export function CardsElement({ box }: ElementProps) {
+/** A card's resting position/size in CANVAS units (box.x/box.y + w/h) — what a `ZoomPortal` wrapper is positioned at. */
+type CanvasRect = { left: number; top: number; width: number; height: number }
+
+/** Finds which packed row/index a photo id is currently in, or null if it isn't on the board any more. */
+function findCardGeom(rows: PackedRow[], id: number | null): { photo: Photo; row: PackedRow; ci: number } | null {
+    if (id === null) return null
+    for (const row of rows) {
+        const ci = row.photos.findIndex((p) => p.id === id)
+        if (ci !== -1) return { photo: row.photos[ci], row, ci }
+    }
+    return null
+}
+
+/**
+ * The zoomed card's visual, teleported (via `createPortal`) into `.lay-canvas` so it draws above
+ * EVERY other layout element, not just sibling cards — see the header comment on `.crd-zoom-portal`
+ * in CardsElement.css for why ElementFrame's own zIndex can't do this.
+ *
+ * Mounts with no transform and applies the zoom transform one frame later (double rAF) so the
+ * zoom-in still transitions instead of snapping straight to its final state — a portal that mounted
+ * already-transformed would have nothing to transition FROM. Keyed by photo id from the caller, so
+ * a genuinely new elevation remounts (fresh `applied` state) while the zoom-out window (elevatedId
+ * held for 220ms after hoveredId clears) keeps reusing the same instance and animates back via the
+ * `hovered` prop going false.
+ */
+function ZoomPortal({
+    canvasEl,
+    rect,
+    photo,
+    rotated,
+    hovered,
+    transform,
+    isPending,
+}: {
+    canvasEl: HTMLElement
+    rect: CanvasRect
+    photo: Photo
+    rotated: boolean // row.rotated — whether this row already rotates its cards into place
+    hovered: boolean // apply the zoom transform (vs. animate back to rest)
+    transform: string
+    isPending: boolean
+}) {
+    const [applied, setApplied] = useState(false)
+
+    useEffect(() => {
+        let raf2 = 0
+        const raf1 = requestAnimationFrame(() => {
+            raf2 = requestAnimationFrame(() => setApplied(true))
+        })
+        return () => {
+            cancelAnimationFrame(raf1)
+            cancelAnimationFrame(raf2)
+        }
+    }, [])
+
+    const rotation = photo.rotation ?? 0
+    const rotateInBox = rotated && rotation !== 0
+    const swap = rotateInBox && rotation % 180 !== 0
+
+    return createPortal(
+        <div
+            className="crd-zoom-portal"
+            style={{ left: `${rect.left}px`, top: `${rect.top}px`, width: `${rect.width}px`, height: `${rect.height}px` }}
+        >
+            <div
+                className={`crd-card-visual${isPending ? ' crd-card--pending' : ''}`}
+                style={
+                    hovered && applied
+                        ? { transform, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }
+                        : undefined
+                }
+            >
+                <img
+                    src={photo.url}
+                    alt={photo.name || 'card'}
+                    style={rotateInBox ? {
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        width: `${swap ? rect.height : rect.width}px`,
+                        height: `${swap ? rect.width : rect.height}px`,
+                        transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+                    } : undefined}
+                />
+            </div>
+        </div>,
+        canvasEl
+    )
+}
+
+export function CardsElement({ box, element }: ElementProps) {
     const { photos, cardsBoardSettings, events: breakEvents, stream, channel } = useLayoutData()
+
+    // `?dev=1` only (cards-main-area-plan.md §3): drives the main-area boundary outline further
+    // down. Read after mount, same `readDevMode` copy pattern as `CameraShelfElement`/
+    // `ImageBoxElement` — never shown in OBS.
+    const [devMode, setDevMode] = useState(false)
+    useEffect(() => {
+        setDevMode(readDevMode())
+    }, [])
 
     // Pending-sold-cards (pending-sold-cards-plan.md): a team just becoming taken doesn't drop its
     // card off the board immediately — it goes pending (still shown, via the filter below) until
@@ -99,8 +213,8 @@ export function CardsElement({ box }: ElementProps) {
     // opened in a normal browser to check a board, and that is exactly when you want it.
     //
     // The maths differs from the original in two ways that matter:
-    //   - It centres the card in THIS ELEMENT'S box, not the 1080x1920 viewport. ElementFrame
-    //     clips a boxed element, so a card centred on the canvas would just be cut off.
+    //   - It centres the card in THIS ELEMENT'S box, not the 1080x1920 viewport. List mode clips
+    //     to the box (`.crd-root`), so a card centred on the canvas would just be cut off.
     //   - `getBoundingClientRect()` returns VIEWPORT px, but the stage is scaled and the transform
     //     is applied inside that scaled canvas. Everything is divided back through the stage scale
     //     (measured as rootRect.width / box.w) so the offsets are in canvas units.
@@ -116,6 +230,48 @@ export function CardsElement({ box }: ElementProps) {
     const hoverData = useRef({ scale: 1, dx: 0, dy: 0 })
     const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const elevationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+    // Zoomed-card-in-front-of-everything (see `.crd-zoom-portal` in CardsElement.css): ElementFrame
+    // wraps every element (this one included) in a `.lay-element-frame` with its own zIndex AND
+    // `overflow: hidden`, which both clips and creates a stacking context — a plain zIndex on the
+    // hovered card only ever beats OTHER cards, never a sibling ELEMENT with a higher z. The fix is
+    // to portal a copy of the zoomed card's visual straight into `.lay-canvas` (Stage.tsx), which
+    // sits above every ElementFrame. If there is no canvas (e.g. this component is ever rendered
+    // outside a <Stage>), the portal is simply never used and the original in-place zoom
+    // (clipped/ordered like any other element) is unchanged.
+    //
+    // Re-checked after every render, not just on mount: both the list and carousel roots carry
+    // `rootRef`, but the root node is replaced when the orientation switches, and a mount-only
+    // lookup that happened to run with no root attached would leave the portal off for good.
+    // Cheap — `closest` on one node, and an unchanged value bails out of the state update.
+    const [canvasEl, setCanvasEl] = useState<HTMLElement | null>(null)
+    useEffect(() => {
+        const found = (rootRef.current?.closest('.lay-canvas') as HTMLElement | null) ?? null
+        setCanvasEl((prev) => (prev === found ? prev : found))
+    })
+
+    // The portal wrapper's resting position/size, in CANVAS units (box.x/box.y-relative, same space
+    // ElementFrame positions boxes in) — recomputed whenever the zoomed card or the board's layout
+    // changes, same triggers the remote-highlight effect below already re-derives its zoom from.
+    // (State/effect declared further down, once `cardNodes` exists — see the comment there.)
+    // Tagged with the photo id it was measured for, so a switch straight from card A to card B
+    // never renders B's portal at A's position for a frame.
+    const [portalRect, setPortalRect] = useState<{ id: number; rect: CanvasRect } | null>(null)
+
+    /** A card element's on-screen rect converted to CANVAS units — see `zoomFor` below for the same stageScale derivation. */
+    function canvasRectFor(cardEl: HTMLElement): CanvasRect | null {
+        const root = rootRef.current
+        if (!root) return null
+        const rootRect = root.getBoundingClientRect()
+        const rect = cardEl.getBoundingClientRect()
+        const stageScale = rootRect.width > 0 ? rootRect.width / box.w : 1
+        return {
+            left: box.x + (rect.left - rootRect.left) / stageScale,
+            top: box.y + (rect.top - rootRect.top) / stageScale,
+            width: rect.width / stageScale,
+            height: rect.height / stageScale,
+        }
+    }
 
     // Which side is driving the current zoom. The operator hovering the controls page's card grid
     // raises the same zoom remotely (see the `highlight-photo` effect below), and without this tag
@@ -140,6 +296,27 @@ export function CardsElement({ box }: ElementProps) {
     const cueBus = useCueBus()
     const cardNodes = useRef(new Map<number, { el: HTMLDivElement; rotated: boolean }>())
     const [remoteId, setRemoteId] = useState<number | null>(null)
+
+    // Portal-wrapper geometry (see the `canvasEl`/`portalRect` declarations above): needs
+    // `cardNodes`, so it lives here rather than alongside `canvasEl`. Re-derives whenever the
+    // zoomed card or the board's layout changes — the same trigger set the remote-highlight effect
+    // below uses to re-derive its zoom, plus box.x/box.y (position, not just scale, now matters).
+    // Layout effect, not a plain effect: the in-place card goes transparent in the same render that
+    // elevates it, so the portal's rect must land before paint or the card blinks out for a frame.
+    useIsomorphicLayoutEffect(() => {
+        if (elevatedId === null || !canvasEl) {
+            setPortalRect(null)
+            return
+        }
+        const node = cardNodes.current.get(elevatedId)
+        if (!node) {
+            setPortalRect(null)
+            return
+        }
+        const rect = canvasRectFor(node.el)
+        setPortalRect(rect ? { id: elevatedId, rect } : null)
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- canvasRectFor closes over rootRef/box; cardNodes is a ref
+    }, [elevatedId, displayPhotos, cardDims, box.x, box.y, box.w, box.h, canvasEl])
 
     // The TTL is refreshed here rather than in the effect below because a renewal carries the SAME
     // photo id: `setRemoteId` bails out on an unchanged value, so the effect would never re-run and
@@ -309,6 +486,11 @@ export function CardsElement({ box }: ElementProps) {
         return () => clearInterval(id)
     }, [orientation, displayPhotos.length])
 
+    // Every hook above this point runs unconditionally regardless of `element.kind` — the registry
+    // only ever mounts this component for a `cards` element, so this is a defensive narrowing (same
+    // convention as `CameraShelfElement`'s guard), not a real early-out.
+    if (element.kind !== 'cards') return null
+
     function getAspect(photo: Photo): number {
         const d = cardDims[photo.id]
         return d ? d.w / d.h : FALLBACK_ASPECT
@@ -323,10 +505,16 @@ export function CardsElement({ box }: ElementProps) {
     // Sort by price descending only — mixed orientation per row.
     const sortedPhotos = [...displayPhotos]
 
-    const cardAreaW = box.w * CARD_AREA_W_FRACTION
-    const cardAreaH = box.h * CARD_AREA_H_FRACTION
-    const galleryBaseW = box.w * GALLERY_BASE_W_FRACTION
-    const galleryGap = box.w * GALLERY_GAP_FRACTION
+    // Main area / card-count threshold (cards-main-area-plan.md §1): carousel mode ignores this
+    // entirely (out of scope) — `mainAreaHeightPx`/`useMainArea` are only consulted by the list-mode
+    // packing below and its `?dev=1` outline.
+    const mainAreaHeightPct = element.mainAreaHeightPct ?? DEFAULT_MAIN_AREA_HEIGHT_PCT
+    const mainAreaMaxCards = element.mainAreaMaxCards ?? DEFAULT_MAIN_AREA_MAX_CARDS
+    const mainAreaHeightPx = (box.h * mainAreaHeightPct) / 100
+    const useMainArea = mainAreaMaxCards > 0 && displayPhotos.length <= mainAreaMaxCards
+
+    const cardAreaW = box.w
+    const cardAreaH = useMainArea ? mainAreaHeightPx : box.h
 
     function packRows(): PackedRow[] {
         if (!showHorizontalRow) return packList(sortedPhotos, cardAreaH, cardAreaW, getAspect)
@@ -373,106 +561,228 @@ export function CardsElement({ box }: ElementProps) {
                     : [0, 1, 2].map((o) => displayPhotos[(((galleryIndex + o) % n) + n) % n])
         const centerPos = Math.floor(visible.length / 2)
 
+        // Base width, sized to the centre card only (scale 2 below): the centre card must fit both
+        // axes of the box, so W is bounded both by box.w/2 and by box.h via the smallest displayed
+        // aspect across ALL display photos (not just the visible ones) — any card can rotate into
+        // the centre on the next tick, and sizing off only the currently-visible aspects would make
+        // W jump every 5s. Side cards (scale 0.65) straddle the box edges — see the positioning
+        // below; their outer half is drawn outside the box (`.crd-root--gallery`, registry
+        // `unclipped`).
+        const minAspect = displayPhotos.length > 0
+            ? Math.min(...displayPhotos.map(getDisplayAspect))
+            : FALLBACK_ASPECT
+        const galleryW = Math.min(box.w / 2, (box.h * minAspect) / 2)
+
+        const geoms = visible.map((photo, pos) => {
+            const scale = pos === centerPos ? 2 : 0.65
+            const rotation = photo.rotation ?? 0
+            const aspect = getAspect(photo)
+            const effectiveAspect = rotation % 180 === 0 ? aspect : 1 / aspect
+            const width = galleryW * scale
+            const height = width / effectiveAspect
+            const imgWidth = rotation % 180 === 0 ? width : height
+            const imgHeight = rotation % 180 === 0 ? height : width
+            return { photo, pos, rotation, width, height, imgWidth, imgHeight }
+        })
+
+        // The centre card is always horizontally centred in the box. Each side card is centred on
+        // the box edge, so exactly half its width is inside the area; the centre card draws above
+        // it if they meet. With 2 visible cards the lone side card is at pos 0, which is
+        // < centerPos, so it lands on the left edge.
+        //
+        // Vertically, every card is centred on the CANVAS midline (y = CANVAS.h / 2), not on the
+        // box, so the carousel sits at the stream's vertical middle wherever the box is placed;
+        // converted to box-local px by subtracting box.y. If the box doesn't straddle the midline
+        // symmetrically, a card can cross the box edge — every carousel card draws outside the
+        // box (the frame copy via `.crd-root--gallery`, the centre card via `.crd-top-layer`).
+        const centerGeom = geoms[centerPos]
+        const centerLeft = centerGeom ? (box.w - centerGeom.width) / 2 : 0
+        const midlineY = CANVAS.h / 2 - box.y
+        // The centre card's bottom edge never goes below the main area's bottom (the element's
+        // `mainAreaHeightPct` — the uncovered top share of the box). A card that would cross it is
+        // lifted until its bottom sits on that line; one that already clears it stays on the
+        // midline. Always applied in carousel mode, independent of list mode's card-count
+        // threshold (`mainAreaMaxCards`); at the 100% default the line is the box bottom.
+        const topFor = (isCenter: boolean, height: number) =>
+            isCenter
+                ? Math.min(midlineY - height / 2, mainAreaHeightPx - height)
+                : midlineY - height / 2
+
+        // The centre card is drawn in front of EVERY layout element, the same way the list-mode zoom
+        // is (see `canvasEl` above): ElementFrame gives this element one z-index for all of its
+        // cards, so an element on a higher Layer overlapping the box would cover the centre card.
+        // The carousel is rendered twice with identical geometry — once in the frame, once in a
+        // box-sized, unclipped layer portalled into `.lay-canvas` at max z-index — and each
+        // copy only shows its own share: side cards in the frame, the centre card on top. Both
+        // copies keep every card mounted under the same key, so the centre/side swap still runs
+        // the left/width/height/filter transitions in lockstep; the handoff between layers is an
+        // instant opacity flip between two pixel-identical cards, which is invisible.
+        const topLayer = !!canvasEl
+        const renderGalleryCards = (layer: 'frame' | 'top') =>
+            geoms.map(({ photo, pos, rotation, width, height, imgWidth, imgHeight }) => {
+                const isCenter = pos === centerPos
+                const left = isCenter
+                    ? centerLeft
+                    : pos < centerPos
+                        ? -width / 2
+                        : box.w - width / 2
+                const hidden = topLayer && (layer === 'top' ? !isCenter : isCenter)
+                return (
+                    <div
+                        key={photo.id}
+                        className={`crd-gallery-card ${isCenter ? 'crd-gallery-card--center' : 'crd-gallery-card--side'}`}
+                        style={{
+                            left: `${left}px`, top: `${topFor(isCenter, height)}px`,
+                            width: `${width}px`, height: `${height}px`,
+                            ...(hidden ? { opacity: 0 } : {}),
+                        }}
+                    >
+                        <img
+                            src={isCenter ? photo.url : (photo.thumbnail || photo.url)}
+                            alt={photo.name || 'card'}
+                            style={rotation !== 0 ? {
+                                position: 'absolute',
+                                top: '50%',
+                                left: '50%',
+                                width: `${imgWidth}px`,
+                                height: `${imgHeight}px`,
+                                transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+                            } : undefined}
+                            // One copy is enough to measure the aspect ratio.
+                            onLoad={layer === 'frame' ? (e) => recordDims(photo, e) : undefined}
+                        />
+                    </div>
+                )
+            })
+
         return (
-            <div className="crd-root">
-                <div className="crd-gallery-area" style={{ gap: `${galleryGap}px` }}>
-                    {visible.map((photo, pos) => {
-                        const scale = pos === centerPos ? 2 : 0.65
-                        const rotation = photo.rotation ?? 0
-                        const aspect = getAspect(photo)
-                        const effectiveAspect = rotation % 180 === 0 ? aspect : 1 / aspect
-                        const width = galleryBaseW * scale
-                        const height = width / effectiveAspect
-                        const imgWidth = rotation % 180 === 0 ? width : height
-                        const imgHeight = rotation % 180 === 0 ? height : width
-                        return (
-                            <div
-                                key={photo.id}
-                                className={`crd-gallery-card ${pos === centerPos ? 'crd-gallery-card--center' : 'crd-gallery-card--side'}`}
-                                style={{
-                                    width: `${width}px`, height: `${height}px`,
-                                    ...(rotation !== 0 ? { position: 'relative' } : {}),
-                                }}
-                            >
-                                <img
-                                    src={pos === centerPos ? photo.url : (photo.thumbnail || photo.url)}
-                                    alt={photo.name || 'card'}
-                                    style={rotation !== 0 ? {
-                                        position: 'absolute',
-                                        top: '50%',
-                                        left: '50%',
-                                        width: `${imgWidth}px`,
-                                        height: `${imgHeight}px`,
-                                        transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
-                                    } : undefined}
-                                    onLoad={(e) => recordDims(photo, e)}
-                                />
-                            </div>
-                        )
-                    })}
+            <>
+                <div className="crd-root crd-root--gallery" ref={rootRef}>
+                    <div className="crd-gallery-area">{renderGalleryCards('frame')}</div>
                 </div>
-            </div>
+                {topLayer && canvasEl && createPortal(
+                    <div
+                        className="crd-top-layer"
+                        style={{ left: `${box.x}px`, top: `${box.y}px`, width: `${box.w}px`, height: `${box.h}px` }}
+                    >
+                        <div className="crd-gallery-area">{renderGalleryCards('top')}</div>
+                    </div>,
+                    canvasEl,
+                )}
+            </>
         )
     }
 
     const rows = packRows()
 
+    // Portal wiring (see the `canvasEl`/`ZoomPortal` comments above): `usePortal` gates BOTH the
+    // portal render below AND the in-place hide, so a missing `.lay-canvas` (canvasEl null) falls
+    // back cleanly to the original in-place-only zoom instead of hiding a card with nothing drawing
+    // its replacement. `elevatedGeom` looks up which row/photo is currently elevated — it can come
+    // back null for a beat (e.g. the card just sold off the board while still zoomed), in which case
+    // there's nothing to portal and the in-place card (already not elevated, since it's not in
+    // `rows`) is left alone.
+    const usePortal = !!canvasEl
+    const elevatedGeom = findCardGeom(rows, elevatedId)
+    // Only hide the in-place card once its portal copy is actually drawn.
+    const portalShown = usePortal && elevatedGeom !== null && portalRect?.id === elevatedGeom.photo.id
+    const elevatedHovered = elevatedGeom !== null && hoveredId === elevatedGeom.photo.id
+    const elevatedTransform = elevatedGeom
+        ? `translate(${hoverData.current.dx}px, ${hoverData.current.dy}px) scale(${hoverData.current.scale})${elevatedGeom.row.rotated ? '' : ` rotate(${shortestRotation(elevatedGeom.photo.rotation ?? 0)}deg)`}`
+        : ''
+
     return (
-        <div className="crd-root" ref={rootRef}>
-            <div className="crd-card-area">
-                {rows.map((row, ri) => (
-                    <div key={ri} className="crd-row">
-                        {row.photos.map((photo, ci) => {
-                            const rotation = photo.rotation ?? 0
-                            const rotateInBox = !!row.rotated && rotation !== 0
-                            const swap = rotateInBox && rotation % 180 !== 0
-                            const hovered = hoveredId === photo.id
-                            const isElevated = hovered || elevatedId === photo.id
-                            const isPending = pendingIds.has(photo.id)
-                            return (
-                                <div
-                                    key={photo.id}
-                                    className={`crd-card${isPending ? ' crd-card--pending' : ''}`}
-                                    style={{
-                                        width: `${row.widths[ci]}px`,
-                                        height: `${row.cardHeights[ci]}px`,
-                                        ...(isElevated ? { zIndex: 10 } : {}),
-                                    }}
-                                    ref={(el) => {
-                                        if (el) cardNodes.current.set(photo.id, {el, rotated: !!row.rotated})
-                                        else cardNodes.current.delete(photo.id)
-                                    }}
-                                    onMouseEnter={(e) => handleMouseEnter(e, photo, !!row.rotated)}
-                                    onMouseLeave={handleMouseLeave}
-                                >
-                                    <div
-                                        className="crd-card-visual"
-                                        style={hovered ? {
-                                            transform: `translate(${hoverData.current.dx}px, ${hoverData.current.dy}px) scale(${hoverData.current.scale})${row.rotated ? '' : ` rotate(${shortestRotation(rotation)}deg)`}`,
-                                            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-                                        } : undefined}
-                                    >
-                                        <img
-                                            src={isElevated ? photo.url : (photo.thumbnail || photo.url)}
-                                            alt={photo.name || 'card'}
-                                            style={rotateInBox ? {
-                                                position: 'absolute',
-                                                top: '50%',
-                                                left: '50%',
-                                                width: `${swap ? row.cardHeights[ci] : row.widths[ci]}px`,
-                                                height: `${swap ? row.widths[ci] : row.cardHeights[ci]}px`,
-                                                transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
-                                            } : undefined}
-                                            onLoad={(e) => recordDims(photo, e)}
-                                        />
-                                    </div>
-                                </div>
-                            )
-                        })}
+        <>
+            <div className="crd-root" ref={rootRef}>
+                {/* `?dev=1` only (cards-main-area-plan.md §3): the main-area boundary, always shown
+                    at its own height regardless of whether it is actually being packed into right
+                    now — the tag says which. Never rendered in OBS (devMode is read client-side,
+                    after mount, and defaults to false). */}
+                {devMode && mainAreaMaxCards > 0 && (
+                    <div className="crd-dev-main-area" style={{ height: `${mainAreaHeightPx}px` }}>
+                        <span className="crd-dev-main-area-tag">
+                            {useMainArea ? 'main area' : 'full box'} · {displayPhotos.length}{' '}
+                            {useMainArea ? '≤' : '>'} {mainAreaMaxCards}
+                        </span>
                     </div>
-                ))}
+                )}
+                <div className="crd-card-area">
+                    {rows.map((row, ri) => (
+                        <div key={ri} className="crd-row">
+                            {row.photos.map((photo, ci) => {
+                                const rotation = photo.rotation ?? 0
+                                const rotateInBox = !!row.rotated && rotation !== 0
+                                const swap = rotateInBox && rotation % 180 !== 0
+                                const hovered = hoveredId === photo.id
+                                const isElevated = hovered || elevatedId === photo.id
+                                // Portaled: this card's zoom is drawn by <ZoomPortal> instead, in front of
+                                // every element — hide the in-place visual (opacity, NOT visibility/display,
+                                // so the `.crd-card` div underneath keeps getting mouseenter/mouseleave) and
+                                // its pending pulse, which moves to the portal copy so it still reads while
+                                // zoomed (see the pending className below).
+                                const portaled = isElevated && portalShown
+                                const isPending = pendingIds.has(photo.id)
+                                return (
+                                    <div
+                                        key={photo.id}
+                                        className={`crd-card${isPending && !portaled ? ' crd-card--pending' : ''}`}
+                                        style={{
+                                            width: `${row.widths[ci]}px`,
+                                            height: `${row.cardHeights[ci]}px`,
+                                            ...(isElevated ? { zIndex: 10 } : {}),
+                                        }}
+                                        ref={(el) => {
+                                            if (el) cardNodes.current.set(photo.id, {el, rotated: !!row.rotated})
+                                            else cardNodes.current.delete(photo.id)
+                                        }}
+                                        onMouseEnter={(e) => handleMouseEnter(e, photo, !!row.rotated)}
+                                        onMouseLeave={handleMouseLeave}
+                                    >
+                                        <div
+                                            className="crd-card-visual"
+                                            style={
+                                                portaled
+                                                    ? { opacity: 0 }
+                                                    : hovered ? {
+                                                        transform: `translate(${hoverData.current.dx}px, ${hoverData.current.dy}px) scale(${hoverData.current.scale})${row.rotated ? '' : ` rotate(${shortestRotation(rotation)}deg)`}`,
+                                                        boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                                                    } : undefined
+                                            }
+                                        >
+                                            <img
+                                                src={isElevated ? photo.url : (photo.thumbnail || photo.url)}
+                                                alt={photo.name || 'card'}
+                                                style={rotateInBox ? {
+                                                    position: 'absolute',
+                                                    top: '50%',
+                                                    left: '50%',
+                                                    width: `${swap ? row.cardHeights[ci] : row.widths[ci]}px`,
+                                                    height: `${swap ? row.widths[ci] : row.cardHeights[ci]}px`,
+                                                    transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+                                                } : undefined}
+                                                onLoad={(e) => recordDims(photo, e)}
+                                            />
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    ))}
+                </div>
             </div>
-        </div>
+            {portalShown && canvasEl && elevatedGeom && portalRect && (
+                <ZoomPortal
+                    key={elevatedGeom.photo.id}
+                    canvasEl={canvasEl}
+                    rect={portalRect.rect}
+                    photo={elevatedGeom.photo}
+                    rotated={!!elevatedGeom.row.rotated}
+                    hovered={elevatedHovered}
+                    transform={elevatedTransform}
+                    isPending={pendingIds.has(elevatedGeom.photo.id)}
+                />
+            )}
+        </>
     )
 }
 

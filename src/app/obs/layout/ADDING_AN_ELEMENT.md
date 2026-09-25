@@ -34,3 +34,11 @@ file contains — that rots; the code and its WHY-comments are the source for th
    board that paints edge-to-edge (flat/classic/cobra/cobra_flat today) has nothing to gain from one.
 8. **[workflow]** verify with `npx tsc --noEmit -p .` + `npx eslint <files>` only — never
    `npm run build` while `next dev` is running; they share `.next/` and will corrupt each other.
+9. **[convention]** `mount` stage hooks (`stageHooks.ts`, `registry.ts`'s `RegistryEntry.mount`,
+   `controls/useStageHooks.ts`, obs-camera-shelf-plan.md §5) — an element type that needs to run
+   code when a stage is left/entered (e.g. `obsToggle` enabling/disabling a list of OBS sources,
+   obs-visibility-toggle-plan.md) adds a `mount: MountFn` to its registry entry instead of storing
+   anything in the config. It runs on the CONTROLS page only, receives a small per-element event
+   bus, and returns an optional teardown.
+   Nothing checks that a `mount` actually unsubscribes — a leaked handler fires on every stage
+   change until reload.

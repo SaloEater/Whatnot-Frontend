@@ -39,6 +39,8 @@ export const DEFAULT_TICKER_SEPARATOR = '   •   '
 export const DEFAULT_TICKER_FONT_SIZE = 48
 export const DEFAULT_TICKER_SPEED = 90
 export const DEFAULT_TICKER_DIRECTION: TickerDirection = 'left'
+// Canvas px of blur on the main text (schema `soften`). Tuned for Handjet at a low weight.
+export const DEFAULT_TICKER_SOFTEN = 0.6
 export const DEFAULT_LABEL_COLOR = '#9fd6ff'
 export const DEFAULT_VALUE_COLOR = '#ffffff'
 
@@ -153,6 +155,7 @@ export function TickerElement({ element, box }: ElementProps) {
     const reactId = useId().replace(/[^a-zA-Z0-9-]/g, '')
     const pathId = `tkr-path-${reactId}`
     const maskId = `tkr-mask-${reactId}`
+    const softenId = `tkr-soften-${reactId}`
     const gradientId = `tkr-fade-${reactId}`
 
     const isTicker = element.kind === 'ticker'
@@ -161,6 +164,7 @@ export function TickerElement({ element, box }: ElementProps) {
     const fontSize = isTicker ? element.fontSize ?? DEFAULT_TICKER_FONT_SIZE : DEFAULT_TICKER_FONT_SIZE
     const speed = isTicker ? element.speed ?? DEFAULT_TICKER_SPEED : DEFAULT_TICKER_SPEED
     const direction = isTicker ? element.direction ?? DEFAULT_TICKER_DIRECTION : DEFAULT_TICKER_DIRECTION
+    const soften = isTicker ? element.soften ?? DEFAULT_TICKER_SOFTEN : DEFAULT_TICKER_SOFTEN
 
     const parts = useMemo(() => (slots ? compileParts(data, slots) : []), [data, slots])
     const text = useMemo(() => unitString(parts, separator), [parts, separator])
@@ -197,9 +201,22 @@ export function TickerElement({ element, box }: ElementProps) {
     // Re-measure `unitLen` whenever the parts/separator/font size change (obs-ticker-plan.md §5.3
     // step 1) — imperative DOM measurement via a hidden `<text>`'s `getComputedTextLength()`.
     useLayoutEffect(() => {
-        const len = measureRef.current?.getComputedTextLength() ?? 0
-        unitLenRef.current = len
-        setUnitLen(len)
+        let cancelled = false
+        function measure() {
+            if (cancelled) return
+            const len = measureRef.current?.getComputedTextLength() ?? 0
+            unitLenRef.current = len
+            setUnitLen(len)
+        }
+        measure()
+        // The ticker uses a webfont (Handjet, TickerElement.css). A first paint can land before
+        // it loads, which measures the FALLBACK's width — the loop would then wrap with a visible
+        // gap or overlap and never correct itself. Re-measure once the document's fonts are ready;
+        // the phase is untouched (only `unitLen` changes, the rAF clock keeps running).
+        document.fonts?.ready.then(measure).catch(() => {})
+        return () => {
+            cancelled = true
+        }
     }, [text, svgFontSize])
 
     // Latest speed/direction/scale, read by the persistent rAF loop below without needing to
@@ -272,6 +289,16 @@ export function TickerElement({ element, box }: ElementProps) {
                         <stop offset="94%" stopColor="#fff" stopOpacity="1" />
                         <stop offset="100%" stopColor="#fff" stopOpacity="0" />
                     </linearGradient>
+                    {/* Anti-aliasing blur for the main text. An explicit SVG filter rather than CSS
+                        `filter: blur()` because feGaussianBlur's stdDeviation is unambiguously in
+                        the SVG's USER units (texture px); dividing the canvas-px setting by the
+                        texture->canvas scale `s` makes `soften` mean the same on-screen amount at
+                        any box size. The filter region is padded so blurred edges aren't clipped. */}
+                    {soften > 0 && (
+                        <filter id={softenId} x="-5%" y="-50%" width="110%" height="200%">
+                            <feGaussianBlur stdDeviation={soften / s} />
+                        </filter>
+                    )}
                     <mask id={maskId} maskUnits="userSpaceOnUse" x={0} y={0} width={TICKER_ASSET.w} height={TICKER_ASSET.h}>
                         <rect x={0} y={0} width={TICKER_ASSET.w} height={TICKER_ASSET.h} fill={`url(#${gradientId})`} />
                     </mask>
@@ -317,7 +344,13 @@ export function TickerElement({ element, box }: ElementProps) {
                 )}
 
                 {parts.length > 0 && (
-                    <text className="tkr-text" fontSize={svgFontSize} dominantBaseline="middle" mask={`url(#${maskId})`}>
+                    <text
+                        className="tkr-text"
+                        fontSize={svgFontSize}
+                        dominantBaseline="middle"
+                        mask={`url(#${maskId})`}
+                        filter={soften > 0 ? `url(#${softenId})` : undefined}
+                    >
                         <textPath ref={textPathRef} href={`#${pathId}`} startOffset={0}>
                             {Array.from({ length: n }).map((_, i) =>
                                 parts.map((part, j) => (

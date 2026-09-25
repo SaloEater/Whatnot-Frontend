@@ -20,9 +20,22 @@
 }
 
 .tkr-text {
-    font-family: var(--font-exo2), sans-serif;
-    font-weight: 700;
-    letter-spacing: 0.04em;
+    /* Handjet (loaded in src/app/layout.tsx): every glyph is built from repeated elements on a
+       grid — the old-CRT/LED-sign look. Three knobs, all in this rule:
+         --tkr-dot-shape  ELSH axis, 0..16. 2 = square (Handjet's default), 6.9 = rounded square,
+                          8 = circle (round LED bulbs). Full table: github.com/rosettatype/handjet.
+         --tkr-dot-grid   ELGR axis, 1..2. 1 = one element per grid unit (chunky, readable at
+                          ticker size); 2 = a 2x2 group per unit (finer, more "CRT" dots, but they
+                          get tiny at small font sizes).
+         font-weight      100..900 = element SIZE. Lower leaves visible gaps between dots; higher
+                          fills them in toward solid strokes.
+       Exo 2 stays as the fallback. */
+    --tkr-dot-shape: 2;
+    --tkr-dot-grid: 1;
+    font-family: var(--font-handjet), var(--font-exo2), sans-serif;
+    font-weight: 250;
+    font-variation-settings: 'ELSH' var(--tkr-dot-shape), 'ELGR' var(--tkr-dot-grid);
+    letter-spacing: 0.06em;
     /* SVG text collapses runs of spaces like HTML does, which would squash the default
        '   •   ' separator to ' • '. `pre` keeps every space the operator typed, in the hidden
        measuring <text> and the real <textPath> alike, so measured and rendered widths agree. */

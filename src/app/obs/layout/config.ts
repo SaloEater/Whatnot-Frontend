@@ -681,11 +681,46 @@ function validateResultsKind({ key, rawEl, stages }: KindValidatorCtx): { errors
     return { errors, regId }
 }
 
-// `cards`/`ripbar`/`reserved` share one branch today — a plain, boxed element with no fields of
-// its own beyond `placements`. A factory keeps that sharing without losing the per-kind entry the
-// `satisfies` check needs to see all three kinds explicitly covered.
+// `ripbar`/`reserved` share one branch — a plain, boxed element with no fields of its own beyond
+// `placements`. (`cards` used to share this branch too; it now carries its own main-area/threshold
+// fields — cards-main-area-plan.md §2 — and gets its own validator below.) A factory keeps the
+// remaining sharing without losing the per-kind entry the `satisfies` check needs to see both kinds
+// explicitly covered.
 function plainKind(regId: RegistryId): KindValidator {
     return ({ key, rawEl, stages }) => ({ errors: validatePlacements(key, rawEl.placements, regId, stages), regId })
+}
+
+// `cards` field validation (cards-main-area-plan.md §2): `mainAreaHeightPct` is the top share of
+// the box nothing covers, in % of box height — finite number in [1, 100] when present.
+// `mainAreaMaxCards` is the on-screen card-count threshold at/under which the board packs into the
+// main area instead of the full box — integer >= 0 when present (0 = never). Both optional; unset
+// means the component's own DEFAULT_MAIN_AREA_HEIGHT_PCT/DEFAULT_MAIN_AREA_MAX_CARDS
+// (CardsElement.tsx) apply, same convention as `validateCameraShelfFields`.
+function validateCardsFields(key: string, rawEl: Record<string, unknown>): string[] {
+    const errors: string[] = []
+    if (
+        rawEl.mainAreaHeightPct !== undefined &&
+        (!isFiniteNumber(rawEl.mainAreaHeightPct) || rawEl.mainAreaHeightPct < 1 || rawEl.mainAreaHeightPct > 100)
+    ) {
+        errors.push(`element "${key}": mainAreaHeightPct must be a finite number in [1, 100]`)
+    }
+    if (
+        rawEl.mainAreaMaxCards !== undefined &&
+        (!isFiniteNumber(rawEl.mainAreaMaxCards) ||
+            !Number.isInteger(rawEl.mainAreaMaxCards) ||
+            rawEl.mainAreaMaxCards < 0)
+    ) {
+        errors.push(`element "${key}": mainAreaMaxCards must be an integer >= 0`)
+    }
+    return errors
+}
+
+function validateCardsKind({ key, rawEl, stages }: KindValidatorCtx): { errors: string[]; regId?: RegistryId } {
+    const regId: RegistryId = 'cards'
+    return {
+        errors: [...validatePlacements(key, rawEl.placements, regId, stages), ...validateCardsFields(key, rawEl)],
+        regId,
+    }
 }
 
 function validateResultsThinKind({ key, rawEl, stages }: KindValidatorCtx): { errors: string[]; regId?: RegistryId } {
@@ -1030,6 +1065,9 @@ function validateTickerFields(key: string, rawEl: Record<string, unknown>): stri
     ) {
         errors.push(`element "${key}": direction must be one of ${TICKER_DIRECTIONS.join(', ')}`)
     }
+    if (rawEl.soften !== undefined && (!isFiniteNumber(rawEl.soften) || rawEl.soften < 0 || rawEl.soften > 3)) {
+        errors.push(`element "${key}": soften must be a finite number in [0, 3]`)
+    }
 
     return errors
 }
@@ -1042,6 +1080,82 @@ function validateTickerKind({ key, rawEl, stages }: KindValidatorCtx): { errors:
     }
 }
 
+// `cameraShelf` field validation (obs-camera-shelf-plan.md §1): `label` reuses `text.text`'s rule
+// verbatim (capped at MAX_TEXT_LENGTH), `labelFontSize` reuses `text.fontSize`'s rule (finite
+// number > 0), `glare` a plain boolean, `glareOpacity` a finite number in [0, 1], `cameraAspect` a
+// finite number > 0. `obsSource`/`obsBackingSource` were removed (obs-visibility-toggle-plan.md
+// §11, OBS enable/disable now lives in the `obsToggle` element) — deliberately NOT rejected here if
+// still present: an existing stored element may still carry them, and unknown keys are ignored
+// (never rejected) for every kind, same as everywhere else in this file (validateConfig assigns
+// `rawEl as Element` verbatim; nothing here or in KIND_VALIDATORS enumerates/rejects extra keys).
+function validateCameraShelfFields(key: string, rawEl: Record<string, unknown>): string[] {
+    const errors: string[] = []
+    if (rawEl.label !== undefined) {
+        if (typeof rawEl.label !== 'string') {
+            errors.push(`element "${key}": label must be a string`)
+        } else if (rawEl.label.length > MAX_TEXT_LENGTH) {
+            errors.push(`element "${key}": label must be at most ${MAX_TEXT_LENGTH} characters`)
+        }
+    }
+    if (rawEl.labelFontSize !== undefined && (!isFiniteNumber(rawEl.labelFontSize) || rawEl.labelFontSize <= 0)) {
+        errors.push(`element "${key}": labelFontSize must be a finite number > 0`)
+    }
+    if (rawEl.labelOffsetY !== undefined && !isFiniteNumber(rawEl.labelOffsetY)) {
+        errors.push(`element "${key}": labelOffsetY must be a finite number`)
+    }
+    if (rawEl.glare !== undefined && typeof rawEl.glare !== 'boolean') {
+        errors.push(`element "${key}": glare must be a boolean`)
+    }
+    if (
+        rawEl.glareOpacity !== undefined &&
+        (!isFiniteNumber(rawEl.glareOpacity) || rawEl.glareOpacity < 0 || rawEl.glareOpacity > 1)
+    ) {
+        errors.push(`element "${key}": glareOpacity must be a finite number in [0, 1]`)
+    }
+    if (rawEl.cameraAspect !== undefined && (!isFiniteNumber(rawEl.cameraAspect) || rawEl.cameraAspect <= 0)) {
+        errors.push(`element "${key}": cameraAspect must be a finite number > 0`)
+    }
+    if (rawEl.flip !== undefined && typeof rawEl.flip !== 'boolean') {
+        errors.push(`element "${key}": flip must be a boolean`)
+    }
+    if (rawEl.fillBlur !== undefined && (!isFiniteNumber(rawEl.fillBlur) || rawEl.fillBlur < 0 || rawEl.fillBlur > 100)) {
+        errors.push(`element "${key}": fillBlur must be a finite number in [0, 100]`)
+    }
+    if (rawEl.fillColor !== undefined && (typeof rawEl.fillColor !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(rawEl.fillColor))) {
+        errors.push(`element "${key}": fillColor must be a "#rrggbb" string`)
+    }
+    return errors
+}
+
+function validateCameraShelfKind({ key, rawEl, stages }: KindValidatorCtx): { errors: string[]; regId?: RegistryId } {
+    const regId: RegistryId = 'cameraShelf'
+    return {
+        errors: [...validatePlacements(key, rawEl.placements, regId, stages), ...validateCameraShelfFields(key, rawEl)],
+        regId,
+    }
+}
+
+// `obsToggle` field validation (obs-visibility-toggle-plan.md §4): `sources`, if present, must be
+// an array of strings (each a plain OBS scene item name — no length cap, same rule as the removed
+// `cameraShelf.obsSource`/`obsBackingSource` used).
+function validateObsToggleFields(key: string, rawEl: Record<string, unknown>): string[] {
+    const errors: string[] = []
+    if (rawEl.sources !== undefined) {
+        if (!Array.isArray(rawEl.sources) || rawEl.sources.some((s) => typeof s !== 'string')) {
+            errors.push(`element "${key}": sources must be an array of strings`)
+        }
+    }
+    return errors
+}
+
+function validateObsToggleKind({ key, rawEl, stages }: KindValidatorCtx): { errors: string[]; regId?: RegistryId } {
+    const regId: RegistryId = 'obsToggle'
+    return {
+        errors: [...validatePlacements(key, rawEl.placements, regId, stages), ...validateObsToggleFields(key, rawEl)],
+        regId,
+    }
+}
+
 // The enforcement this whole section exists for: a kind added to ElementKind (schema.ts) with no
 // entry below fails `tsc` right here — see the section's header comment.
 const KIND_VALIDATORS = {
@@ -1049,7 +1163,7 @@ const KIND_VALIDATORS = {
     widget: validateWidgetKind,
     results: validateResultsKind,
     resultsThin: validateResultsThinKind,
-    cards: plainKind('cards'),
+    cards: validateCardsKind,
     ripbar: plainKind('ripbar'),
     reserved: plainKind('reserved'),
     frame: validateFrameKind,
@@ -1060,6 +1174,8 @@ const KIND_VALIDATORS = {
     priceSign: validatePriceSignKind,
     scene: validateSceneKind,
     ticker: validateTickerKind,
+    cameraShelf: validateCameraShelfKind,
+    obsToggle: validateObsToggleKind,
 } satisfies Record<ElementKind, KindValidator>
 
 // `config.stages`: non-empty, every entry `{id: non-empty string, label: non-empty string}`,

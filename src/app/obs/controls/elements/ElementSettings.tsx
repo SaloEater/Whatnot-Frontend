@@ -32,6 +32,9 @@ import PriceRangesSettings from './PriceRangesSettings'
 import PriceSignSettings from './PriceSignSettings'
 import SceneSettings from './SceneSettings'
 import TickerSettings from './TickerSettings'
+import CameraShelfSettings from './CameraShelfSettings'
+import ObsToggleSettings from './ObsToggleSettings'
+import type { MyOBSWebsocket } from '@/app/entity/my_obs_websocket'
 
 type Props = {
     registryId: RegistryId
@@ -48,6 +51,12 @@ type Props = {
     // OBS to catch up on the spine's own poll.
     onFireCue?: (cue: DurableCue) => void
     onEmitCue?: (cue: TransientCue) => void
+    // The live obs-websocket connection (obs-camera-shelf-plan.md §7) — added so a settings panel
+    // can talk to OBS directly (today: CameraShelfSettings' OBS-source dropdown), not just push
+    // config. A compiler-visible change: every existing panel entry below keeps working unchanged
+    // since each one destructures only the props it uses.
+    obs: MyOBSWebsocket | null
+    isConnected: boolean
 }
 
 type SettingsRenderer = (p: Props) => ReactElement
@@ -76,8 +85,8 @@ const SETTINGS_PANELS = {
     // Price" card the panel also carries is irrelevant to cobra_flat but harmless.
     'board:cobra': ({channelId, seriesId, onFireCue}) => <CobraBoardSettings channelId={channelId} seriesId={seriesId} onFireCue={onFireCue}/>,
     'board:cobra_flat': ({channelId, seriesId, onFireCue}) => <CobraBoardSettings channelId={channelId} seriesId={seriesId} onFireCue={onFireCue}/>,
-    'board:sport_style': ({elementKey, element, currentPhase, onPatchElement, onEmitCue}) => (
-        <SportStyleBoardSettings elementKey={elementKey} element={element} currentPhase={currentPhase} onPatchElement={onPatchElement} onEmitCue={onEmitCue}/>
+    'board:sport_style': ({elementKey, element, currentPhase, channelId, seriesId, onPatchElement, onEmitCue, onFireCue}) => (
+        <SportStyleBoardSettings elementKey={elementKey} element={element} currentPhase={currentPhase} channelId={channelId} seriesId={seriesId} onPatchElement={onPatchElement} onEmitCue={onEmitCue} onFireCue={onFireCue}/>
     ),
     'widget:pick2': ({channelId, onFireCue}) => <Pick2Settings channelId={channelId} onFireCue={onFireCue}/>,
     'widget:stashorpass': ({channelId, onFireCue}) => <StashOrPassSettings channelId={channelId} onFireCue={onFireCue}/>,
@@ -92,8 +101,15 @@ const SETTINGS_PANELS = {
     ),
     results: ({elementKey, element, onPatchElement}) => <ResultsSettings elementKey={elementKey} element={element} onPatchElement={onPatchElement}/>,
     resultsThin: ({elementKey, element, onPatchElement}) => <ThinResultsSettings elementKey={elementKey} element={element} onPatchElement={onPatchElement}/>,
-    cards: ({channelId, elementKey, onFireCue, onEmitCue}) => (
-        <CardsSettings channelId={channelId} elementKey={elementKey} onFireCue={onFireCue} onEmitCue={onEmitCue}/>
+    cards: ({channelId, elementKey, element, onPatchElement, onFireCue, onEmitCue}) => (
+        <CardsSettings
+            channelId={channelId}
+            elementKey={elementKey}
+            element={element}
+            onPatchElement={onPatchElement}
+            onFireCue={onFireCue}
+            onEmitCue={onEmitCue}
+        />
     ),
     ripbar: null,
     reserved: null,
@@ -147,6 +163,19 @@ const SETTINGS_PANELS = {
             onPatchElement={onPatchElement}
             onFireCue={onFireCue}
         />
+    ),
+    cameraShelf: ({elementKey, element, currentPhase, onPatchElement, obs, isConnected}) => (
+        <CameraShelfSettings
+            elementKey={elementKey}
+            element={element}
+            currentPhase={currentPhase}
+            onPatchElement={onPatchElement}
+            obs={obs}
+            isConnected={isConnected}
+        />
+    ),
+    obsToggle: ({elementKey, element, onPatchElement, obs, isConnected}) => (
+        <ObsToggleSettings elementKey={elementKey} element={element} onPatchElement={onPatchElement} obs={obs} isConnected={isConnected}/>
     ),
 } satisfies Record<RegistryId, SettingsRenderer | null>
 

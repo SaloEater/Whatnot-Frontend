@@ -1,10 +1,11 @@
 /* The `cards` registry element (obs-layout-plan.md §2.8). Ported from
    channel/[id]/photos/boardComponent.css — classes renamed `crd-*` (`board-`/`gallery-` are too
    generic for the shared layout page). `.crd-root` fills its `<ElementFrame>` (100%/100%, already
-   sized to the element's box in px by the layout page), so `.crd-card-area`'s 85%/60% reproduce
-   the old fixed-viewport page's fractions of VIEWPORT_W/VIEWPORT_H without any px literals here —
-   see CardsElement.tsx for the matching JS-side fractions the packer uses for its pixel budget.
-   No body/html rules, no .container/.row/.col, no vh/vw/vmin. */
+   sized to the element's box in px by the layout page). In list mode `.crd-card-area` IS that box
+   (`inset: 0`) and the rows are normal-flow, so cards fill the box top-aligned. In carousel mode
+   the cards size to fit both axes of the box around the centre card — see CardsElement.tsx for the
+   sizing math; side cards may overflow horizontally and are clipped by `.crd-root`'s
+   `overflow: hidden`. No body/html rules, no .container/.row/.col, no vh/vw/vmin. */
 
 .crd-root {
     position: relative;
@@ -14,14 +15,44 @@
     background: transparent;
 }
 
+/* Carousel: the side cards straddle the box edges and their outer half is drawn outside the box.
+   ElementFrame doesn't clip this element (registry `unclipped`), so only this root could — and in
+   carousel mode it doesn't. List mode keeps the plain `.crd-root` clip above. */
+.crd-root--gallery {
+    overflow: visible;
+}
+
 .crd-card-area {
     position: absolute;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 85%;
-    height: 60%;
+    inset: 0;
     overflow: visible;
+}
+
+/* `?dev=1` only (cards-main-area-plan.md §3): the main-area boundary outline + its tag — mirrors
+   CameraShelfElement.css's `.csh-dev-window`/`.csh-dev-caption` pattern. Never shown in OBS. */
+.crd-dev-main-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    box-sizing: border-box;
+    outline: 2px dashed rgba(255, 196, 0, 0.85);
+    outline-offset: -2px;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.crd-dev-main-area-tag {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    padding: 2px 6px;
+    color: #e8dfcb;
+    font-family: monospace;
+    font-size: 12px;
+    letter-spacing: 0.03em;
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 3px;
 }
 
 .crd-row {
@@ -65,20 +96,63 @@
     object-fit: contain;
 }
 
+/* Zoomed-card portal target (CardsElement.tsx's `ZoomPortal`), teleported into `.lay-canvas` via
+   `createPortal` so a hovered/remote-highlighted card draws above EVERY layout element, not just
+   sibling cards. Why the in-place `zIndex: 10` on `.crd-card` isn't enough: every element (this one
+   included) renders inside an `ElementFrame` — a `.lay-element-frame` with its OWN zIndex AND
+   `overflow: hidden` — which both clips the card at the element's box edge and creates a stacking
+   context, so a card's zIndex only ever wins against OTHER cards in the same frame, never a sibling
+   element with a higher z. `.lay-canvas` sits above every frame, so a copy of the visual rendered
+   there (positioned at the card's resting box in canvas units, see canvasRectFor) can grow past its
+   own element's edges and past every other element without being clipped or out-ordered.
+   `pointer-events: none` is load-bearing, not cosmetic: without it the portal sits under the cursor
+   and fires mouseleave on the real (now-invisible, opacity:0) card, which un-zooms it, which removes
+   the portal, which re-exposes the real card under the cursor, which re-fires mouseenter — an
+   infinite zoom/unzoom flicker loop. */
+.crd-zoom-portal {
+    position: absolute;
+    /* Sibling of every `.lay-element-frame` inside `.lay-canvas`, each of which carries its
+       element's Layer as z-index — without an explicit value here the portal paints at z auto,
+       i.e. under any element whose Layer is > 0. Max int keeps it above every Layer. */
+    z-index: 2147483647;
+    pointer-events: none;
+}
+
+/* Carousel centre-card layer (CardsElement.tsx's gallery branch): portalled into `.lay-canvas`
+   next to every `.lay-element-frame`, positioned/sized to this element's box in canvas px. Not
+   clipped — like the side cards, the centre card may draw outside the box (e.g. lifted above the
+   box top to keep its bottom on the main area line). Sits above every Layer, never takes the
+   pointer. */
+.crd-top-layer {
+    position: absolute;
+    overflow: visible;
+    z-index: 2147483647;
+    pointer-events: none;
+}
+
 /* ── Gallery mode ── */
 .crd-gallery-area {
     position: absolute;
     inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    /* gap is set inline (px, derived from box.w) — percentage gap on a flex container is not
-       reliably supported in the CEF build OBS ships. */
 }
 
 .crd-gallery-card {
-    flex: 0 0 auto;
-    transition: width 0.6s ease, height 0.6s ease;
+    position: absolute;
+    /* left/top are set inline alongside width/height (top centres each card on the canvas
+       midline) — every card is sized and positioned by CardsElement so the centre/side swap
+       animates via this transition. */
+    transition: left 0.6s ease, top 0.6s ease, width 0.6s ease, height 0.6s ease, filter 0.6s ease;
+}
+
+.crd-gallery-card--center {
+    z-index: 1;
+}
+
+/* Side cards are dimmed by 35% — brightness(0.65) is the same as a 35% black overlay on the
+   image, but it leaves transparent pixels (letterboxing from object-fit: contain) untouched and
+   animates with the centre/side swap. */
+.crd-gallery-card--side {
+    filter: brightness(0.65);
 }
 
 .crd-gallery-card img {

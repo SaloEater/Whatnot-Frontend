@@ -6,10 +6,14 @@
 // this testable in isolation. No React, no DOM — `getAspect` is handed in so the caller's own
 // (stateful) aspect-ratio cache stays outside this module.
 //
-// Behaviour is byte-for-byte the same algorithm as the old route: binary-search the tallest row
-// height that still fits the height budget, reassign row sizes so card counts ascend top→bottom,
-// smooth any adjacent-row split that differs by more than one card, then uniformly scale down if
-// the reassigned rows still overflow the budget.
+// packList exhaustively tries every row count instead of binary-searching a single greedy row
+// height: each additional full-width row is a large discrete height jump, so picking a row count
+// by height alone (the old approach) often leaves 40-60% of the budget empty when one more/fewer
+// row would have filled it far better. Trying every count and keeping the one with the greatest
+// total card area after scaling is only O(n^2) for the list sizes this element handles (~30 cards)
+// and guarantees the best fill for this "ascending count, centered, most-expensive-row-on-top"
+// distribution shape. When a candidate is width-bound (rows narrower than areaWidth), the existing
+// `.crd-row` `justify-content: center` centers it — no extra centering logic is needed here.
 
 import type { Photo } from '@/app/entity/entities'
 
@@ -43,52 +47,16 @@ function totalHeight(rows: Array<{ rowHeight: number }>): number {
 }
 
 /**
- * Greedily fills rows of height `rowH` up to `areaWidth`, then sorts the resulting rows by their
- * most expensive card (most expensive row on top).
- */
-export function packRowsWithHeight(
-    list: Photo[],
-    rowH: number,
-    areaWidth: number,
-    getAspect: GetAspect,
-): PackedRow[] {
-    const result: PackedRow[] = []
-    let i = 0
-
-    while (i < list.length) {
-        let totalW = 0
-        let j = i
-
-        while (j < list.length) {
-            totalW += rowH * getAspect(list[j])
-            j++
-            if (totalW >= areaWidth) break
-        }
-
-        const isLastIncomplete = j >= list.length && totalW < areaWidth
-        const scaleFactor = isLastIncomplete ? 1 : areaWidth / totalW
-        const h = rowH * scaleFactor
-        const centered = centerByPrice(list.slice(i, j))
-        result.push({
-            photos: centered,
-            rowHeight: h,
-            widths: centered.map((p) => rowH * getAspect(p) * scaleFactor),
-            cardHeights: centered.map(() => h),
-        })
-
-        i = j
-    }
-
-    const rowMaxPrice = (r: PackedRow) => Math.max(...r.photos.map((p) => p.price))
-
-    return result
-        .filter((r) => r.photos.length > 0)
-        .sort((a, b) => rowMaxPrice(b) - rowMaxPrice(a))
-}
-
-/**
- * Packs `list` into rows that together fit within `budget` px of height and `areaWidth` px of
- * width, biasing fewer cards (taller cards) toward the top row.
+ * Packs `list` (price-desc) into rows for every row count from 1 to list.length and keeps the
+ * layout with the greatest total card area, biasing fewer cards (taller cards) toward the top row.
+ *
+ * For a given row count r, counts ascend top→bottom (fewest cards on the expensive top row, at
+ * most 1 apart between adjacent rows) by splitting list.length into r near-equal buckets. Each
+ * row is sized to span `areaWidth` (capped at half the height budget), the whole candidate is then
+ * scaled down uniformly if it overflows `budget`, and its post-scale card area is the score. Trying
+ * every r this way — rather than searching for one greedy row height and only ever scaling down —
+ * catches the row count that actually fills the budget best, since one more/fewer full-width row is
+ * too large a height jump for a single greedy search to land on optimally.
  */
 export function packList(
     list: Photo[],
@@ -98,58 +66,52 @@ export function packList(
 ): PackedRow[] {
     if (list.length === 0) return []
 
-    let lo = 10, hi = budget
-    for (let iter = 0; iter < 24; iter++) {
-        const mid = (lo + hi) / 2
-        if (totalHeight(packRowsWithHeight(list, mid, areaWidth, getAspect)) <= budget) lo = mid
-        else hi = mid
-    }
-    const greedy = packRowsWithHeight(list, lo, areaWidth, getAspect)
+    const n = list.length
+    let best: PackedRow[] | null = null
+    let bestScore = -Infinity
 
-    // Reassign the greedy row sizes so card counts ascend top→bottom: the expensive top rows hold
-    // the fewest cards, and every row spans the full width, so fewer cards means visibly taller
-    // cards.
-    const counts = greedy.map((r) => r.photos.length).sort((a, b) => a - b)
+    for (let r = 1; r <= n; r++) {
+        const base = Math.floor(n / r)
+        const extra = n % r
+        const counts: number[] = []
+        for (let i = 0; i < r; i++) counts.push(base + (i >= r - extra ? 1 : 0))
 
-    // Smooth extreme splits (e.g. a leftover row of 2 next to rows of 5): move cards up from the
-    // row below until no adjacent pair differs by more than 1. Keeps counts ascending, so 2/5/5/5
-    // becomes 3/4/5/5.
-    let changed = true
-    while (changed) {
-        changed = false
-        for (let i = 0; i < counts.length - 1; i++) {
-            if (counts[i + 1] - counts[i] >= 2) {
-                counts[i] += 1
-                counts[i + 1] -= 1
-                changed = true
-            }
+        const rows: PackedRow[] = []
+        let idx = 0
+        for (const count of counts) {
+            const slice = list.slice(idx, idx + count)
+            idx += count
+            const h = Math.min(
+                areaWidth / slice.reduce((s, p) => s + getAspect(p), 0),
+                budget * 0.5,
+            )
+            const centered = centerByPrice(slice)
+            rows.push({
+                photos: centered,
+                rowHeight: h,
+                widths: centered.map((p) => h * getAspect(p)),
+                cardHeights: centered.map(() => h),
+            })
+        }
+
+        const scale = Math.min(1, budget / totalHeight(rows))
+        const scaled = scale === 1 ? rows : rows.map((row) => ({
+            ...row,
+            rowHeight: row.rowHeight * scale,
+            widths: row.widths.map((w) => w * scale),
+            cardHeights: row.cardHeights.map((h) => h * scale),
+        }))
+
+        const score = scaled.reduce(
+            (s, row) => s + row.widths.reduce((rowArea, w, i) => rowArea + w * row.cardHeights[i], 0),
+            0,
+        )
+
+        if (score > bestScore) {
+            bestScore = score
+            best = scaled
         }
     }
 
-    const rows: PackedRow[] = []
-    let idx = 0
-    for (const count of counts) {
-        const slice = list.slice(idx, idx + count)
-        idx += count
-        const h = Math.min(
-            areaWidth / slice.reduce((s, p) => s + getAspect(p), 0),
-            budget * 0.5,
-        )
-        const centered = centerByPrice(slice)
-        rows.push({
-            photos: centered,
-            rowHeight: h,
-            widths: centered.map((p) => h * getAspect(p)),
-            cardHeights: centered.map(() => h),
-        })
-    }
-
-    const scale = Math.min(1, budget / totalHeight(rows))
-    if (scale === 1) return rows
-    return rows.map((r) => ({
-        ...r,
-        rowHeight: r.rowHeight * scale,
-        widths: r.widths.map((w) => w * scale),
-        cardHeights: r.cardHeights.map((h) => h * scale),
-    }))
+    return best as PackedRow[]
 }

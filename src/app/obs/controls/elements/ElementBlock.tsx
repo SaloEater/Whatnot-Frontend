@@ -5,6 +5,7 @@
 // this element used to be in the old channel/[id]/widgets LayoutBuilder.
 
 import type {Box, DurableCue, Element, LayoutConfig, PlacementKey, Phase, TransientCue} from '@/app/obs/layout/schema'
+import type {MyOBSWebsocket} from '@/app/entity/my_obs_websocket'
 import {MIRRORABLE_KINDS} from '@/app/obs/layout/schema'
 import {CANVAS} from '@/app/obs/layout/schema'
 import {REGISTRY, registryIdOf} from '@/app/obs/layout/registry'
@@ -55,6 +56,10 @@ type Props = {
     /** Transient, backend-free cue emit (useControls.emitCue) — for signals fired by mouse
      *  movement, where onFireCue's state write per emit would be absurd. */
     onEmitCue?: (cue: TransientCue) => void
+    // Forwarded straight into ElementSettings (obs-camera-shelf-plan.md §7) — see that file's Props
+    // comment.
+    obs: MyOBSWebsocket | null
+    isConnected: boolean
 }
 
 export default function ElementBlock({
@@ -77,6 +82,8 @@ export default function ElementBlock({
     canMoveDown,
     onFireCue,
     onEmitCue,
+    obs,
+    isConnected,
 }: Props) {
     // Folded/open is remembered per channel + stage in localStorage (useFoldState).
     const [open, setOpen] = useFoldState(channelId, currentPhase, elementKey)
@@ -465,6 +472,8 @@ export default function ElementBlock({
                                 onPatchElement={onPatchElement}
                                 onFireCue={onFireCue}
                                 onEmitCue={onEmitCue}
+                                obs={obs}
+                                isConnected={isConnected}
                             />
                         )}
                     </div>

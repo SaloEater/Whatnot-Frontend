@@ -58,4 +58,10 @@ export const NEEDS_BY_ID = {
     // read has to be on. Over-fetches when only a couple of slots are enabled — accepted, the
     // spine's pollers are cheap and per-element dynamic needs don't exist yet.
     ticker: ['needsPick2', 'needsStashOrPass', 'needsSeries', 'needsBoxesPerBreak', 'needsCount'],
+    // Reads no break/stream data (obs-camera-shelf-plan.md) — the window is a live OBS camera
+    // feed, not anything the spine provides; everything else here is static art/config.
+    cameraShelf: [],
+    // Reads no spine data (obs-visibility-toggle-plan.md §5) — it carries only a list of OBS
+    // source names and renders nothing.
+    obsToggle: [],
 } as const satisfies Record<RegistryId, readonly NeedFlag[]>

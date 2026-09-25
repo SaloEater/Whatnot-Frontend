@@ -33,6 +33,7 @@ import {
     DEFAULT_TICKER_LABELS,
     DEFAULT_TICKER_SEPARATOR,
     DEFAULT_TICKER_SPEED,
+    DEFAULT_TICKER_SOFTEN,
     DEFAULT_VALUE_COLOR,
     DEFAULT_SHOW_PCT_MIN,
 } from '@/app/obs/layout/elements/ticker/TickerElement'
@@ -235,6 +236,7 @@ export default function TickerSettings({ channelId, seriesId, elementKey, elemen
     const fontSize = tk?.fontSize ?? DEFAULT_TICKER_FONT_SIZE
     const speed = tk?.speed ?? DEFAULT_TICKER_SPEED
     const direction = tk?.direction ?? DEFAULT_TICKER_DIRECTION
+    const soften = tk?.soften ?? DEFAULT_TICKER_SOFTEN
 
     // Draft-then-commit separator (TextSettings.tsx's convention — same reasoning as the slot
     // labels above).
@@ -300,6 +302,29 @@ export default function TickerSettings({ channelId, seriesId, elementKey, elemen
                             const parsed = parseInt(e.target.value, 10)
                             if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 600) {
                                 onPatchElement(elementKey, { speed: parsed })
+                            }
+                        }}
+                    />
+                </div>
+                <div>
+                    <label
+                        className="form-label mb-0 small"
+                        title="Blur on the moving text, in canvas px. Smooths the flicker of dots shifting by fractions of a pixel. 0 = off."
+                    >
+                        Soften (px)
+                    </label>
+                    <input
+                        type="number"
+                        min={0}
+                        max={3}
+                        step={0.1}
+                        className="form-control form-control-sm"
+                        style={{ width: '80px' }}
+                        value={soften}
+                        onChange={(e) => {
+                            const parsed = parseFloat(e.target.value)
+                            if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 3) {
+                                onPatchElement(elementKey, { soften: Math.round(parsed * 10) / 10 })
                             }
                         }}
                     />

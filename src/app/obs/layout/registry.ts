@@ -27,9 +27,14 @@ import { SCENE_PRELOAD } from './elements/scene/assets'
 import { SIGN_PRELOAD } from './elements/price-sign/assets'
 import { TickerElement } from './elements/ticker/TickerElement'
 import { TICKER_PRELOAD } from './elements/ticker/assets'
+import { CameraShelfElement } from './elements/camera-shelf/CameraShelfElement'
+import { SHELF_ASSETS, SHELF_PRELOAD } from './elements/camera-shelf/assets'
+import { ObsToggleElement } from './elements/obs-toggle/ObsToggleElement'
+import { mountObsToggle } from './elements/obs-toggle/mount'
 import type { AnimationId, BoardVariant, Box, Element, ElementKind, FrameVariant, Phase, TickerSlot, WidgetId } from './schema'
 import { ANIMATION_IDS, DEFAULT_FRAME_BORDERS, DEFAULT_FRAME_WIDTH, DEFAULT_SCENE_EFFECTS, DEFAULT_TICKER_SLOTS, WIDGET_IDS } from './schema'
 import type { SceneEventName } from './sceneEvents'
+import type { MountFn } from './stageHooks'
 // `registryIdOf` moved to elementId.ts (obs-layout-adding-elements-plan.md §A.1) — that module has
 // no runtime imports, so useLayoutData.tsx/needs.ts can call it without pulling in this file's
 // whole element-component tree (the cycle it avoids: this file imports every element component,
@@ -66,6 +71,8 @@ export type RegistryId =
     | 'priceSign'
     | 'scene'
     | 'ticker'
+    | 'cameraShelf'
+    | 'obsToggle'
 
 // Shared prop contract every registry component (placeholder now, real components in Phase 2)
 // implements.
@@ -102,6 +109,11 @@ export type RegistryEntry = {
     // see resolvedBoxes.tsx); controls hides their x/y/w/h inputs (Layer stays). Default true —
     // only frame:static opts out so far.
     hasBox: boolean
+    // Boxed elements are clipped to their box by ElementFrame. `unclipped: true` keeps the box
+    // (position/size, box editor) but lets content draw outside it — the element is then
+    // responsible for clipping whatever it doesn't want to spill (`cards` clips its own list mode
+    // and lets only the carousel's side cards overhang the box edges).
+    unclipped?: boolean
     /**
      * Element blocks whose settings are too wide for a narrow column — the cards panel carries a
      * whole card grid. These span every column of the controls list however many the operator has
@@ -120,6 +132,11 @@ export type RegistryEntry = {
     // publishes these via `usePublishAnchors` (anchors.tsx) — a stale/wrong name here just means the
     // runtime falls back to the box at render time (useTargetShape), never a build/type error.
     anchors?: readonly string[]
+    // Stage-hook mount function (obs-camera-shelf-plan.md §5): runs on the CONTROLS page only
+    // (controls/useStageHooks.ts is the runner), letting an element type subscribe to
+    // stageOut/stageIn events without storing anything in the config. Absent means "this element
+    // type subscribes to nothing" — most entries leave it unset.
+    mount?: MountFn
 }
 
 function widgetDefaultBox(index: number): Box {
@@ -179,6 +196,11 @@ const SCENE_BOX: Box = { x: 0, y: 0, w: 1080, h: 640 }
 // starting-point convention as every other registry default box; the operator resizes/repositions
 // it in the builder like anything else.
 const TICKER_BOX: Box = { x: 0, y: 1500, w: 1080, h: 361 }
+// obs-camera-shelf-plan.md §4: bottom third of the canvas, matching the reference cabinet
+// (`layout_ver2.png`'s "CURRENT BREAK" shelf) — a wide, shallow strip near the bottom edge rather
+// than a portrait box. `h` matches the whole cabinet art's own aspect at this width, same formula
+// as the settings panel's Fit height button.
+const SHELF_BOX: Box = { x: 40, y: 1240, w: 1000, h: Math.round((SHELF_ASSETS.shelf.h * 1000) / SHELF_ASSETS.shelf.w) }
 
 export const REGISTRY: Record<RegistryId, RegistryEntry> = {
     'board:flat': {
@@ -414,6 +436,7 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         component: CardsElement,
         available: true,
         hasBox: true,
+        unclipped: true,
         wideBlock: true,
         reactsTo: [],
     },
@@ -637,6 +660,46 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         wideBlock: true,
         reactsTo: [],
     },
+    cameraShelf: {
+        id: 'cameraShelf',
+        kind: 'cameraShelf',
+        label: 'Camera shelf',
+        // Not a singleton (obs-camera-shelf-plan.md): "CURRENT BREAK" and a second, differently
+        // -bound shelf (e.g. "WHOLE SHOW") are two instances, so each gets its own group and
+        // `singleton: false` alone is what allows multiple copies — same convention as `text`/the
+        // wrap animations.
+        singleton: false,
+        singletonGroup: 'cameraShelf',
+        defaultBox: SHELF_BOX,
+        preload: SHELF_PRELOAD,
+        component: CameraShelfElement,
+        available: true,
+        hasBox: true,
+        reactsTo: [],
+        // OBS enable/disable moved to the `obsToggle` element (obs-visibility-toggle-plan.md §11):
+        // this entry no longer declares a `mount`.
+    },
+    obsToggle: {
+        id: 'obsToggle',
+        kind: 'obsToggle',
+        label: 'OBS visibility',
+        // Not a singleton: an operator may want several independent lists of sources bound to
+        // different stages, so each instance gets its own group and `singleton: false` alone is
+        // what allows multiple copies — same convention as `text`/the wrap animations.
+        singleton: false,
+        singletonGroup: 'obsToggle',
+        defaultBox: FULL_BOX, // irrelevant: boxless
+        preload: [],
+        component: ObsToggleElement,
+        available: true,
+        // Boxless (obs-visibility-toggle-plan.md): it renders nothing, it only carries `sources`
+        // for its stage hook (mount.ts).
+        hasBox: false,
+        reactsTo: [],
+        // obs-visibility-toggle-plan.md §11: `obsToggle` is now the ONE registry entry with a
+        // `mount` — see stageHooks.ts/controls/useStageHooks.ts for the mechanism.
+        mount: mountObsToggle,
+    },
 }
 
 /** Narrows a registry id's suffix to a real AnimationId, refusing anything ANIMATION_IDS lacks. */
@@ -750,6 +813,15 @@ export function makeElement(registryId: RegistryId): Element {
                     TickerSlot
                 >,
             }
+        case 'cameraShelf':
+            // label/labelFontSize/glare/glareOpacity all left unset — the component's own
+            // DEFAULT_* constants apply (CameraShelfElement.tsx), same convention as
+            // `priceSign`/`text` above.
+            return { kind: 'cameraShelf', placements }
+        case 'obsToggle':
+            // sources left unset — the caller (controls' ElementsPanel/ObsToggleSettings) adds
+            // entries after placement, same "empty until edited" convention as `text`/`imageBox`.
+            return { kind: 'obsToggle', placements }
         default: {
             const _exhaustive: never = entry.kind
             throw new Error(`makeElement: unhandled kind ${JSON.stringify(_exhaustive)}`)

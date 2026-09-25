@@ -92,7 +92,7 @@ function LayoutStageContent({config, state}: {config: LayoutConfig; state: Overl
                             // stuck error on the next render, without needing a page reload.
                             return (
                                 <ElementErrorBoundary key={key} elementKey={key} resetKey={element}>
-                                    <ElementFrame box={effectiveBox} z={element.z ?? 0} clip={entry.hasBox}>
+                                    <ElementFrame box={effectiveBox} z={element.z ?? 0} clip={entry.hasBox && !entry.unclipped}>
                                         <Component elementKey={key} element={element} box={effectiveBox} phase={state.phase} />
                                     </ElementFrame>
                                 </ElementErrorBoundary>

@@ -24,10 +24,15 @@
 import {useCallback, useEffect, useRef, useState} from 'react'
 import {getEndpoints, post} from '@/app/lib/backend'
 import {Photo} from '@/app/entity/entities'
-import type {DurableCue, TransientCue} from '@/app/obs/layout/schema'
+import type {DurableCue, Element, TransientCue} from '@/app/obs/layout/schema'
 import {usePhotoBoard} from '@/app/channel/[id]/photos/usePhotoBoard'
 import {splitName, nameFontSize} from '@/app/common/cardName'
 import {TeamIconSrc} from '@/app/common/teams'
+import {
+    DEFAULT_MAIN_AREA_HEIGHT_PCT,
+    DEFAULT_MAIN_AREA_MAX_CARDS,
+} from '@/app/obs/layout/elements/cards/CardsElement'
+import type {PatchElement} from './ElementBlock'
 import {useSettingWrite} from './useSettingWrite'
 import {usePendingFromLayout} from './usePendingFromLayout'
 
@@ -58,12 +63,40 @@ const HIGHLIGHT_DWELL_MS = 500
 // those leave a card zoomed on stream until something else happens to move it.
 const HIGHLIGHT_HEARTBEAT_MS = 1000
 
-export default function CardsSettings({channelId, elementKey, onFireCue, onEmitCue}: {
+export default function CardsSettings({channelId, elementKey, element, onPatchElement, onFireCue, onEmitCue}: {
     channelId: number
     elementKey: string
+    element: Element
+    onPatchElement: PatchElement
     onFireCue?: (cue: DurableCue) => void
     onEmitCue?: (cue: TransientCue) => void
 }) {
+    // Narrowed into a local rather than an early return, same convention as
+    // CameraShelfSettings.tsx/TextSettings.tsx — this panel is only ever mounted for a `cards`
+    // element anyway.
+    const cards = element.kind === 'cards' ? element : null
+    const mainAreaMaxCards = cards?.mainAreaMaxCards ?? DEFAULT_MAIN_AREA_MAX_CARDS
+
+    function commitMainAreaHeightPct(raw: string) {
+        if (raw === '') {
+            onPatchElement(elementKey, {mainAreaHeightPct: undefined})
+            return
+        }
+        const parsed = parseInt(raw, 10)
+        if (!Number.isFinite(parsed)) return
+        onPatchElement(elementKey, {mainAreaHeightPct: Math.min(100, Math.max(1, parsed))})
+    }
+
+    function commitMainAreaMaxCards(raw: string) {
+        if (raw === '') {
+            onPatchElement(elementKey, {mainAreaMaxCards: undefined})
+            return
+        }
+        const parsed = parseInt(raw, 10)
+        if (!Number.isFinite(parsed)) return
+        onPatchElement(elementKey, {mainAreaMaxCards: Math.max(0, parsed)})
+    }
+
     const [orientation, setOrientation] = useState<string | null>(null)
     const [showHorizontalRow, setShowHorizontalRow] = useState(false)
     const [showOnlyAvailableTeams, setShowOnlyAvailableTeams] = useState(false)
@@ -316,6 +349,8 @@ export default function CardsSettings({channelId, elementKey, onFireCue, onEmitC
 
     const horizontalId = `ctl-showHorizontalRowCheck-${elementKey}`
     const onlyAvailableId = `ctl-showOnlyAvailableTeamsCheck-${elementKey}`
+    const mainAreaPctId = `ctl-mainAreaHeightPct-${elementKey}`
+    const mainAreaMaxId = `ctl-mainAreaMaxCards-${elementKey}`
 
     return (
         <div>
@@ -363,6 +398,49 @@ export default function CardsSettings({channelId, elementKey, onFireCue, onEmitC
                     onChange={(e) => { setShowOnlyAvailableTeams(e.target.checked); save({showOnlyAvailableTeams: e.target.checked}) }}
                 />
                 <label className="form-check-label" htmlFor={onlyAvailableId}>Show only available teams</label>
+            </div>
+
+            {/* Main area / card-count threshold (cards-main-area-plan.md §1): lets the board pack
+                into the top share of the box that nothing covers, while a crowded board still uses
+                the full box as today. `?dev=1` on the layout page shows the exact boundary/decision;
+                the hint below is only an estimate off this panel's own unsold count. */}
+            <div className="d-flex align-items-center gap-3 mt-2 flex-wrap">
+                <div className="d-flex align-items-center gap-1">
+                    <label className="form-label mb-0 small text-nowrap" htmlFor={mainAreaPctId}>Main area height %</label>
+                    <input
+                        type="number"
+                        id={mainAreaPctId}
+                        className="form-control form-control-sm"
+                        style={{width: '70px'}}
+                        min={1}
+                        max={100}
+                        step={1}
+                        // Unset shows empty with the default as placeholder (same as CameraShelfSettings'
+                        // cameraAspect) — echoing the default back would make the field un-clearable.
+                        value={cards?.mainAreaHeightPct ?? ''}
+                        placeholder={String(DEFAULT_MAIN_AREA_HEIGHT_PCT)}
+                        onChange={(e) => commitMainAreaHeightPct(e.target.value)}
+                    />
+                </div>
+                <div className="d-flex align-items-center gap-1">
+                    <label className="form-label mb-0 small text-nowrap" htmlFor={mainAreaMaxId}>Use up to</label>
+                    <input
+                        type="number"
+                        id={mainAreaMaxId}
+                        className="form-control form-control-sm"
+                        style={{width: '70px'}}
+                        min={0}
+                        step={1}
+                        value={cards?.mainAreaMaxCards ?? ''}
+                        placeholder={String(DEFAULT_MAIN_AREA_MAX_CARDS)}
+                        onChange={(e) => commitMainAreaMaxCards(e.target.value)}
+                    />
+                    <span className="text-nowrap small">cards (0 = off)</span>
+                </div>
+                <span className="text-secondary small">
+                    Unsold now: {unsold.length}{showOnlyAvailableTeams ? ' (approx.)' : ''} →{' '}
+                    {mainAreaMaxCards > 0 && unsold.length <= mainAreaMaxCards ? 'main area' : 'full box'}
+                </span>
             </div>
 
             <hr/>

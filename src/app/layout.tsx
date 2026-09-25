@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Exo_2 } from "next/font/google";
+import { Inter, Exo_2, Handjet } from "next/font/google";
 import "./globals.css";
 import 'bootstrap/dist/css/bootstrap.css';
 import BootstrapClient from "@/components/BootstrapClient";
@@ -7,6 +7,11 @@ import BreadcrumbsComponent from "@/app/component/breadcrumbsComponent";
 
 const inter = Inter({ subsets: ["latin"] });
 const exo2 = Exo_2({ subsets: ["latin"], weight: ["300", "900"], variable: "--font-exo2" });
+// Element-based dot-matrix face for the OBS ticker's LED band (obs-ticker-plan.md §5.4). Loaded as
+// the full variable font (no `weight`) with its two custom axes, so the ticker can pick the dot
+// shape (ELSH) and grid density (ELGR) in CSS. next/font self-hosts it at build time, so an OBS
+// browser source with no internet still renders it. Replaced DotGothic16 (tried 2026-09-24).
+const handjet = Handjet({ subsets: ["latin"], variable: "--font-handjet", axes: ["ELGR", "ELSH"] });
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -20,7 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.className} ${exo2.variable} my-body`} data-bs-theme="dark">
+      <body className={`${inter.className} ${exo2.variable} ${handjet.variable} my-body`} data-bs-theme="dark">
         <BreadcrumbsComponent/>
         {children}
         <BootstrapClient />

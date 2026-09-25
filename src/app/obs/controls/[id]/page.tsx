@@ -9,6 +9,7 @@ import {useOSBWebhook} from '@/app/component/useOSBWebhook'
 import {ComponentLogger} from '@/app/entity/logger'
 import {WebSocketUrlComponent} from '@/app/obs/manage/[id]/web_socket_url_component'
 import {ApplyResult, useControls} from '@/app/obs/controls/useControls'
+import {useStageHooks} from '@/app/obs/controls/useStageHooks'
 import type {BusPayload, OverlayState, Phase} from '@/app/obs/layout/schema'
 import {isEventActive} from '@/app/obs/layout/config'
 import {useDeckBridge} from '@/app/obs/controls/useDeckBridge'
@@ -64,6 +65,19 @@ export default function Page({params}: { params: { id: string } }) {
 
     const controls = useControls(channelId, obs, isConnected, urlRestored)
     const [notice, setNotice] = useState<{ type: 'warning' | 'danger'; message: string } | null>(null)
+
+    // Stage hooks (obs-camera-shelf-plan.md §5) — lets any element type run code when a stage is
+    // left/entered (today: the `obsToggle` element's OBS enable/disable, obs-visibility-toggle-
+    // plan.md) without storing anything in the config. `logger.add` reuses the exact page-level
+    // logger MyOBSWebsocket itself already writes connection messages to, so a hook failure lands
+    // "in the OBS tab's log" the same way.
+    const hooks = useStageHooks({
+        config: controls.config,
+        state: controls.state,
+        obs,
+        isConnected,
+        log: (line) => logger.add(line),
+    })
 
     const [transitionDraft, setTransitionDraft] = useState('')
     const [cameraDraft, setCameraDraft] = useState('')
@@ -134,6 +148,30 @@ export default function Page({params}: { params: { id: string } }) {
         return () => window.removeEventListener('beforeunload', handler)
     }, [isConnected])
 
+    // Stage hooks, call site 3/5 (obs-camera-shelf-plan.md §5.3): the first successful config+state
+    // load of the page — `from: null`, same as a reconnect/re-sync, since there is no PRIOR applied
+    // stage to speak of on a fresh page load.
+    const firstLoadHookRef = useRef(false)
+    useEffect(() => {
+        if (controls.loaded && !firstLoadHookRef.current) {
+            firstLoadHookRef.current = true
+            void hooks.emitIn(null, controls.state.phase)
+        }
+    }, [controls.loaded, controls.state.phase, hooks])
+
+    // Stage hooks, call site 4/5: `isConnected` flips to true — rising edge only, mirroring
+    // useControls' own `resendCurrent()` effect. Catches up anything a hook missed while OBS was
+    // down (e.g. an `obsToggle` source never got disabled/enabled because the socket wasn't there
+    // to carry the call).
+    const wasConnectedForHooksRef = useRef(isConnected)
+    useEffect(() => {
+        const was = wasConnectedForHooksRef.current
+        wasConnectedForHooksRef.current = isConnected
+        if (isConnected && !was) {
+            void hooks.emitIn(null, controls.state.phase)
+        }
+    }, [isConnected, controls.state.phase, hooks])
+
     async function runApply(next: OverlayState, cue?: BusPayload['cue']): Promise<ApplyResult> {
         const result = await controls.apply(next, cue)
         // Undelivered-to-OBS is NOT a notice: it is a standing condition, shown (and cleared) in
@@ -203,8 +241,15 @@ export default function Page({params}: { params: { id: string } }) {
     const stageDelivery: 'ok' | 'bad' = isConnected && !lastSendFailed ? 'ok' : 'bad'
 
     async function applyPhaseNow(phase: Phase) {
+        // Stage hooks, call site 2/5 (obs-camera-shelf-plan.md §5.3): after `runApply` resolves
+        // with `ok` (transition or not, deck or click) — `previous` is captured before the apply,
+        // since `controls.state.phase` has already moved on by the time this line runs.
+        const previous = controls.state.phase
         const result = await runApply({...controls.state, phase, phaseData: undefined})
         setLastSendFailed(!result.ok || !!result.warning)
+        if (result.ok) {
+            void hooks.emitIn(previous, phase)
+        }
     }
 
     function cancelPendingTransition() {
@@ -219,6 +264,10 @@ export default function Page({params}: { params: { id: string } }) {
         cancelPendingTransition()
 
         const {useTransition, transitionSource} = controls.config.obsBindings
+        // Stage hooks, call site 1/5 (obs-camera-shelf-plan.md §5.3): captured before either branch
+        // below moves anything, so `hooks.emitOut` always describes the stage actually applied
+        // right now, not whatever this call is racing against.
+        const from = controls.state.phase
 
         if (useTransition && transitionSource && isConnected) {
             // Subscribe BEFORE restarting the media so a very short clip can't end unheard.
@@ -230,6 +279,11 @@ export default function Page({params}: { params: { id: string } }) {
             const safety = setTimeout(finish, TRANSITION_SAFETY_MS)
             transitionCancelRef.current = () => { unsubscribe(); clearTimeout(safety) }
             setTransitionPending({phase})
+
+            // Fires before the transition starts, so an element hidden by it (e.g. an `obsToggle`
+            // source) vanishes under the transition media rather than popping off after it's
+            // already visible again.
+            void hooks.emitOut(from, phase)
 
             try {
                 await obs.playMedia(transitionSource)
@@ -243,6 +297,7 @@ export default function Page({params}: { params: { id: string } }) {
             return
         }
 
+        void hooks.emitOut(from, phase)
         await applyPhaseNow(phase)
     }
 
@@ -391,6 +446,17 @@ export default function Page({params}: { params: { id: string } }) {
                             </div>
                             <button className="btn btn-sm btn-outline-secondary" disabled title="wired in 2.8">
                                 Re-sync OBS
+                            </button>
+                            {/* Stage hooks, call site 5/5 (obs-camera-shelf-plan.md §5.3): re-runs
+                                every mounted element's stageIn handler for the CURRENT stage —
+                                e.g. re-asserts an `obsToggle` element's listed sources are enabled
+                                without having to change stage and back. */}
+                            <button
+                                className="btn btn-sm btn-outline-secondary"
+                                onClick={() => hooks.emitIn(null, controls.state.phase)}
+                                title="Re-run every element's stage-enter hook for the current stage"
+                            >
+                                Re-sync elements
                             </button>
                         </div>
 
@@ -615,6 +681,8 @@ export default function Page({params}: { params: { id: string } }) {
                     channelId={channelId}
                     seriesId={breakObj?.series_id}
                     onPushResult={reportPush}
+                    obs={obs}
+                    isConnected={isConnected}
                 />
             </div>
         </main>
