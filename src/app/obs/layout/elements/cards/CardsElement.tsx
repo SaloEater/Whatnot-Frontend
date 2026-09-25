@@ -380,7 +380,7 @@ export function CardsElement({ box, element }: ElementProps) {
         elevatedIdRef.current = remoteId
         setHoveredId(remoteId)
         // eslint-disable-next-line react-hooks/exhaustive-deps -- zoomFor closes over refs and box (acknowledge is stable, from usePendingSoldCards)
-    }, [remoteId, displayPhotos, cardDims, box.w, box.h, acknowledge])
+    }, [remoteId, displayPhotos, cardDims, box.w, box.h, acknowledge, element])
 
     /**
      * Zoom transform for one card, in CANVAS units. Shared by the local mouse hover and the remote
@@ -403,7 +403,18 @@ export function CardsElement({ box, element }: ElementProps) {
             : Math.min((box.w * 0.8) / cardW, (box.h * 0.8) / cardH)
 
         const dx = (rootRect.left + rootRect.width / 2 - (rect.left + rect.width / 2)) / stageScale
-        const dy = (rootRect.top + rootRect.height / 2 - (rect.top + rect.height / 2)) / stageScale
+        let dy = (rootRect.top + rootRect.height / 2 - (rect.top + rect.height / 2)) / stageScale
+
+        // Same rule as the carousel's centre card: the zoomed card's bottom edge never goes below
+        // the main area's bottom (`mainAreaHeightPct`, always applied, independent of the
+        // card-count threshold). Centred in the box it lands at box.h/2 ± zoomedH/2; if that
+        // bottom crosses the line, lift it by the overshoot. It may then rise above the box top,
+        // which is fine: the zoom is drawn on the unclipped top-layer portal.
+        const mainAreaPct = (element.kind === 'cards' ? element.mainAreaHeightPct : undefined) ?? DEFAULT_MAIN_AREA_HEIGHT_PCT
+        const mainAreaBottom = (box.h * mainAreaPct) / 100
+        const zoomedH = (swapAxes ? cardW : cardH) * scale
+        const overshoot = box.h / 2 + zoomedH / 2 - mainAreaBottom
+        if (overshoot > 0) dy -= overshoot
         return { scale, dx, dy }
     }
 
@@ -706,7 +717,11 @@ export function CardsElement({ box, element }: ElementProps) {
                         </span>
                     </div>
                 )}
-                <div className="crd-card-area">
+                {/* While a card is zoomed, every OTHER card is dimmed (CardsElement.css
+                    `.crd-card-area--dimmed`). Keyed off `hoveredId`, not `elevatedId`, so the dim
+                    lifts together with the 200ms zoom-out instead of lingering through the
+                    220ms elevation hold. */}
+                <div className={`crd-card-area${hoveredId !== null ? ' crd-card-area--dimmed' : ''}`}>
                     {rows.map((row, ri) => (
                         <div key={ri} className="crd-row">
                             {row.photos.map((photo, ci) => {
@@ -725,7 +740,7 @@ export function CardsElement({ box, element }: ElementProps) {
                                 return (
                                     <div
                                         key={photo.id}
-                                        className={`crd-card${isPending && !portaled ? ' crd-card--pending' : ''}`}
+                                        className={`crd-card${isPending && !portaled ? ' crd-card--pending' : ''}${hovered ? ' crd-card--zoomed' : ''}`}
                                         style={{
                                             width: `${row.widths[ci]}px`,
                                             height: `${row.cardHeights[ci]}px`,

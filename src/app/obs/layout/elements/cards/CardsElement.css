@@ -86,7 +86,16 @@
     inset: 0;
     /* Drives the hover-to-inspect zoom; the transform/shadow themselves are set inline by
        CardsElement so they can be computed against the element's box. */
-    transition: transform 200ms ease-out, box-shadow 200ms ease-out;
+    transition: transform 200ms ease-out, box-shadow 200ms ease-out, filter 200ms ease-out;
+}
+
+/* A card is zoomed: dim the rest of the board by 30% so the zoom reads as the focus.
+   brightness(0.7) = a 30% black overlay on the card images only — the gaps between cards (whatever
+   is behind the element) are left alone. The zoomed card itself is excluded: normally its in-place
+   visual is hidden and the top-layer portal copy (outside this area) is what shows, but without a
+   canvas it zooms in place and must stay bright. */
+.crd-card-area--dimmed .crd-card:not(.crd-card--zoomed) .crd-card-visual {
+    filter: brightness(0.7);
 }
 
 .crd-card-visual img {
