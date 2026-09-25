@@ -269,6 +269,7 @@ export default function CardsSettings({channelId, elementKey, element, onPatchEl
     }
     const unsold = photos.filter((p) => !p.is_sold && !p.is_deleted).sort(pendingFirst)
     const sold   = photos.filter((p) =>  p.is_sold && !p.is_deleted).sort(sorter)
+    const pendingUnsold = unsold.filter((p) => pending.has(p.id))
 
     // Fits the name inside the card width, capped at 3x the base size.
     function cardNameFontSize(lines: string[]): number {
@@ -476,10 +477,22 @@ export default function CardsSettings({channelId, elementKey, element, onPatchEl
             {/* Grid-level leave as well as per-card: moving the pointer out of the grid in one
                 fast motion, or off the edge of the window, can leave the last card's own leave
                 unfired. */}
+            {/* While the layout reports pending cards, the grid shows ONLY those, centred — the
+                operator's one job at that moment is to hover them (zoom on stream = acknowledge),
+                and every other card is noise. The full grid comes back as soon as the pending set
+                empties (acknowledged, timed out, or the layout's heartbeat goes stale). Pending ids
+                not in the unsold list (e.g. just marked sold) don't count. */}
             <div onMouseLeave={dropHighlight}
-                 style={{display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center'}}>
-                {unsold.map((p) => renderCard(p))}
-                {sold.map((p) => renderCard(p))}
+                 style={{
+                     display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center',
+                     ...(pendingUnsold.length > 0 ? {justifyContent: 'center'} : {}),
+                 }}>
+                {pendingUnsold.length > 0
+                    ? pendingUnsold.map((p) => renderCard(p))
+                    : <>
+                        {unsold.map((p) => renderCard(p))}
+                        {sold.map((p) => renderCard(p))}
+                    </>}
             </div>
         </div>
     )
