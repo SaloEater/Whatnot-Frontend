@@ -24,7 +24,7 @@
 //     check a board, which is exactly when it is wanted.
 //   - CSS is prefixed `crd-` (`board-`/`gallery-` are too generic for the shared layout page).
 
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { NoCustomer, Photo } from '@/app/entity/entities'
 import type { ElementProps } from '../../registry'
@@ -65,6 +65,12 @@ const PENDING_TIMEOUT_MS = 30_000
 // How often `usePendingBroadcast` re-sends the pending set to the controls page while it's
 // non-empty, so a dock opened late catches up and a dead layout's tint expires there.
 const PENDING_HEARTBEAT_MS = 3_000
+
+// Auto-zoom driver (cards-auto-show-pending-plan.md §3): how long each pending card is held
+// zoomed on stream before the queue moves to the next one, and the pause between two consecutive
+// auto zooms so they read as separate zooms rather than one bleeding into the next.
+const AUTO_SHOW_MS = 10_000
+const AUTO_START_GAP_MS = 300
 
 // useLayoutEffect only warns during SSR — same fallback as Stage.tsx.
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
@@ -114,7 +120,6 @@ function ZoomPortal({
     rotated,
     hovered,
     transform,
-    isPending,
 }: {
     canvasEl: HTMLElement
     rect: CanvasRect
@@ -122,7 +127,6 @@ function ZoomPortal({
     rotated: boolean // row.rotated — whether this row already rotates its cards into place
     hovered: boolean // apply the zoom transform (vs. animate back to rest)
     transform: string
-    isPending: boolean
 }) {
     const [applied, setApplied] = useState(false)
 
@@ -147,7 +151,7 @@ function ZoomPortal({
             style={{ left: `${rect.left}px`, top: `${rect.top}px`, width: `${rect.width}px`, height: `${rect.height}px` }}
         >
             <div
-                className={`crd-card-visual${isPending ? ' crd-card--pending' : ''}`}
+                className="crd-card-visual"
                 style={
                     hovered && applied
                         ? { transform, boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }
@@ -183,24 +187,55 @@ export function CardsElement({ box, element }: ElementProps) {
         setDevMode(readDevMode())
     }, [])
 
+    // Needed before the pending-sold-cards hook just below (which takes `autoShow`), so hoisted
+    // ahead of the rest of the board-settings locals (orientation's "real" declaration further
+    // down was removed in favour of this one). Narrowed the same defensive way `zoomFor`'s
+    // `mainAreaHeightPct` read is below: `element.kind` isn't guaranteed 'cards' until the
+    // early-return guard further down, and this is needed well before it.
+    const orientation = cardsBoardSettings?.orientation ?? 'list'
+    const autoShowPending = (element.kind === 'cards' ? element.autoShowPending : undefined) ?? false
+    // cards-auto-show-pending-plan.md decision 2: carousel mode ignores auto-show entirely, and so
+    // the 30s pending timeout stays live there too — otherwise a carousel with the box ticked would
+    // hold pending cards forever, since it has no zoom to acknowledge them with.
+    const autoShow = autoShowPending && orientation === 'list'
+
     // Pending-sold-cards (pending-sold-cards-plan.md): a team just becoming taken doesn't drop its
     // card off the board immediately — it goes pending (still shown, via the filter below) until
-    // the operator acknowledges it (see the 220ms elevation timers below) or PENDING_TIMEOUT_MS
-    // elapses. Declared early (ahead of the hover-zoom handlers, which call `acknowledge`) so
-    // those handlers don't reference it before its declaration. `usePendingBroadcast` tells the
-    // controls page which ids are pending so it can tint them — unconditional, not gated on
-    // devMode (it's the return path documented in obs-browser-event-bus.md §8).
-    const { pendingIds, acknowledge } = usePendingSoldCards({
+    // the operator acknowledges it (see the 220ms elevation timers below), the auto-zoom driver
+    // acknowledges it (cards-auto-show-pending-plan.md §3), or PENDING_TIMEOUT_MS elapses (skipped
+    // entirely while `autoShow` is on, see usePendingSoldCards.ts §2). Declared early (ahead of the
+    // hover-zoom handlers, which call `acknowledge`) so those handlers don't reference it before
+    // its declaration. `usePendingBroadcast` tells the controls page which ids are pending (and
+    // which one, if any, is currently auto-shown) so it can tint/outline them — unconditional, not
+    // gated on devMode (it's the return path documented in obs-browser-event-bus.md §8).
+    const { pendingIds, pendingOrder, acknowledge } = usePendingSoldCards({
         enabled: (cardsBoardSettings?.show_only_available_teams ?? false) && !!stream?.active_break_id,
         activeBreakId: stream?.active_break_id ?? null,
         events: breakEvents,
         photos,
         timeoutMs: PENDING_TIMEOUT_MS,
+        autoShow,
     })
+
+    // Auto-zoom driver's own bookkeeping (cards-auto-show-pending-plan.md §3): `autoIdRef` is the
+    // pending card it currently has zoomed (or null), `autoTimerRef` is that card's AUTO_SHOW_MS
+    // timer. Both refs — nothing here needs to re-render on their own, the zoom itself rides the
+    // same hoveredId/elevatedId/hoverSourceRef state every other source uses (see further below).
+    // `autoShowingId` is the one piece of real state, kept only so `usePendingBroadcast` (which
+    // needs a value to watch/post on) can tell the controls page which card is on stream (§4).
+    const autoIdRef = useRef<number | null>(null)
+    const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const [autoShowingId, setAutoShowingId] = useState<number | null>(null)
+    const setAutoId = useCallback((id: number | null) => {
+        autoIdRef.current = id
+        setAutoShowingId(id)
+    }, [])
+
     usePendingBroadcast({
         channelId: channel?.id ?? 0,
         pendingIds,
         heartbeatMs: PENDING_HEARTBEAT_MS,
+        autoShowingId,
     })
 
     const [displayPhotos, setDisplayPhotos] = useState<Photo[]>([])
@@ -245,6 +280,9 @@ export function CardsElement({ box, element }: ElementProps) {
     // lookup that happened to run with no root attached would leave the portal off for good.
     // Cheap — `closest` on one node, and an unchanged value bails out of the state update.
     const [canvasEl, setCanvasEl] = useState<HTMLElement | null>(null)
+    // No deps on purpose (see above); the functional update returns `prev` when unchanged, so it
+    // settles after one extra render at most instead of looping.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
         const found = (rootRef.current?.closest('.lay-canvas') as HTMLElement | null) ?? null
         setCanvasEl((prev) => (prev === found ? prev : found))
@@ -277,14 +315,44 @@ export function CardsElement({ box, element }: ElementProps) {
     // raises the same zoom remotely (see the `highlight-photo` effect below), and without this tag
     // a stray mouseleave on the layout page would cancel a highlight the operator is still holding
     // — and vice versa.
-    const hoverSourceRef = useRef<'local' | 'remote' | null>(null)
+    // cards-auto-show-pending-plan.md §3 adds a third source, `'auto'`, driven by the effects
+    // further below — it goes through this exact same zoom path (zoomFor/hoveredId/elevatedId),
+    // so the main-area bottom limit, top-layer portal, other-card dimming, full-res image and
+    // acknowledge-on-zoom-out all come with it unchanged.
+    const hoverSourceRef = useRef<'local' | 'remote' | 'auto' | null>(null)
 
     useEffect(() => {
         return () => {
             if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
             if (elevationTimerRef.current) clearTimeout(elevationTimerRef.current)
+            if (autoTimerRef.current) clearTimeout(autoTimerRef.current)
         }
     }, [])
+
+    /**
+     * Shared zoom-out sequence (cards-auto-show-pending-plan.md §3's refactor) for all three
+     * drivers — local mouse leave, remote cue clearing, and the auto driver ending its turn —
+     * replacing what used to be duplicated in `handleMouseLeave` and the remote-highlight effect.
+     * Clears `hoveredId` immediately (so the dim and the zoomed card's own transform start
+     * un-animating right away), then — after `elevationTimerRef`'s 220ms hold, so the full-res
+     * image isn't swapped back to the thumbnail mid-transition — clears `elevatedId` and, if
+     * `acknowledgeIt`, acknowledges whichever id was elevated (pending-sold-cards-plan.md §2.2's
+     * "acknowledge on zoom-out"; a no-op for a non-pending id). Callers own their own guard on
+     * `hoverSourceRef.current` before calling this, and any auto-specific bookkeeping (autoIdRef/
+     * autoTimerRef) around it — this only ever clears the source to null.
+     */
+    const endZoom = useCallback((acknowledgeIt: boolean) => {
+        hoverSourceRef.current = null
+        setHoveredId(null)
+        if (elevationTimerRef.current) clearTimeout(elevationTimerRef.current)
+        const zoomedId = elevatedIdRef.current
+        elevationTimerRef.current = setTimeout(() => {
+            setElevatedId(null)
+            elevatedIdRef.current = null
+            elevationTimerRef.current = null
+            if (acknowledgeIt && zoomedId !== null) acknowledge(zoomedId)
+        }, 220)
+    }, [acknowledge])
 
     // Remote highlight (obs-layout-plan.md §2.8): the operator hovers a card in the controls
     // page's grid, and the same card grows here — the point being that the layout page usually IS
@@ -347,29 +415,38 @@ export function CardsElement({ box, element }: ElementProps) {
     // held highlight keeps pointing at where its card actually is now.
     useEffect(() => {
         if (remoteId === null) {
-            if (hoverSourceRef.current === 'remote') {
-                hoverSourceRef.current = null
-                setHoveredId(null)
-                if (elevationTimerRef.current) clearTimeout(elevationTimerRef.current)
-                // Capture which id was elevated before the state clears — acknowledge() is a no-op
-                // for a non-pending id (pending-sold-cards-plan.md §2.2 "Acknowledge on zoom-out").
-                const zoomedId = elevatedIdRef.current
-                elevationTimerRef.current = setTimeout(() => {
-                    setElevatedId(null)
-                    elevatedIdRef.current = null
-                    elevationTimerRef.current = null
-                    if (zoomedId !== null) acknowledge(zoomedId)
-                }, 220)
+            if (hoverSourceRef.current === 'remote') endZoom(true)
+            return
+        }
+        // cards-auto-show-pending-plan.md §3: a highlight-photo cue while the auto driver is
+        // showing a card means the operator has their pointer on the controls grid right now.
+        // Same id as the auto card → they're holding IT: cancel its 10s timer and hand off to the
+        // ordinary remote-highlight path below (it's already zoomed at this id, nothing else to
+        // do here). A DIFFERENT id → "operator hovers a different card": the auto zoom is dropped
+        // WITHOUT acknowledging (it stays pending), and the code below zooms the new id instead —
+        // same as how a remote cue for a different id already overrides a remote zoom in place.
+        const dropAuto = () => {
+            if (autoTimerRef.current) {
+                clearTimeout(autoTimerRef.current)
+                autoTimerRef.current = null
             }
+            setAutoId(null)
+        }
+        if (hoverSourceRef.current === 'auto' && remoteId === autoIdRef.current) {
+            dropAuto()
+            hoverSourceRef.current = 'remote'
             return
         }
         const node = cardNodes.current.get(remoteId)
         const photo = displayPhotos.find((p) => p.id === remoteId)
         // A card that is sold, filtered out by "only available teams", or simply not on this board
-        // has nothing to zoom — ignore rather than clearing whatever is up.
+        // has nothing to zoom — ignore rather than clearing whatever is up. Checked BEFORE dropping
+        // an auto zoom: dropping it first would cancel its 10s timer with nothing taking over,
+        // leaving that card zoomed on stream indefinitely.
         if (!node || !photo) return
         const zoom = zoomFor(node.el, photo, node.rotated)
         if (!zoom) return
+        if (hoverSourceRef.current === 'auto') dropAuto()
         hoverData.current = zoom
         hoverSourceRef.current = 'remote'
         if (elevationTimerRef.current) {
@@ -379,8 +456,8 @@ export function CardsElement({ box, element }: ElementProps) {
         setElevatedId(remoteId)
         elevatedIdRef.current = remoteId
         setHoveredId(remoteId)
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- zoomFor closes over refs and box (acknowledge is stable, from usePendingSoldCards)
-    }, [remoteId, displayPhotos, cardDims, box.w, box.h, acknowledge, element])
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- zoomFor closes over refs and box (acknowledge/endZoom/setAutoId are stable)
+    }, [remoteId, displayPhotos, cardDims, box.w, box.h, acknowledge, endZoom, setAutoId, element])
 
     /**
      * Zoom transform for one card, in CANVAS units. Shared by the local mouse hover and the remote
@@ -425,6 +502,17 @@ export function CardsElement({ box, element }: ElementProps) {
         if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current)
         hoverTimerRef.current = setTimeout(() => {
             hoverTimerRef.current = null
+            // A local hover starting while the auto driver has a (necessarily different) card
+            // zoomed wins immediately — drop the auto zoom WITHOUT acknowledging
+            // (cards-auto-show-pending-plan.md §3 "operator hovers a different card"), so it stays
+            // pending and the queue resumes once this manual zoom has fully closed.
+            if (hoverSourceRef.current === 'auto') {
+                if (autoTimerRef.current) {
+                    clearTimeout(autoTimerRef.current)
+                    autoTimerRef.current = null
+                }
+                setAutoId(null)
+            }
             // Read the geometry at fire time, not at enter time: the board may have relaid out
             // during the dwell.
             const fresh = zoomFor(e.currentTarget, photo, alreadyRotated) ?? zoom
@@ -441,27 +529,90 @@ export function CardsElement({ box, element }: ElementProps) {
             clearTimeout(hoverTimerRef.current)
             hoverTimerRef.current = null
         }
-        // A highlight the operator is holding from the controls page outlives a mouse leaving a
-        // card here.
-        if (hoverSourceRef.current === 'remote') return
-        hoverSourceRef.current = null
-        setHoveredId(null)
-        if (elevationTimerRef.current) clearTimeout(elevationTimerRef.current)
-        // Capture which id was elevated before the state clears — acknowledge() is a no-op for a
-        // non-pending id (pending-sold-cards-plan.md §2.2 "Acknowledge on zoom-out").
-        const zoomedId = elevatedIdRef.current
-        // Held briefly after the zoom releases so the full-res image is not swapped back to the
-        // thumbnail mid-transition.
-        elevationTimerRef.current = setTimeout(() => {
-            setElevatedId(null)
-            elevatedIdRef.current = null
-            elevationTimerRef.current = null
-            if (zoomedId !== null) acknowledge(zoomedId)
-        }, 220)
+        // A highlight the operator is holding from the controls page, or one the auto driver is
+        // holding, outlives a mouse leaving a card here — only a genuinely local zoom-out goes
+        // through `endZoom`.
+        if (hoverSourceRef.current !== 'local') return
+        endZoom(true)
     }
+
+    // ---- Auto-zoom driver (cards-auto-show-pending-plan.md §3, list mode only) -------------------
+    // Three effects: pick the next pending card and zoom it when nothing else has a claim on the
+    // zoom; drop it immediately (no acknowledge) if it vanishes out from under itself; drop it
+    // immediately (no acknowledge) if the option is turned off — or the board leaves list mode,
+    // which `autoShow` already folds in (decision 2) — while it's mid-turn.
+
+    // "Card vanishes mid-zoom": the auto driver's own card can drop out of `pendingIds` (marked
+    // sold, its team un-taken, or an active-break change resetting pending entirely —
+    // usePendingSoldCards' rules 4/7/8) with no local/remote interruption to ever catch it.
+    useEffect(() => {
+        if (hoverSourceRef.current !== 'auto') return
+        const id = autoIdRef.current
+        if (id === null || pendingIds.has(id)) return
+        if (autoTimerRef.current) {
+            clearTimeout(autoTimerRef.current)
+            autoTimerRef.current = null
+        }
+        setAutoId(null)
+        endZoom(false)
+    }, [pendingIds, endZoom, setAutoId])
+
+    // Turning the option off (or leaving list mode) mid-turn must not leave a card stuck zoomed
+    // with nothing left to acknowledge it.
+    useEffect(() => {
+        if (autoShow) return
+        if (hoverSourceRef.current !== 'auto') return
+        if (autoTimerRef.current) {
+            clearTimeout(autoTimerRef.current)
+            autoTimerRef.current = null
+        }
+        setAutoId(null)
+        endZoom(false)
+    }, [autoShow, endZoom, setAutoId])
+
+    // "Start": zooms the oldest pending id that actually has a rendered card node, the same way a
+    // local/remote zoom does, whenever nothing else has a claim on the zoom. Waits
+    // AUTO_START_GAP_MS after that becomes true (not on the render where it does) so consecutive
+    // auto cards read as separate zooms and a manual zoom's own 220ms zoom-out hold has fully
+    // cleared first. A change to any of hoveredId/elevatedId/pendingOrder/autoShow during the wait
+    // re-runs this effect, whose cleanup cancels the still-pending gap timer — so there is nothing
+    // to re-check inside the timeout for those; `hoverSourceRef.current` IS re-checked there since
+    // it's a ref (mutable outside the state/deps this effect watches) and this is the one path the
+    // plan explicitly calls out as needing care against a double-start.
+    useEffect(() => {
+        if (!autoShow) return
+        if (hoveredId !== null || elevatedId !== null) return
+        if (hoverSourceRef.current !== null) return
+        const nextId = pendingOrder.find((id) => cardNodes.current.has(id))
+        if (nextId === undefined) return
+
+        const gap = setTimeout(() => {
+            if (hoverSourceRef.current !== null) return
+            const node = cardNodes.current.get(nextId)
+            const photo = displayPhotos.find((p) => p.id === nextId)
+            if (!node || !photo) return
+            const zoom = zoomFor(node.el, photo, node.rotated)
+            if (!zoom) return
+            hoverData.current = zoom
+            hoverSourceRef.current = 'auto'
+            setElevatedId(nextId)
+            elevatedIdRef.current = nextId
+            setHoveredId(nextId)
+            setAutoId(nextId)
+            autoTimerRef.current = setTimeout(() => {
+                autoTimerRef.current = null
+                setAutoId(null)
+                endZoom(true)
+            }, AUTO_SHOW_MS)
+        }, AUTO_START_GAP_MS)
+
+        return () => clearTimeout(gap)
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- zoomFor/cardNodes close over refs and box, same convention as the remote-highlight effect above
+    }, [autoShow, pendingOrder, hoveredId, elevatedId, displayPhotos, cardDims, box.w, box.h, element, endZoom, setAutoId])
+
     const [galleryIndex, setGalleryIndex] = useState(0)
 
-    const orientation = cardsBoardSettings?.orientation ?? 'list'
+    // `orientation` moved up to just after `useLayoutData()` (needed early by `autoShow`, above).
     const showHorizontalRow = cardsBoardSettings?.show_horizontal_row ?? false
     const showOnlyAvailableTeams = cardsBoardSettings?.show_only_available_teams ?? false
 
@@ -732,15 +883,14 @@ export function CardsElement({ box, element }: ElementProps) {
                                 const isElevated = hovered || elevatedId === photo.id
                                 // Portaled: this card's zoom is drawn by <ZoomPortal> instead, in front of
                                 // every element — hide the in-place visual (opacity, NOT visibility/display,
-                                // so the `.crd-card` div underneath keeps getting mouseenter/mouseleave) and
-                                // its pending pulse, which moves to the portal copy so it still reads while
-                                // zoomed (see the pending className below).
+                                // so the `.crd-card` div underneath keeps getting mouseenter/mouseleave).
+                                // Pending cards carry no mark on the layout — that tint lives only on the
+                                // controls page, off stream.
                                 const portaled = isElevated && portalShown
-                                const isPending = pendingIds.has(photo.id)
                                 return (
                                     <div
                                         key={photo.id}
-                                        className={`crd-card${isPending && !portaled ? ' crd-card--pending' : ''}${hovered ? ' crd-card--zoomed' : ''}`}
+                                        className={`crd-card${hovered ? ' crd-card--zoomed' : ''}`}
                                         style={{
                                             width: `${row.widths[ci]}px`,
                                             height: `${row.cardHeights[ci]}px`,
@@ -794,7 +944,6 @@ export function CardsElement({ box, element }: ElementProps) {
                     rotated={!!elevatedGeom.row.rotated}
                     hovered={elevatedHovered}
                     transform={elevatedTransform}
-                    isPending={pendingIds.has(elevatedGeom.photo.id)}
                 />
             )}
         </>

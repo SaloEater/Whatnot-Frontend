@@ -17,8 +17,12 @@ export function usePendingBroadcast(args: {
     channelId: number
     pendingIds: ReadonlySet<number>
     heartbeatMs: number
+    // cards-auto-show-pending-plan.md §4: which pending card, if any, is currently being
+    // auto-zoomed on stream — forwarded straight into the payload so CardsSettings.tsx can mark
+    // that one card "on stream" instead of just "pending".
+    autoShowingId: number | null
 }): void {
-    const { channelId, pendingIds, heartbeatMs } = args
+    const { channelId, pendingIds, heartbeatMs, autoShowingId } = args
 
     const channelRef = useRef<BroadcastChannel | null>(null)
     const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -57,6 +61,7 @@ export function usePendingBroadcast(args: {
                 channelId,
                 photoIds: Array.from(pendingIds),
                 sentAt: Date.now(),
+                autoShowingId,
             }
             try {
                 bc.postMessage(payload)
@@ -80,5 +85,8 @@ export function usePendingBroadcast(args: {
                 heartbeatRef.current = null
             }
         }
-    }, [channelId, pendingIds, heartbeatMs])
+        // `autoShowingId` is in deps (unlike a value that only mattered for the heartbeat re-arm
+        // logic) so a change posts immediately instead of waiting for the next heartbeat tick —
+        // the controls grid's "on stream" outline should track the auto-zoom driver in real time.
+    }, [channelId, pendingIds, heartbeatMs, autoShowingId])
 }

@@ -249,6 +249,12 @@ export type Element = (
           kind: 'cards'
           mainAreaHeightPct?: number
           mainAreaMaxCards?: number
+          // cards-auto-show-pending-plan.md §1: list-mode only (a carousel has no zoom to
+          // acknowledge with, see CardsElement.tsx's `autoShow` derivation) — when on, a pending
+          // card (§2/§3 above) is zoomed on stream by itself, one at a time, for up to 10s each,
+          // instead of waiting for the operator to hover it. Optional, default false — unset
+          // reproduces today's behaviour (operator-driven only).
+          autoShowPending?: boolean
           placements: Partial<Record<PlacementKey, Box>>
           z?: number
           reactions?: Reactions
@@ -654,7 +660,12 @@ export const DEV_CHANNEL_NAME = 'mob:bus'
 // profile, so it does nothing in a plain Chrome tab controls page (accepted — the tint is missing
 // there, nothing else breaks).
 export const PENDING_CHANNEL_NAME = 'mob:pending'
-export type PendingPayload = { kind: 'pending-photos'; channelId: number; photoIds: number[]; sentAt: number }
+// `autoShowingId` (cards-auto-show-pending-plan.md §4): which pending card, if any, is currently
+// being auto-zoomed on stream (null = none) — lets the controls grid mark that one card "on
+// stream" with a clear outline so the operator knows which one to hover to hold it past its 10s.
+// Optional on receive (usePendingFromLayout.ts) so an older layout page's payload — sent before
+// this field existed — doesn't need a migration: `undefined` reads the same as "no auto-show".
+export type PendingPayload = { kind: 'pending-photos'; channelId: number; photoIds: number[]; sentAt: number; autoShowingId?: number | null }
 
 // ── Transient cue channel ────────────────────────────────────────────────────────────────────
 // A second, deliberately separate bus event carrying a cue and NOTHING else. `BusPayload` is the

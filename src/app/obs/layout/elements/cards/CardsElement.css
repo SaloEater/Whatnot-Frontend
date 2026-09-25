@@ -67,20 +67,6 @@
     position: relative;
 }
 
-/* Pending-sold-cards (pending-sold-cards-plan.md §2.2): a card whose team just sold, still on the
-   board until the operator acknowledges it (hover zoom-out on either side) or the 30s timeout
-   fires. Subtle — it's on stream: a slowly-pulsing inset outline at full opacity, no layout change. */
-.crd-card--pending {
-    outline: 3px solid rgba(255, 196, 0, 0.85);
-    outline-offset: -3px;
-    animation: crd-pending-pulse 1.2s ease-in-out infinite;
-}
-
-@keyframes crd-pending-pulse {
-    0%, 100% { outline-color: rgba(255, 196, 0, 0.85); }
-    50% { outline-color: rgba(255, 196, 0, 0.3); }
-}
-
 .crd-card-visual {
     position: absolute;
     inset: 0;
