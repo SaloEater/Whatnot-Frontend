@@ -400,7 +400,7 @@ export default function Page() {
                     </div>
                     {style.logoMode === 'crisp' && (
                         <>
-                            {slider('Outline width', 'logoOutlineWidth', 0, 4, 1)}
+                            {slider('Outline width', 'logoOutlineWidth', 0, 4, 0.1)}
                             <div className="small d-flex gap-2 align-items-center">
                                 <span style={{ width: 120 }}>Outline colour</span>
                                 <select className="form-select form-select-sm w-auto" value={style.logoOutlineColor} onChange={e => set('logoOutlineColor', e.target.value as 'auto' | 'light' | 'dark')}>
