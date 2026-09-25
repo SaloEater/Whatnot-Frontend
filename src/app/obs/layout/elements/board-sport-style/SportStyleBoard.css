@@ -29,8 +29,8 @@
 /* The field block itself — canvas, strips, cells and ticks are all absolutely positioned inside
    this, at the exact px `fieldGeometry.ts` computed. */
 .sps-field {
-    position: relative;
-    flex: 0 0 auto;
+    position: absolute;
+    left: 0;
 }
 
 /* The painted field, inset by the element's `margin` on every side (inline left/top/width/height). */

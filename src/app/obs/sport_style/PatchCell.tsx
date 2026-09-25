@@ -185,6 +185,15 @@ function rhombusTile(rhombus: number, spacing: number, color: string, opacity: n
     return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`
 }
 
+// The logo/label box in whole px: a `-50%` translate of a `size * logoScale` box (and a scaled,
+// fractional `logoLift`) lands the logo between pixels, which the browser resamples into a
+// visibly softer image — noticeable at the small patch sizes a full board uses.
+function logoBox(size: number, logoScale: number, logoLift: number) {
+    const px = Math.round(size * logoScale)
+    const offset = Math.floor((size - px) / 2)
+    return {left: offset, top: offset - Math.round(logoLift), width: px, height: px}
+}
+
 export default function PatchCell({ background: paletteBackground, stitch, logoSrc, style: s, sold, size, label, edgeTier }: Props) {
     const uid = useId().replace(/[^a-zA-Z0-9]/g, '_')
     // Tiered edge: the fabric itself takes the tier's colour too — the neon darkened by 30% — so
@@ -239,11 +248,7 @@ export default function PatchCell({ background: paletteBackground, stitch, logoS
                     <div
                         style={{
                             position: 'absolute',
-                            left: '50%',
-                            top: '50%',
-                            width: `${s.logoScale * 100}%`,
-                            height: `${s.logoScale * 100}%`,
-                            transform: 'translate(-50%, -50%)',
+                            ...logoBox(size, s.logoScale, 0),
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -260,11 +265,7 @@ export default function PatchCell({ background: paletteBackground, stitch, logoS
                     <div
                         style={{
                             position: 'absolute',
-                            left: '50%',
-                            top: '50%',
-                            width: `${s.logoScale * 100}%`,
-                            height: `${s.logoScale * 100}%`,
-                            transform: 'translate(-50%, -50%)',
+                            ...logoBox(size, s.logoScale, 0),
                             backgroundColor: rgbToCss(silhouetteGrey),
                             maskImage: maskUrl,
                             WebkitMaskImage: maskUrl,
@@ -453,11 +454,7 @@ export default function PatchCell({ background: paletteBackground, stitch, logoS
                 <div
                     style={{
                         position: 'absolute',
-                        left: '50%',
-                        top: '50%',
-                        width: `${s.logoScale * 100}%`,
-                        height: `${s.logoScale * 100}%`,
-                        transform: `translate(-50%, calc(-50% - ${s.logoLift}px))`,
+                        ...logoBox(size, s.logoScale, s.logoLift),
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -479,11 +476,7 @@ export default function PatchCell({ background: paletteBackground, stitch, logoS
                     alt=""
                     style={{
                         position: 'absolute',
-                        left: '50%',
-                        top: '50%',
-                        width: `${s.logoScale * 100}%`,
-                        height: `${s.logoScale * 100}%`,
-                        transform: `translate(-50%, calc(-50% - ${s.logoLift}px))`,
+                        ...logoBox(size, s.logoScale, s.logoLift),
                         objectFit: 'contain',
                         filter: [
                             s.logoContactShadow > 0 ? `drop-shadow(0 0 0.6px rgba(0,0,0,${s.logoContactShadow}))` : null,
