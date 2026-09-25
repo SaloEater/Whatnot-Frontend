@@ -138,8 +138,9 @@ export default function CardsSettings({channelId, elementKey, element, onPatchEl
 
     // Pending-sold-cards (pending-sold-cards-plan.md §3): the layout is the single source of
     // truth for which cards are pending removal — this is read-only, no events poll or tracker of
-    // its own here.
-    const pending = usePendingFromLayout(channelId)
+    // its own here. `autoShowingId` (cards-auto-show-pending-plan.md §4) is which one, if any, the
+    // layout is currently auto-zooming on stream.
+    const {pending, autoShowingId} = usePendingFromLayout(channelId)
 
     const [cardSize, setCardSize] = useState(() => {
         if (typeof localStorage === 'undefined') return 70
@@ -279,6 +280,10 @@ export default function CardsSettings({channelId, elementKey, element, onPatchEl
     function renderCard(photo: Photo) {
         const nameLines = splitName(photo.name || '—')
         const isPending = pending.has(photo.id)
+        // cards-auto-show-pending-plan.md §4: the card the layout is currently auto-zooming gets a
+        // clear solid outline (distinct from the pending tint on the name band above) so the
+        // operator immediately sees which one to hover to hold it past its 10s.
+        const isAutoShowing = autoShowingId === photo.id
         return (
             <div key={photo.id}
                  onMouseEnter={() => handleCardEnter(photo)}
@@ -288,7 +293,7 @@ export default function CardsSettings({channelId, elementKey, element, onPatchEl
                 flexShrink: 0,
                 padding: '3px',
                 background: 'rgba(255,255,255,0.08)',
-                border: '1px solid rgba(255,255,255,0.35)',
+                border: isAutoShowing ? '2px solid #22c55e' : '1px solid rgba(255,255,255,0.35)',
                 borderRadius: '4px',
             }}>
                 <div style={{
@@ -350,6 +355,7 @@ export default function CardsSettings({channelId, elementKey, element, onPatchEl
 
     const horizontalId = `ctl-showHorizontalRowCheck-${elementKey}`
     const onlyAvailableId = `ctl-showOnlyAvailableTeamsCheck-${elementKey}`
+    const autoShowPendingId = `ctl-autoShowPendingCheck-${elementKey}`
     const mainAreaPctId = `ctl-mainAreaHeightPct-${elementKey}`
     const mainAreaMaxId = `ctl-mainAreaMaxCards-${elementKey}`
 
@@ -399,6 +405,23 @@ export default function CardsSettings({channelId, elementKey, element, onPatchEl
                     onChange={(e) => { setShowOnlyAvailableTeams(e.target.checked); save({showOnlyAvailableTeams: e.target.checked}) }}
                 />
                 <label className="form-check-label" htmlFor={onlyAvailableId}>Show only available teams</label>
+            </div>
+            {/* cards-auto-show-pending-plan.md §1: an element-config field (onPatchElement), not a
+                cardsBoardSettings write like the two checkboxes above — pending detection only
+                runs when "Show only available teams" is also on (usePendingSoldCards' `enabled`,
+                CardsElement.tsx), hence the muted note while that's off. */}
+            <div className="form-check">
+                <input
+                    type="checkbox"
+                    className="form-check-input"
+                    id={autoShowPendingId}
+                    checked={cards?.autoShowPending ?? false}
+                    onChange={(e) => onPatchElement(elementKey, {autoShowPending: e.target.checked})}
+                />
+                <label className="form-check-label" htmlFor={autoShowPendingId}>Automatically show pending card</label>
+                {!showOnlyAvailableTeams && (
+                    <span className="text-secondary small ms-2">(needs Show only available teams)</span>
+                )}
             </div>
 
             {/* Main area / card-count threshold (cards-main-area-plan.md §1): lets the board pack

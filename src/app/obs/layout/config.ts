@@ -712,6 +712,11 @@ function validateCardsFields(key: string, rawEl: Record<string, unknown>): strin
     ) {
         errors.push(`element "${key}": mainAreaMaxCards must be an integer >= 0`)
     }
+    // cards-auto-show-pending-plan.md §1: a plain boolean, same convention as every other optional
+    // boolean field in this file (e.g. `frame.glare`, `scene.effects[i].enabled`).
+    if (rawEl.autoShowPending !== undefined && typeof rawEl.autoShowPending !== 'boolean') {
+        errors.push(`element "${key}": autoShowPending must be a boolean`)
+    }
     return errors
 }
 

@@ -35,11 +35,18 @@ export function usePendingSoldCards(args: {
     events: Event[] // spine `events`
     photos: Photo[] // spine `photos` (unsold, not deleted — the board's input list)
     timeoutMs: number // PENDING_TIMEOUT_MS; <= 0 disables the timeout
+    // cards-auto-show-pending-plan.md §2: while true, an entry gets NO pending timeout — it leaves
+    // only via the auto-zoom driver's acknowledge (CardsElement.tsx), a manual acknowledge, or the
+    // reversal/sold/break-change rules already in this file. Passed as
+    // `autoShowPending && orientation === 'list'` by the caller (decision 2 in the plan), so a
+    // carousel with the box ticked keeps today's timeout instead of holding pending cards forever.
+    autoShow: boolean
 }): {
     pendingIds: ReadonlySet<number>
+    pendingOrder: number[] // pending ids, oldest first — the auto-zoom driver's queue order
     acknowledge: (photoId: number) => void
 } {
-    const { enabled, activeBreakId, events, photos, timeoutMs } = args
+    const { enabled, activeBreakId, events, photos, timeoutMs, autoShow } = args
 
     // Map<photoId, since> — `since` isn't read outside this hook today, but keeping it (rather
     // than a bare Set) is what makes rule 3's "already-pending ids keep their original since"
@@ -75,16 +82,36 @@ export function usePendingSoldCards(args: {
         removeIds([photoId])
     }, [removeIds])
 
-    // Rule 5: a timeout per entry. `timeoutMs <= 0` disables it entirely.
+    // Rule 5: a timeout per entry. `timeoutMs <= 0` disables it entirely, and so does `autoShow`
+    // (§2 above) — a defensive check here as well as at every call site, so a stale closure can
+    // never arm a timer autoShow has since disabled.
     const armTimer = useCallback((id: number) => {
-        if (timeoutMs <= 0) return
+        if (timeoutMs <= 0 || autoShow) return
         clearEntryTimer(id)
         const t = setTimeout(() => {
             timersRef.current.delete(id)
             removeIds([id])
         }, timeoutMs)
         timersRef.current.set(id, t)
-    }, [timeoutMs, clearEntryTimer, removeIds])
+    }, [timeoutMs, autoShow, clearEntryTimer, removeIds])
+
+    // cards-auto-show-pending-plan.md §2: `autoShow` flipping on clears whatever timers happen to
+    // be armed (the entries stay pending — only the auto-zoom driver's acknowledge removes them
+    // from here on); flipping off re-arms the ordinary timeout for whatever is pending at that
+    // moment, since those entries may have gone un-timed while auto-show was on.
+    useEffect(() => {
+        if (autoShow) {
+            timersRef.current.forEach((t) => clearTimeout(t))
+            timersRef.current.clear()
+        } else {
+            pending.forEach((_since, id) => armTimer(id))
+        }
+        // `pending` deliberately excluded: this must run only when `autoShow` itself flips, not on
+        // every pending-set change (which would re-arm entries that already have a fresh timer and
+        // reset their remaining time for no reason). `armTimer` already carries the current
+        // `autoShow` in its own deps, so it's fine to omit here too.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [autoShow])
 
     // Rule 7: `activeBreakId` change or `enabled` becoming false clears pending and re-arms the
     // baseline (rule 2, via prevTakenRef = null). Declared BEFORE the baseline/signal effect below
@@ -199,6 +226,12 @@ export function usePendingSoldCards(args: {
     }, [])
 
     const pendingIds = useMemo(() => new Set(pending.keys()), [pending])
+    // Insertion order IS oldest-first: `pending` is only ever mutated by deleting an id and later
+    // re-`set`ting it as a genuinely new entry (never re-set while already present, see the `toAdd`
+    // loop above and rule 3's comment) or by rebuilding the whole Map via `new Map(prev)` (which
+    // preserves iteration order) — so `Map.keys()` already yields entries in the order they were
+    // added, no explicit `since` sort required.
+    const pendingOrder = useMemo(() => Array.from(pending.keys()), [pending])
 
-    return { pendingIds, acknowledge }
+    return { pendingIds, pendingOrder, acknowledge }
 }
