@@ -17,8 +17,9 @@ type Transform = {scale: number; cx: number; cy: number}
 
 function computeTransform(): Transform {
     const scale = Math.min(window.innerWidth / CANVAS.w, window.innerHeight / CANVAS.h)
-    const cx = (window.innerWidth - CANVAS.w * scale) / 2
-    const cy = (window.innerHeight - CANVAS.h * scale) / 2
+    // Whole-px offset: a half-pixel translate would soften the entire canvas.
+    const cx = Math.floor((window.innerWidth - CANVAS.w * scale) / 2)
+    const cy = Math.floor((window.innerHeight - CANVAS.h * scale) / 2)
     return {scale, cx, cy}
 }
 

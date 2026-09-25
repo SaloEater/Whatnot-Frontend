@@ -368,7 +368,10 @@ export function SportStyleBoard({elementKey, element, box}: ElementProps) {
     // Hooks stay unconditional (rules of hooks) even though this is only meaningful once `geometry`
     // exists — the `rows === 0` branches below publish `{}`, which clears whatever this key had
     // published before (AnchorStore.publish, anchors.tsx).
-    const fieldTop = box.y + (box.h - fieldH) / 2 // flex centring (.sps-root), may be < box.y if clipped
+    // Centred in whole px (not flex centring) so an odd `box.h - fieldH` doesn't land the whole
+    // field on a half pixel and soften every patch. May be < box.y if the field overflows the box.
+    const fieldOffsetY = Math.floor((box.h - fieldH) / 2)
+    const fieldTop = box.y + fieldOffsetY
     const originX = box.x + margin
     const originY = fieldTop + margin
     usePublishAnchors(
@@ -484,7 +487,7 @@ export function SportStyleBoard({elementKey, element, box}: ElementProps) {
     return (
         <div className="sps-root">
             {geometry && (
-                <div className="sps-field" style={{width: box.w, height: fieldH}}>
+                <div className="sps-field" style={{width: box.w, height: fieldH, top: fieldOffsetY}}>
                   {/* Everything painted lives in the inner field, inset by `margin` — its own origin, so
                       fieldGeometry's integer rects (computed for innerW × innerH) apply unchanged. */}
                   <div className="sps-inner" style={{left: margin, top: margin, width: innerW, height: innerH}}>
