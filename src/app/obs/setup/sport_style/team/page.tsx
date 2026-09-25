@@ -390,12 +390,35 @@ export default function Page() {
                     {slider('Vignette', 'vignette', 0, 1, 0.01)}
                     {toggle('Edge shadow', 'edgeShadow')}
 
+                    <h6 className="mt-3">Logo render</h6>
+                    <div className="small d-flex gap-2 align-items-center">
+                        <span style={{ width: 120 }}>Mode</span>
+                        <select className="form-select form-select-sm w-auto" value={style.logoMode} onChange={e => set('logoMode', e.target.value as 'classic' | 'crisp')}>
+                            <option value="classic">classic</option>
+                            <option value="crisp">crisp (hard outline)</option>
+                        </select>
+                    </div>
+                    {style.logoMode === 'crisp' && (
+                        <>
+                            {slider('Outline width', 'logoOutlineWidth', 0, 4, 1)}
+                            <div className="small d-flex gap-2 align-items-center">
+                                <span style={{ width: 120 }}>Outline colour</span>
+                                <select className="form-select form-select-sm w-auto" value={style.logoOutlineColor} onChange={e => set('logoOutlineColor', e.target.value as 'auto' | 'light' | 'dark')}>
+                                    <option value="auto">auto</option>
+                                    <option value="light">light</option>
+                                    <option value="dark">dark</option>
+                                </select>
+                            </div>
+                            {slider('Outline opacity', 'logoOutlineOpacity', 0, 1, 0.01)}
+                        </>
+                    )}
+
                     <h6 className="mt-3">Logo lift shadow</h6>
                     {slider('Offset X', 'logoShadowX', -10, 10, 0.5)}
                     {slider('Offset Y', 'logoShadowY', -10, 10, 0.5)}
                     {slider('Blur', 'logoShadowBlur', 0, 12, 0.5)}
                     {slider('Opacity', 'logoShadowOpacity', 0, 1, 0.01)}
-                    {slider('Contact shadow', 'logoContactShadow', 0, 1, 0.01)}
+                    {style.logoMode === 'classic' && slider('Contact shadow', 'logoContactShadow', 0, 1, 0.01)}
                     {slider('Lift', 'logoLift', 0, 6, 0.5)}
 
                     <h6 className="mt-3">Textile (rhombus weave)</h6>

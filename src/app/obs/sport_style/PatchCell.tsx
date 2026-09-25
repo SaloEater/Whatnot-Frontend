@@ -53,6 +53,13 @@ export interface PatchStyle {
     logoShadowOpacity: number
     logoContactShadow: number // tight 0-offset shadow opacity, hugs the outline
     logoLift: number          // px the logo is nudged up (opposite to the shadow)
+    // 'classic' draws the logo exactly as before. 'crisp' (A/B test) replaces the soft contact
+    // shadow with a hard outline, so the logo edge survives stream compression — a brightness edge
+    // outlives 4:2:0 chroma subsampling where a logo that only differs from its fabric in hue blurs.
+    logoMode: 'classic' | 'crisp'
+    logoOutlineWidth: number    // crisp only; real screen px, NOT scaled with the patch (0 = off)
+    logoOutlineColor: 'auto' | 'light' | 'dark' // crisp only; auto contrasts with the fabric
+    logoOutlineOpacity: number  // crisp only, 0..1
     vignette: number      // 0..1
     edgeShadow: boolean
     soldRingShade: number       // -1..1, offset from cell grey toward black (-) or white (+)
@@ -103,6 +110,10 @@ export const defaultPatchStyle: PatchStyle = {
     logoShadowOpacity: 0.6,
     logoContactShadow: 0.5,
     logoLift: 1,
+    logoMode: 'classic',
+    logoOutlineWidth: 1,
+    logoOutlineColor: 'auto',
+    logoOutlineOpacity: 0.9,
     vignette: 0.35,
     edgeShadow: true,
     soldRingShade: 0.30,
@@ -192,6 +203,15 @@ function logoBox(size: number, logoScale: number, logoLift: number) {
     const px = Math.round(size * logoScale)
     const offset = Math.floor((size - px) / 2)
     return {left: offset, top: offset - Math.round(logoLift), width: px, height: px}
+}
+
+// crisp mode: a hard (zero-blur) outline from four axis-aligned drop-shadows — each one also
+// shadows the previous ones, so together they dilate the logo by `width` px on every side. Whole
+// px only; a fractional width would antialias back into the soft edge this replaces.
+function logoOutlineFilter(width: number, color: string): string | null {
+    const w = Math.round(width)
+    if (w <= 0) return null
+    return [`${w}px 0`, `-${w}px 0`, `0 ${w}px`, `0 -${w}px`].map(o => `drop-shadow(${o} 0 ${color})`).join(' ')
 }
 
 export default function PatchCell({ background: paletteBackground, stitch, logoSrc, style: s, sold, size, label, edgeTier }: Props) {
@@ -308,6 +328,9 @@ export default function PatchCell({ background: paletteBackground, stitch, logoS
     const greyLevel = Math.round(0.299 * br + 0.587 * bg2 + 0.114 * bb)
     const grey: RGB = [greyLevel, greyLevel, greyLevel]
     const edgeFadeTint = rgbToCss(lighten(mix(background, grey, s.edgeFadeDesaturate), s.edgeFadeLighten))
+    const crisp = s.logoMode === 'crisp'
+    const outlineLight = s.logoOutlineColor === 'light' || (s.logoOutlineColor === 'auto' && greyLevel < 140)
+    const outlineColor = outlineLight ? `rgba(255,255,255,${s.logoOutlineOpacity})` : `rgba(0,0,0,${s.logoOutlineOpacity})`
 
     return (
         <div
@@ -479,7 +502,9 @@ export default function PatchCell({ background: paletteBackground, stitch, logoS
                         ...logoBox(size, s.logoScale, s.logoLift),
                         objectFit: 'contain',
                         filter: [
-                            s.logoContactShadow > 0 ? `drop-shadow(0 0 0.6px rgba(0,0,0,${s.logoContactShadow}))` : null,
+                            crisp
+                                ? logoOutlineFilter(s.logoOutlineWidth, outlineColor)
+                                : s.logoContactShadow > 0 ? `drop-shadow(0 0 0.6px rgba(0,0,0,${s.logoContactShadow}))` : null,
                             s.logoShadowOpacity > 0 ? `drop-shadow(${s.logoShadowX}px ${s.logoShadowY}px ${s.logoShadowBlur}px rgba(0,0,0,${s.logoShadowOpacity}))` : null,
                         ].filter(Boolean).join(' ') || undefined,
                     }}
