@@ -20,7 +20,9 @@ import {
     SCENE_EFFECT_IDS,
     SCENE_QUALITIES,
     SKY_MOODS,
+    TICKER_BANDS,
     TICKER_DIRECTIONS,
+    TICKER_FONTS,
     WIDGET_IDS, MIRRORABLE_KINDS} from './schema'
 import type { RegistryId } from './registry'
 import { REGISTRY, registryIdOf } from './registry'
@@ -1072,6 +1074,12 @@ function validateTickerFields(key: string, rawEl: Record<string, unknown>): stri
     }
     if (rawEl.soften !== undefined && (!isFiniteNumber(rawEl.soften) || rawEl.soften < 0 || rawEl.soften > 3)) {
         errors.push(`element "${key}": soften must be a finite number in [0, 3]`)
+    }
+    if (rawEl.band !== undefined && (typeof rawEl.band !== 'string' || !(TICKER_BANDS as readonly string[]).includes(rawEl.band))) {
+        errors.push(`element "${key}": band must be one of ${TICKER_BANDS.join(', ')}`)
+    }
+    if (rawEl.font !== undefined && (typeof rawEl.font !== 'string' || !(TICKER_FONTS as readonly string[]).includes(rawEl.font))) {
+        errors.push(`element "${key}": font must be one of ${TICKER_FONTS.join(', ')}`)
     }
 
     return errors

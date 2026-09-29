@@ -14,8 +14,8 @@
 // slot's own `showPctMin` here instead of CircleWidget's hard-coded 15.
 //
 // Motion (obs-ticker-plan.md §5.3): a single `requestAnimationFrame` loop, started once on mount
-// (or whenever it crosses the static <-> moving boundary), computes `offset` from the ELAPSED WALL
-// TIME since that start and writes it straight onto the `<textPath>` DOM node via
+// (or whenever it crosses the static <-> moving boundary), computes `offset` from the time elapsed
+// since that start, counted in whole, evenly-spaced frames (see the loop) and writes it straight onto the `<textPath>` DOM node via
 // `setAttribute('startOffset', …)` — no React state per frame. `speed`/`direction`/the texture-scale
 // factor `s` are read through refs that are kept in sync every render, so a mid-flight change to any
 // of them (a settings-panel edit, or `s` changing because the box was resized) takes effect on the
@@ -27,9 +27,10 @@ import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 're
 import type { ElementProps } from '../../registry'
 import { useLayoutData } from '../../useLayoutData'
 import type { LayoutData } from '../../useLayoutData'
-import type { TickerDirection, TickerSlot, WidgetId } from '../../schema'
+import type { TickerBand, TickerDirection, TickerFont, TickerSlot, WidgetId } from '../../schema'
 import { WIDGET_IDS } from '../../schema'
 import { TICKER_ASSET, TICKER_PATH_D } from './assets'
+import { drawTickerBand } from './band'
 import './TickerElement.css'
 
 // Registry defaults (registry.ts `makeElement()` seeds `slots` but leaves every other ticker field
@@ -39,8 +40,15 @@ export const DEFAULT_TICKER_SEPARATOR = '   •   '
 export const DEFAULT_TICKER_FONT_SIZE = 48
 export const DEFAULT_TICKER_SPEED = 90
 export const DEFAULT_TICKER_DIRECTION: TickerDirection = 'left'
-// Canvas px of blur on the main text (schema `soften`). Tuned for Handjet at a low weight.
+// Canvas px of blur on the main text (schema `soften`). Tuned for Handjet at a low weight; the
+// solid Orbitron face needs none, so its default is 0 (see `defaultTickerSoften`).
 export const DEFAULT_TICKER_SOFTEN = 0.6
+export const DEFAULT_TICKER_BAND: TickerBand = 'drawn'
+export const DEFAULT_TICKER_FONT: TickerFont = 'orbitron'
+
+export function defaultTickerSoften(font: TickerFont): number {
+    return font === 'handjet' ? DEFAULT_TICKER_SOFTEN : 0
+}
 export const DEFAULT_LABEL_COLOR = '#9fd6ff'
 export const DEFAULT_VALUE_COLOR = '#ffffff'
 
@@ -164,7 +172,10 @@ export function TickerElement({ element, box }: ElementProps) {
     const fontSize = isTicker ? element.fontSize ?? DEFAULT_TICKER_FONT_SIZE : DEFAULT_TICKER_FONT_SIZE
     const speed = isTicker ? element.speed ?? DEFAULT_TICKER_SPEED : DEFAULT_TICKER_SPEED
     const direction = isTicker ? element.direction ?? DEFAULT_TICKER_DIRECTION : DEFAULT_TICKER_DIRECTION
-    const soften = isTicker ? element.soften ?? DEFAULT_TICKER_SOFTEN : DEFAULT_TICKER_SOFTEN
+    const band = isTicker ? element.band ?? DEFAULT_TICKER_BAND : DEFAULT_TICKER_BAND
+    const font = isTicker ? element.font ?? DEFAULT_TICKER_FONT : DEFAULT_TICKER_FONT
+    const soften = isTicker ? element.soften ?? defaultTickerSoften(font) : defaultTickerSoften(font)
+    const textClass = font === 'orbitron' ? 'tkr-text tkr-text--orbitron' : 'tkr-text'
 
     const parts = useMemo(() => (slots ? compileParts(data, slots) : []), [data, slots])
     const text = useMemo(() => unitString(parts, separator), [parts, separator])
@@ -182,7 +193,6 @@ export function TickerElement({ element, box }: ElementProps) {
     // writes the same offset to both so the glow never drifts off its glyphs.
     const glowPathRef = useRef<SVGTextPathElement | null>(null)
     const unitLenRef = useRef(0)
-    const startRef = useRef<number | null>(null)
 
     // `pathLen`/`unitLen` are held in STATE (not just a ref) so the repeat count `n` below — which
     // is rendered JSX, not an imperative write — updates once the measurement lands, instead of
@@ -217,7 +227,17 @@ export function TickerElement({ element, box }: ElementProps) {
         return () => {
             cancelled = true
         }
-    }, [text, svgFontSize])
+    }, [text, svgFontSize, font])
+
+    // `band: 'drawn'` — paint the band once per size change, at whole canvas px. It never moves,
+    // so the running text never makes it repaint.
+    const bandRef = useRef<HTMLCanvasElement | null>(null)
+    const bandW = Math.max(1, Math.round(box.w))
+    const bandH = Math.max(1, Math.round(box.h))
+    useEffect(() => {
+        const ctx = band === 'drawn' ? bandRef.current?.getContext('2d') : null
+        if (ctx) drawTickerBand(ctx, bandW, bandH)
+    }, [band, bandW, bandH])
 
     // Latest speed/direction/scale, read by the persistent rAF loop below without needing to
     // restart it (a settings-panel edit or a box resize takes effect on the next frame instead of
@@ -240,11 +260,23 @@ export function TickerElement({ element, box }: ElementProps) {
             return
         }
 
-        startRef.current = null
+        // Even steps: rAF timestamps jitter by a millisecond or two, and moving the text by the raw
+        // elapsed time turns that jitter into uneven per-frame steps — visible as judder once the
+        // stream encoder is done with it. Instead the text advances by a whole number of frames,
+        // each exactly `frameMs` long, where `frameMs` tracks the browser source's real frame rate.
         let raf = 0
+        let last: number | null = null
+        let frameMs = 1000 / 60
+        let travelled = 0 // canvas-px-seconds / 1000, i.e. elapsed "even" time in seconds
         function frame(now: number) {
-            if (startRef.current === null) startRef.current = now
-            const t = (now - startRef.current) / 1000
+            if (last !== null) {
+                const dt = now - last
+                // Only learn from plausible frame gaps (a hidden tab or a long stall would skew it).
+                if (dt > 4 && dt < 100) frameMs += (dt - frameMs) * 0.05
+                travelled += (Math.max(1, Math.round(dt / frameMs)) * frameMs) / 1000
+            }
+            last = now
+            const t = travelled
             const unitLen = unitLenRef.current
             const node = textPathRef.current
             if (unitLen > 0 && node) {
@@ -268,6 +300,7 @@ export function TickerElement({ element, box }: ElementProps) {
 
     return (
         <div className="tkr-root">
+            {band === 'drawn' && <canvas ref={bandRef} className="tkr-band" width={bandW} height={bandH} />}
             <svg
                 className="tkr-svg"
                 viewBox={`0 0 ${TICKER_ASSET.w} ${TICKER_ASSET.h}`}
@@ -275,7 +308,9 @@ export function TickerElement({ element, box }: ElementProps) {
                 width={box.w}
                 height={box.h}
             >
-                <image href={TICKER_ASSET.src} x={0} y={0} width={TICKER_ASSET.w} height={TICKER_ASSET.h} />
+                {band === 'image' && (
+                    <image href={TICKER_ASSET.src} x={0} y={0} width={TICKER_ASSET.w} height={TICKER_ASSET.h} />
+                )}
                 <defs>
                     <path ref={pathElRef} id={pathId} d={TICKER_PATH_D} />
                     {/* Edge fade (obs-ticker-plan.md §5.4): transparent -> opaque over the first/last
@@ -308,7 +343,7 @@ export function TickerElement({ element, box }: ElementProps) {
                     loop and the repeat count `n` above can work in the same units the real
                     <textPath> render uses. Off-canvas AND opacity:0 (TickerElement.css) so it never
                     paints, on-canvas or off. */}
-                <text ref={measureRef} className="tkr-text tkr-text-measure" fontSize={svgFontSize} x={-100000} y={0}>
+                <text ref={measureRef} className={`${textClass} tkr-text-measure`} fontSize={svgFontSize} x={-100000} y={0}>
                     {text}
                 </text>
 
@@ -319,7 +354,7 @@ export function TickerElement({ element, box }: ElementProps) {
                     share font metrics and receive the same startOffset every frame. */}
                 {parts.length > 0 && (
                     <text
-                        className="tkr-text tkr-glow"
+                        className={`${textClass} tkr-glow`}
                         fontSize={svgFontSize}
                         dominantBaseline="middle"
                         mask={`url(#${maskId})`}
@@ -345,7 +380,7 @@ export function TickerElement({ element, box }: ElementProps) {
 
                 {parts.length > 0 && (
                     <text
-                        className="tkr-text"
+                        className={textClass}
                         fontSize={svgFontSize}
                         dominantBaseline="middle"
                         mask={`url(#${maskId})`}

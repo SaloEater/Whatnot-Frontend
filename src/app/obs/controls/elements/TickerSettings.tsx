@@ -25,7 +25,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { DurableCue, Element, TickerDirection, TickerSlot, WidgetId } from '@/app/obs/layout/schema'
-import { TICKER_DIRECTIONS, WIDGET_IDS } from '@/app/obs/layout/schema'
+import { TICKER_BANDS, TICKER_DIRECTIONS, TICKER_FONTS, WIDGET_IDS } from '@/app/obs/layout/schema'
+import type { TickerBand, TickerFont } from '@/app/obs/layout/schema'
 import {
     DEFAULT_LABEL_COLOR,
     DEFAULT_TICKER_DIRECTION,
@@ -33,7 +34,9 @@ import {
     DEFAULT_TICKER_LABELS,
     DEFAULT_TICKER_SEPARATOR,
     DEFAULT_TICKER_SPEED,
-    DEFAULT_TICKER_SOFTEN,
+    DEFAULT_TICKER_BAND,
+    DEFAULT_TICKER_FONT,
+    defaultTickerSoften,
     DEFAULT_VALUE_COLOR,
     DEFAULT_SHOW_PCT_MIN,
 } from '@/app/obs/layout/elements/ticker/TickerElement'
@@ -229,6 +232,9 @@ function TickerSlotCard({
     )
 }
 
+const BAND_LABELS: Record<TickerBand, string> = { drawn: 'Crisp (drawn)', image: 'Classic (image)' }
+const FONT_LABELS: Record<TickerFont, string> = { orbitron: 'Orbitron', handjet: 'Dot matrix' }
+
 export default function TickerSettings({ channelId, seriesId, elementKey, element, onPatchElement, onFireCue }: Props) {
     const tk = element.kind === 'ticker' ? element : null
 
@@ -236,7 +242,9 @@ export default function TickerSettings({ channelId, seriesId, elementKey, elemen
     const fontSize = tk?.fontSize ?? DEFAULT_TICKER_FONT_SIZE
     const speed = tk?.speed ?? DEFAULT_TICKER_SPEED
     const direction = tk?.direction ?? DEFAULT_TICKER_DIRECTION
-    const soften = tk?.soften ?? DEFAULT_TICKER_SOFTEN
+    const band = tk?.band ?? DEFAULT_TICKER_BAND
+    const font = tk?.font ?? DEFAULT_TICKER_FONT
+    const soften = tk?.soften ?? defaultTickerSoften(font)
 
     // Draft-then-commit separator (TextSettings.tsx's convention — same reasoning as the slot
     // labels above).
@@ -340,6 +348,36 @@ export default function TickerSettings({ channelId, seriesId, elementKey, elemen
                                 onClick={() => onPatchElement(elementKey, { direction: dir })}
                             >
                                 {DIRECTION_LABELS[dir]}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+                <div>
+                    <label className="form-label mb-0 small d-block">Band</label>
+                    <div className="btn-group btn-group-sm" role="group">
+                        {TICKER_BANDS.map((b) => (
+                            <button
+                                key={b}
+                                type="button"
+                                className={`btn btn-outline-primary${band === b ? ' active' : ''}`}
+                                onClick={() => onPatchElement(elementKey, { band: b })}
+                            >
+                                {BAND_LABELS[b]}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+                <div>
+                    <label className="form-label mb-0 small d-block">Font</label>
+                    <div className="btn-group btn-group-sm" role="group">
+                        {TICKER_FONTS.map((f) => (
+                            <button
+                                key={f}
+                                type="button"
+                                className={`btn btn-outline-primary${font === f ? ' active' : ''}`}
+                                onClick={() => onPatchElement(elementKey, { font: f })}
+                            >
+                                {FONT_LABELS[f]}
                             </button>
                         ))}
                     </div>
