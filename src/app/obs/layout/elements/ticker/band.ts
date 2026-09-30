@@ -32,8 +32,11 @@ const BEZEL = 11
 const BEAM = 14 // steel beam above the housing
 const BEAM_GAP = 4
 
-/** Curve parameter where the LIVE panel ends (x is linear in t on this curve). */
-export const LIVE_PANEL_END_T = 0.155
+/** Curve parameter where the LIVE panel ends (x is linear in t on this curve, x = t * width). */
+export const LIVE_PANEL_END_T = 0.227
+/** LIVE badge centre. Phones crop up to ~110px off each side of the 1080 canvas, so the badge
+ *  (100px wide at 1080) is centred at x = 180 — its left edge sits at 130, inside the safe zone. */
+const LIVE_BADGE_T = 180 / 1080
 
 const BLUE = '#1f4fd8'
 
@@ -250,7 +253,7 @@ export function drawStadiumFront(ctx: CanvasRenderingContext2D, w: number, h: nu
     ctx.stroke()
 
     // LIVE badge.
-    const [x, y, angle] = at(end / 2 - 0.003, 0)
+    const [x, y, angle] = at(LIVE_BADGE_T, 0)
     ctx.translate(x, y)
     ctx.rotate(angle)
     ctx.fillStyle = '#e8262d'
