@@ -24,6 +24,7 @@ import { PriceRangesElement } from './elements/price-ranges/PriceRangesElement'
 import { PriceSignElement } from './elements/price-sign/PriceSignElement'
 import { SceneElement } from './elements/scene/SceneElement'
 import { SCENE_PRELOAD } from './elements/scene/assets'
+import { FRAME_PRELOAD } from './elements/cards/frameAssets'
 import { SIGN_PRELOAD } from './elements/price-sign/assets'
 import { TickerElement } from './elements/ticker/TickerElement'
 import { TICKER_PRELOAD } from './elements/ticker/assets'
@@ -432,7 +433,7 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: true,
         singletonGroup: 'cards',
         defaultBox: FULL_BOX,
-        preload: [],
+        preload: FRAME_PRELOAD,
         component: CardsElement,
         available: true,
         hasBox: true,

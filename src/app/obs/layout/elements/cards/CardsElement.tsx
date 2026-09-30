@@ -32,6 +32,8 @@ import { CANVAS } from '../../schema'
 import { useLayoutData } from '../../useLayoutData'
 import { useCueBus } from '../../cueBus'
 import { centerByPrice, packList, PackedRow } from './packing'
+import { CardFrame } from './CardFrame'
+import { frameTierFor } from './frameTier'
 import { normalizeTeam, usePendingSoldCards } from './usePendingSoldCards'
 import { usePendingBroadcast } from './usePendingBroadcast'
 import './CardsElement.css'
@@ -177,7 +179,7 @@ function ZoomPortal({
 }
 
 export function CardsElement({ box, element }: ElementProps) {
-    const { photos, cardsBoardSettings, events: breakEvents, stream, channel } = useLayoutData()
+    const { photos, cardsBoardSettings, events: breakEvents, stream, channel, priceRanges } = useLayoutData()
 
     // `?dev=1` only (cards-main-area-plan.md §3): drives the main-area boundary outline further
     // down. Read after mount, same `readDevMode` copy pattern as `CameraShelfElement`/
@@ -887,6 +889,10 @@ export function CardsElement({ box, element }: ElementProps) {
                                 // Pending cards carry no mark on the layout — that tint lives only on the
                                 // controls page, off stream.
                                 const portaled = isElevated && portalShown
+                                // List mode only (card-frames-plan.md decision 7). Hidden while the card is
+                                // elevated: a zoomed card is shown raw, and in the in-place fallback (no
+                                // portal) this is what keeps the frame off the zoomed card.
+                                const frameTier = frameTierFor(photo.price, priceRanges)
                                 return (
                                     <div
                                         key={photo.id}
@@ -927,6 +933,26 @@ export function CardsElement({ box, element }: ElementProps) {
                                                 } : undefined}
                                                 onLoad={(e) => recordDims(photo, e)}
                                             />
+                                            {frameTier && !isElevated && (
+                                                rotateInBox ? (
+                                                    <div
+                                                        className="crd-frame-rotator"
+                                                        style={{
+                                                            width: `${swap ? row.cardHeights[ci] : row.widths[ci]}px`,
+                                                            height: `${swap ? row.widths[ci] : row.cardHeights[ci]}px`,
+                                                            transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+                                                        }}
+                                                    >
+                                                        <CardFrame
+                                                            tier={frameTier}
+                                                            width={swap ? row.cardHeights[ci] : row.widths[ci]}
+                                                            height={swap ? row.widths[ci] : row.cardHeights[ci]}
+                                                        />
+                                                    </div>
+                                                ) : (
+                                                    <CardFrame tier={frameTier} width={row.widths[ci]} height={row.cardHeights[ci]} />
+                                                )
+                                            )}
                                         </div>
                                     </div>
                                 )

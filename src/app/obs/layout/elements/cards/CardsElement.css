@@ -156,3 +156,25 @@
     height: 100%;
     object-fit: contain;
 }
+
+/* Tier frame overlay (CardFrame.tsx): fills its positioned parent, never takes the pointer, so the
+   card's hover-zoom handlers keep working. Pieces are placed/sized inline. */
+.crd-frame {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.crd-frame-piece {
+    position: absolute;
+    background-repeat: no-repeat;
+}
+
+/* Rotated (landscape) cards: portrait-sized wrapper centred in the box; the frame and its inline
+   rotation live here so the frame is applied before the rotation. */
+.crd-frame-rotator {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    pointer-events: none;
+}

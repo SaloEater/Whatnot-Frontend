@@ -34,7 +34,8 @@ export const NEEDS_BY_ID = {
     'widget:chasersLeft': ['needsCount'],
     results: [],
     resultsThin: [],
-    cards: ['needsCards'],
+    // `needsCobra` is what gates the spine's `priceRanges` fetch; the tier frames need it (frameTier.ts).
+    cards: ['needsCards', 'needsCobra'],
     ripbar: [],
     reserved: [],
     'frame:static': [],
