@@ -26,10 +26,11 @@ const P1: [number, number] = [2170, 290]
 
 // Canvas px at the reference 1080-wide box.
 const REF_SCALE = 1080 / TICKER_ASSET.w
-const SCREEN = 50 // half the glass height
-const BEZEL = 16
-const BEAM = 20 // steel beam above the housing
-const BEAM_GAP = 6
+// 30% slimmer than the first cut (50/16/20/6) — more of the stream for the cards.
+const SCREEN = 35 // half the glass height
+const BEZEL = 11
+const BEAM = 14 // steel beam above the housing
+const BEAM_GAP = 4
 
 /** Curve parameter where the LIVE panel ends (x is linear in t on this curve). */
 export const LIVE_PANEL_END_T = 0.155
@@ -170,9 +171,9 @@ export function drawStadiumBack(ctx: CanvasRenderingContext2D, w: number, h: num
     ctx.shadowColor = 'rgba(0,0,0,0.75)'
     ctx.shadowBlur = 18 * k
     ctx.shadowOffsetY = 8 * k
-    fill(T0, T1, top - 6 * k, bot, '#0d121a')
+    fill(T0, T1, top - 4 * k, bot, '#0d121a')
     ctx.restore()
-    fill(T0, T1, top - 6 * k, top, vGradient(ctx, yMid + top - 6 * k, yMid + top, [[0, '#4a5669'], [1, '#262f3d']]))
+    fill(T0, T1, top - 4 * k, top, vGradient(ctx, yMid + top - 4 * k, yMid + top, [[0, '#4a5669'], [1, '#262f3d']]))
     fill(T0, T1, top, bot, vGradient(ctx, yMid + top, yMid + bot, [[0, '#2c3646'], [0.12, '#1a212d'], [0.88, '#121822'], [1, '#0b0f16']]))
     // Lit lip: 3px at moderate contrast — a thin bright line on a curve staircases after the
     // phone downscale, a wider softer one stays smooth.
@@ -254,16 +255,16 @@ export function drawStadiumFront(ctx: CanvasRenderingContext2D, w: number, h: nu
     ctx.rotate(angle)
     ctx.fillStyle = '#e8262d'
     ctx.beginPath()
-    ctx.roundRect(-58 * k, -17 * k, 116 * k, 34 * k, 5 * k)
+    ctx.roundRect(-50 * k, -14 * k, 100 * k, 28 * k, 4 * k)
     ctx.fill()
     ctx.fillStyle = '#ffffff'
     ctx.beginPath()
-    ctx.arc(-36 * k, 0, 6 * k, 0, Math.PI * 2)
+    ctx.arc(-31 * k, 0, 5 * k, 0, Math.PI * 2)
     ctx.fill()
-    ctx.font = `800 ${Math.round(24 * k)}px ${fontFamily}`
+    ctx.font = `800 ${Math.round(20 * k)}px ${fontFamily}`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillText('LIVE', 12 * k, k)
+    ctx.fillText('LIVE', 10 * k, k)
     ctx.setTransform(1, 0, 0, 1, 0, 0)
 
     // Glass reflection: a faint band across the upper glass plus a soft diagonal sheen.

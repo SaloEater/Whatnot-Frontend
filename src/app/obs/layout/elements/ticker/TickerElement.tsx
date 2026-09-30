@@ -51,7 +51,7 @@ export function defaultTickerSoften(font: TickerFont): number {
 }
 // Orbitron is much wider than Handjet, so the same px size would fit far fewer items on the band.
 export function defaultTickerFontSize(font: TickerFont): number {
-    return font === 'handjet' ? DEFAULT_TICKER_FONT_SIZE : 38
+    return font === 'handjet' ? DEFAULT_TICKER_FONT_SIZE : 32
 }
 export const DEFAULT_LABEL_COLOR = '#9fd6ff'
 export const DEFAULT_VALUE_COLOR = '#ffffff'
