@@ -30,7 +30,7 @@ import type { LayoutData } from '../../useLayoutData'
 import type { TickerBand, TickerDirection, TickerFont, TickerSlot, WidgetId } from '../../schema'
 import { WIDGET_IDS } from '../../schema'
 import { TICKER_ASSET, TICKER_PATH_D } from './assets'
-import { drawTickerBand } from './band'
+import { drawStadiumBack, drawStadiumFront } from './band'
 import './TickerElement.css'
 
 // Registry defaults (registry.ts `makeElement()` seeds `slots` but leaves every other ticker field
@@ -43,14 +43,60 @@ export const DEFAULT_TICKER_DIRECTION: TickerDirection = 'left'
 // Canvas px of blur on the main text (schema `soften`). Tuned for Handjet at a low weight; the
 // solid Orbitron face needs none, so its default is 0 (see `defaultTickerSoften`).
 export const DEFAULT_TICKER_SOFTEN = 0.6
-export const DEFAULT_TICKER_BAND: TickerBand = 'drawn'
+export const DEFAULT_TICKER_BAND: TickerBand = 'stadium'
 export const DEFAULT_TICKER_FONT: TickerFont = 'orbitron'
 
 export function defaultTickerSoften(font: TickerFont): number {
     return font === 'handjet' ? DEFAULT_TICKER_SOFTEN : 0
 }
+// Orbitron is much wider than Handjet, so the same px size would fit far fewer items on the band.
+export function defaultTickerFontSize(font: TickerFont): number {
+    return font === 'handjet' ? DEFAULT_TICKER_FONT_SIZE : 38
+}
 export const DEFAULT_LABEL_COLOR = '#9fd6ff'
 export const DEFAULT_VALUE_COLOR = '#ffffff'
+
+// Per-band text styling, used wherever a slot/element doesn't set its own value. 'stadium' is the
+// broadcast look: uppercase labels without a colon, gold prices, blue ◆ separators, no value glow
+// (the glow is a second, filtered copy of the text redrawn every frame). 'image' is the original.
+export type TickerTheme = {
+    separator: string
+    labelColor: string
+    valueColor: string
+    priceColor: string // pick2/stashorpass values
+    sepColor: string | null // null = the part's label colour
+    sepOpacity: number
+    labelSuffix: string
+    upper: boolean
+    glow: boolean
+}
+
+export const TICKER_THEMES: Record<TickerBand, TickerTheme> = {
+    stadium: {
+        separator: '    ◆    ',
+        labelColor: '#cfe0ff',
+        valueColor: '#ffffff',
+        priceColor: '#ffc933',
+        sepColor: '#3f7bff',
+        sepOpacity: 1,
+        labelSuffix: ' ',
+        upper: true,
+        glow: false,
+    },
+    image: {
+        separator: DEFAULT_TICKER_SEPARATOR,
+        labelColor: DEFAULT_LABEL_COLOR,
+        valueColor: DEFAULT_VALUE_COLOR,
+        priceColor: DEFAULT_VALUE_COLOR,
+        sepColor: null,
+        sepOpacity: 0.6,
+        labelSuffix: ': ',
+        upper: false,
+        glow: true,
+    },
+}
+
+const PRICE_WIDGETS: readonly WidgetId[] = ['pick2', 'stashorpass']
 
 // Default label text per widget id (obs-ticker-plan.md §3) — a slot's own `label`, when set,
 // overrides this per element instance.
@@ -131,18 +177,20 @@ function valueSegments(id: WidgetId, value: string, valueColor: string, slashCol
 
 // Walks WIDGET_IDS in canonical order; a disabled slot or a slot whose value is null is DROPPED,
 // not rendered as a blank (obs-ticker-plan.md §5.2).
-function compileParts(data: LayoutData, slots: Record<WidgetId, TickerSlot>): TickerPart[] {
+function compileParts(data: LayoutData, slots: Record<WidgetId, TickerSlot>, theme: TickerTheme): TickerPart[] {
     const parts: TickerPart[] = []
     for (const id of WIDGET_IDS) {
         const slot = slots[id]
         if (!slot?.enabled) continue
         const value = widgetValue(id, data, slot.showPctMin ?? DEFAULT_SHOW_PCT_MIN)
         if (value === null) continue
+        const label = slot.label || DEFAULT_TICKER_LABELS[id]
+        const themeValueColor = PRICE_WIDGETS.includes(id) ? theme.priceColor : theme.valueColor
         parts.push({
-            label: slot.label || DEFAULT_TICKER_LABELS[id],
+            label: (theme.upper ? label.toUpperCase() : label) + theme.labelSuffix,
             value,
-            segments: valueSegments(id, value, slot.valueColor ?? DEFAULT_VALUE_COLOR, slot.slashColor),
-            labelColor: slot.labelColor ?? DEFAULT_LABEL_COLOR,
+            segments: valueSegments(id, value, slot.valueColor ?? themeValueColor, slot.slashColor),
+            labelColor: slot.labelColor ?? theme.labelColor,
         })
     }
     return parts
@@ -152,7 +200,7 @@ function compileParts(data: LayoutData, slots: Record<WidgetId, TickerSlot>): Ti
 // compileParts' header) — used only to measure `unitLen` via a hidden `<text>`'s
 // `getComputedTextLength()`. Colours don't affect layout width, so a flat string is enough.
 function unitString(parts: TickerPart[], separator: string): string {
-    return parts.map((p) => `${p.label}: ${p.value}${separator}`).join('')
+    return parts.map((p) => `${p.label}${p.value}${separator}`).join('')
 }
 
 export function TickerElement({ element, box }: ElementProps) {
@@ -168,16 +216,17 @@ export function TickerElement({ element, box }: ElementProps) {
 
     const isTicker = element.kind === 'ticker'
     const slots = isTicker ? element.slots : null
-    const separator = isTicker ? element.separator ?? DEFAULT_TICKER_SEPARATOR : DEFAULT_TICKER_SEPARATOR
-    const fontSize = isTicker ? element.fontSize ?? DEFAULT_TICKER_FONT_SIZE : DEFAULT_TICKER_FONT_SIZE
-    const speed = isTicker ? element.speed ?? DEFAULT_TICKER_SPEED : DEFAULT_TICKER_SPEED
-    const direction = isTicker ? element.direction ?? DEFAULT_TICKER_DIRECTION : DEFAULT_TICKER_DIRECTION
     const band = isTicker ? element.band ?? DEFAULT_TICKER_BAND : DEFAULT_TICKER_BAND
     const font = isTicker ? element.font ?? DEFAULT_TICKER_FONT : DEFAULT_TICKER_FONT
+    const theme = TICKER_THEMES[band]
+    const separator = isTicker ? element.separator ?? theme.separator : theme.separator
+    const fontSize = isTicker ? element.fontSize ?? defaultTickerFontSize(font) : defaultTickerFontSize(font)
+    const speed = isTicker ? element.speed ?? DEFAULT_TICKER_SPEED : DEFAULT_TICKER_SPEED
+    const direction = isTicker ? element.direction ?? DEFAULT_TICKER_DIRECTION : DEFAULT_TICKER_DIRECTION
     const soften = isTicker ? element.soften ?? defaultTickerSoften(font) : defaultTickerSoften(font)
     const textClass = font === 'orbitron' ? 'tkr-text tkr-text--orbitron' : 'tkr-text'
 
-    const parts = useMemo(() => (slots ? compileParts(data, slots) : []), [data, slots])
+    const parts = useMemo(() => (slots ? compileParts(data, slots, theme) : []), [data, slots, theme])
     const text = useMemo(() => unitString(parts, separator), [parts, separator])
 
     // Texture -> canvas scale (obs-ticker-plan.md §5.1): the path/image/text all live in the
@@ -229,14 +278,31 @@ export function TickerElement({ element, box }: ElementProps) {
         }
     }, [text, svgFontSize, font])
 
-    // `band: 'drawn'` — paint the band once per size change, at whole canvas px. It never moves,
-    // so the running text never makes it repaint.
-    const bandRef = useRef<HTMLCanvasElement | null>(null)
+    // `band: 'stadium'` — paint the two static layers once per size change, at whole canvas px.
+    // Neither moves, so the running text never makes them repaint. The front layer's LIVE badge
+    // uses Orbitron, so it's repainted once the page's fonts have loaded.
+    const backRef = useRef<HTMLCanvasElement | null>(null)
+    const frontRef = useRef<HTMLCanvasElement | null>(null)
     const bandW = Math.max(1, Math.round(box.w))
     const bandH = Math.max(1, Math.round(box.h))
     useEffect(() => {
-        const ctx = band === 'drawn' ? bandRef.current?.getContext('2d') : null
-        if (ctx) drawTickerBand(ctx, bandW, bandH)
+        if (band !== 'stadium') return
+        const back = backRef.current?.getContext('2d')
+        if (back) drawStadiumBack(back, bandW, bandH)
+        let cancelled = false
+        const paintFront = () => {
+            const node = frontRef.current
+            const front = node?.getContext('2d')
+            if (cancelled || !node || !front) return
+            const orbitron = getComputedStyle(node).getPropertyValue('--font-orbitron').trim()
+            drawStadiumFront(front, bandW, bandH, orbitron ? `${orbitron}, sans-serif` : 'sans-serif')
+        }
+        paintFront()
+        document.fonts?.load('800 24px Orbitron').catch(() => {})
+        document.fonts?.ready.then(paintFront).catch(() => {})
+        return () => {
+            cancelled = true
+        }
     }, [band, bandW, bandH])
 
     // Latest speed/direction/scale, read by the persistent rAF loop below without needing to
@@ -300,7 +366,7 @@ export function TickerElement({ element, box }: ElementProps) {
 
     return (
         <div className="tkr-root">
-            {band === 'drawn' && <canvas ref={bandRef} className="tkr-band" width={bandW} height={bandH} />}
+            {band === 'stadium' && <canvas ref={backRef} className="tkr-band" width={bandW} height={bandH} />}
             <svg
                 className="tkr-svg"
                 viewBox={`0 0 ${TICKER_ASSET.w} ${TICKER_ASSET.h}`}
@@ -352,7 +418,7 @@ export function TickerElement({ element, box }: ElementProps) {
                     and separators painted fully transparent so only the VALUE glyphs cast a glow;
                     the main copy on top has no filter at all, so labels are glow-free. Both copies
                     share font metrics and receive the same startOffset every frame. */}
-                {parts.length > 0 && (
+                {parts.length > 0 && theme.glow && (
                     <text
                         className={`${textClass} tkr-glow`}
                         fontSize={svgFontSize}
@@ -364,7 +430,7 @@ export function TickerElement({ element, box }: ElementProps) {
                             {Array.from({ length: n }).map((_, i) =>
                                 parts.map((part, j) => (
                                     <tspan key={`${i}-${j}`}>
-                                        <tspan fill="transparent">{part.label}: </tspan>
+                                        <tspan fill="transparent">{part.label}</tspan>
                                         {part.segments.map((seg, k) => (
                                             <tspan key={k} fill={seg.color}>
                                                 {seg.text}
@@ -390,13 +456,13 @@ export function TickerElement({ element, box }: ElementProps) {
                             {Array.from({ length: n }).map((_, i) =>
                                 parts.map((part, j) => (
                                     <tspan key={`${i}-${j}`}>
-                                        <tspan fill={part.labelColor}>{part.label}: </tspan>
+                                        <tspan fill={part.labelColor}>{part.label}</tspan>
                                         {part.segments.map((seg, k) => (
                                             <tspan key={k} fill={seg.color}>
                                                 {seg.text}
                                             </tspan>
                                         ))}
-                                        <tspan className="tkr-sep" fill={part.labelColor} fillOpacity={0.6}>
+                                        <tspan className="tkr-sep" fill={theme.sepColor ?? part.labelColor} fillOpacity={theme.sepOpacity}>
                                             {separator}
                                         </tspan>
                                     </tspan>
@@ -406,6 +472,7 @@ export function TickerElement({ element, box }: ElementProps) {
                     </text>
                 )}
             </svg>
+            {band === 'stadium' && <canvas ref={frontRef} className="tkr-band tkr-band--front" width={bandW} height={bandH} />}
         </div>
     )
 }

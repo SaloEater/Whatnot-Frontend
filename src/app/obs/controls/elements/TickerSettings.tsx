@@ -28,16 +28,14 @@ import type { DurableCue, Element, TickerDirection, TickerSlot, WidgetId } from 
 import { TICKER_BANDS, TICKER_DIRECTIONS, TICKER_FONTS, WIDGET_IDS } from '@/app/obs/layout/schema'
 import type { TickerBand, TickerFont } from '@/app/obs/layout/schema'
 import {
-    DEFAULT_LABEL_COLOR,
     DEFAULT_TICKER_DIRECTION,
-    DEFAULT_TICKER_FONT_SIZE,
+    defaultTickerFontSize,
     DEFAULT_TICKER_LABELS,
-    DEFAULT_TICKER_SEPARATOR,
     DEFAULT_TICKER_SPEED,
     DEFAULT_TICKER_BAND,
     DEFAULT_TICKER_FONT,
     defaultTickerSoften,
-    DEFAULT_VALUE_COLOR,
+    TICKER_THEMES,
     DEFAULT_SHOW_PCT_MIN,
 } from '@/app/obs/layout/elements/ticker/TickerElement'
 import Pick2Settings from './Pick2Settings'
@@ -100,6 +98,7 @@ const SAMPLE_VALUES: Record<WidgetId, string> = {
 function TickerSlotCard({
     widgetId,
     slot,
+    band,
     onToggle,
     onLabelCommit,
     onLabelColor,
@@ -110,6 +109,7 @@ function TickerSlotCard({
 }: {
     widgetId: WidgetId
     slot: TickerSlot
+    band: TickerBand
     onToggle: (enabled: boolean) => void
     onLabelCommit: (label: string) => void
     onLabelColor: (color: string) => void
@@ -122,8 +122,10 @@ function TickerSlotCard({
 }) {
     const defaultLabel = DEFAULT_TICKER_LABELS[widgetId]
     const label = slot.label || defaultLabel
-    const labelColor = slot.labelColor ?? DEFAULT_LABEL_COLOR
-    const valueColor = slot.valueColor ?? DEFAULT_VALUE_COLOR
+    // Defaults follow the band's theme (TickerElement.tsx's TICKER_THEMES) — prices get its price colour.
+    const theme = TICKER_THEMES[band]
+    const labelColor = slot.labelColor ?? theme.labelColor
+    const valueColor = slot.valueColor ?? (widgetId === 'pick2' || widgetId === 'stashorpass' ? theme.priceColor : theme.valueColor)
     const slashColor = slot.slashColor ?? valueColor
 
     // Draft-then-commit label (TextSettings.tsx's convention): typing a label is prose, not a
@@ -232,18 +234,18 @@ function TickerSlotCard({
     )
 }
 
-const BAND_LABELS: Record<TickerBand, string> = { drawn: 'Crisp (drawn)', image: 'Classic (image)' }
+const BAND_LABELS: Record<TickerBand, string> = { stadium: 'Stadium screen', image: 'Classic (image)' }
 const FONT_LABELS: Record<TickerFont, string> = { orbitron: 'Orbitron', handjet: 'Dot matrix' }
 
 export default function TickerSettings({ channelId, seriesId, elementKey, element, onPatchElement, onFireCue }: Props) {
     const tk = element.kind === 'ticker' ? element : null
 
-    const separator = tk?.separator ?? DEFAULT_TICKER_SEPARATOR
-    const fontSize = tk?.fontSize ?? DEFAULT_TICKER_FONT_SIZE
-    const speed = tk?.speed ?? DEFAULT_TICKER_SPEED
-    const direction = tk?.direction ?? DEFAULT_TICKER_DIRECTION
     const band = tk?.band ?? DEFAULT_TICKER_BAND
     const font = tk?.font ?? DEFAULT_TICKER_FONT
+    const separator = tk?.separator ?? TICKER_THEMES[band].separator
+    const fontSize = tk?.fontSize ?? defaultTickerFontSize(font)
+    const speed = tk?.speed ?? DEFAULT_TICKER_SPEED
+    const direction = tk?.direction ?? DEFAULT_TICKER_DIRECTION
     const soften = tk?.soften ?? defaultTickerSoften(font)
 
     // Draft-then-commit separator (TextSettings.tsx's convention — same reasoning as the slot
@@ -391,6 +393,7 @@ export default function TickerSettings({ channelId, seriesId, elementKey, elemen
                         key={id}
                         widgetId={id}
                         slot={tk.slots[id]}
+                        band={band}
                         onToggle={(enabled) => patchSlot(id, { enabled })}
                         onLabelCommit={(label) => patchSlot(id, { label: label || undefined })}
                         onLabelColor={(labelColor) => patchSlot(id, { labelColor })}

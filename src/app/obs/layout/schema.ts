@@ -79,11 +79,12 @@ export type TickerSlot = {
 }
 export type TickerDirection = 'left' | 'right'
 export const TICKER_DIRECTIONS = ['left', 'right'] as const
-// The band behind the text: 'drawn' (ticker/band.ts, drawn once at the exact size) or 'image'
-// (the original curve.png). The ticker's font: 'orbitron' (solid) or 'handjet' (the original
-// dot-matrix face — ~7x more work to redraw each frame and hard for the stream encoder).
-export type TickerBand = 'drawn' | 'image'
-export const TICKER_BANDS = ['drawn', 'image'] as const
+// The band behind the text: 'stadium' (ticker/band.ts — a stadium ribbon screen drawn in code,
+// once, at the exact size) or 'image' (the original curve.png). The ticker's font: 'orbitron'
+// (solid) or 'handjet' (the original dot-matrix face — ~7x more work to redraw each frame and hard
+// for the stream encoder).
+export type TickerBand = 'stadium' | 'image'
+export const TICKER_BANDS = ['stadium', 'image'] as const
 export type TickerFont = 'orbitron' | 'handjet'
 export const TICKER_FONTS = ['orbitron', 'handjet'] as const
 
@@ -464,7 +465,7 @@ export type Element = (
           // default 0.6; 0 = off. Averages each dot's edge over neighbouring pixels so sub-pixel
           // motion stops making dots and the gaps between them flicker.
           soften?: number
-          band?: TickerBand // default 'drawn'
+          band?: TickerBand // default 'stadium'
           font?: TickerFont // default 'orbitron'
           placements: Partial<Record<PlacementKey, Box>>
           z?: number

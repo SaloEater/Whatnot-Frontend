@@ -50,7 +50,8 @@
     letter-spacing: 0.04em;
 }
 
-/* `band: 'drawn'` — the band canvas (band.ts) sits under the SVG, both filling the box. */
+/* `band: 'stadium'` — two static canvases (band.ts): the back one under the SVG text, the front
+   one (LIVE panel, glass reflection) over it. */
 .tkr-root {
     position: relative;
 }
@@ -64,6 +65,10 @@
 
 .tkr-root .tkr-svg {
     position: relative;
+}
+
+.tkr-band--front {
+    z-index: 1;
 }
 
 /* The hidden measuring `<text>` (TickerElement.tsx) shares `.tkr-text`'s font metrics (family,
