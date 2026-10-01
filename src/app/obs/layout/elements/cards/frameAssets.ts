@@ -13,21 +13,15 @@ export type FrameAsset = { src: string; w: number; h: number; x: number[]; y: nu
 
 export const FRAME_ASSETS: Record<FrameTier, FrameAsset> = {
     bronze: {
-        src: '/images/frames/frame_bronze.png', w: 917, h: 1611,
-        x: [0, 198, 263, 298, 618, 653, 718, 917],
-        y: [0, 388, 571, 630, 952, 1009, 1208, 1611],
+        src: '/images/frames/frame_bronze.png', "w": 917, "h": 1611, "x": [0, 200, 263, 300, 617, 654, 717, 917], "y": [0, 390, 572, 633, 951, 1011, 1207, 1611],
         hole: { x1: 76, y1: 93, x2: 841, y2: 1513 },
     },
     silver: {
-        src: '/images/frames/frame_silver.png', w: 916, h: 1608,
-        x: [0, 222, 265, 302, 613, 651, 693, 916],
-        y: [0, 389, 578, 641, 947, 1012, 1207, 1608],
+        src: '/images/frames/frame_silver.png', "w": 916, "h": 1608, "x": [0, 222, 265, 304, 614, 652, 695, 916], "y": [0, 390, 580, 644, 945, 1013, 1207, 1608],
         hole: { x1: 86, y1: 100, x2: 830, y2: 1502 },
     },
     gold: {
-        src: '/images/frames/frame_gold.png', w: 917, h: 1598,
-        x: [0, 218, 264, 300, 613, 652, 698, 917],
-        y: [0, 390, 575, 645, 946, 1010, 1212, 1598],
+        src: '/images/frames/frame_gold.png', "w": 917, "h": 1598, "x": [0, 220, 262, 302, 614, 655, 696, 917], "y": [0, 388, 577, 644, 947, 1013, 1209, 1598],
         hole: { x1: 79, y1: 92, x2: 838, y2: 1503 },
     },
 }
