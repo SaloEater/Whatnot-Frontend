@@ -14,8 +14,8 @@
 // slot's own `showPctMin` here instead of CircleWidget's hard-coded 15.
 //
 // Motion (obs-ticker-plan.md §5.3): a single `requestAnimationFrame` loop, started once on mount
-// (or whenever it crosses the static <-> moving boundary), computes `offset` from the ELAPSED WALL
-// TIME since that start and writes it straight onto the `<textPath>` DOM node via
+// (or whenever it crosses the static <-> moving boundary), computes `offset` from the time elapsed
+// since that start, counted in whole, evenly-spaced frames (see the loop) and writes it straight onto the `<textPath>` DOM node via
 // `setAttribute('startOffset', …)` — no React state per frame. `speed`/`direction`/the texture-scale
 // factor `s` are read through refs that are kept in sync every render, so a mid-flight change to any
 // of them (a settings-panel edit, or `s` changing because the box was resized) takes effect on the
@@ -27,9 +27,10 @@ import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 're
 import type { ElementProps } from '../../registry'
 import { useLayoutData } from '../../useLayoutData'
 import type { LayoutData } from '../../useLayoutData'
-import type { TickerDirection, TickerSlot, WidgetId } from '../../schema'
+import type { TickerBand, TickerDirection, TickerFont, TickerSlot, WidgetId } from '../../schema'
 import { WIDGET_IDS } from '../../schema'
 import { TICKER_ASSET, TICKER_PATH_D } from './assets'
+import { drawStadiumBack, drawStadiumFront } from './band'
 import './TickerElement.css'
 
 // Registry defaults (registry.ts `makeElement()` seeds `slots` but leaves every other ticker field
@@ -39,10 +40,63 @@ export const DEFAULT_TICKER_SEPARATOR = '   •   '
 export const DEFAULT_TICKER_FONT_SIZE = 48
 export const DEFAULT_TICKER_SPEED = 90
 export const DEFAULT_TICKER_DIRECTION: TickerDirection = 'left'
-// Canvas px of blur on the main text (schema `soften`). Tuned for Handjet at a low weight.
+// Canvas px of blur on the main text (schema `soften`). Tuned for Handjet at a low weight; the
+// solid Orbitron face needs none, so its default is 0 (see `defaultTickerSoften`).
 export const DEFAULT_TICKER_SOFTEN = 0.6
+export const DEFAULT_TICKER_BAND: TickerBand = 'stadium'
+export const DEFAULT_TICKER_FONT: TickerFont = 'orbitron'
+
+export function defaultTickerSoften(font: TickerFont): number {
+    return font === 'handjet' ? DEFAULT_TICKER_SOFTEN : 0
+}
+// Orbitron is much wider than Handjet, so the same px size would fit far fewer items on the band.
+export function defaultTickerFontSize(font: TickerFont): number {
+    return font === 'handjet' ? DEFAULT_TICKER_FONT_SIZE : 32
+}
 export const DEFAULT_LABEL_COLOR = '#9fd6ff'
 export const DEFAULT_VALUE_COLOR = '#ffffff'
+
+// Per-band text styling, used wherever a slot/element doesn't set its own value. 'stadium' is the
+// broadcast look: uppercase labels without a colon, gold prices, blue ◆ separators, no value glow
+// (the glow is a second, filtered copy of the text redrawn every frame). 'image' is the original.
+export type TickerTheme = {
+    separator: string
+    labelColor: string
+    valueColor: string
+    priceColor: string // pick2/stashorpass values
+    sepColor: string | null // null = the part's label colour
+    sepOpacity: number
+    labelSuffix: string
+    upper: boolean
+    glow: boolean
+}
+
+export const TICKER_THEMES: Record<TickerBand, TickerTheme> = {
+    stadium: {
+        separator: '    ◆    ',
+        labelColor: '#cfe0ff',
+        valueColor: '#ffffff',
+        priceColor: '#ffc933',
+        sepColor: '#3f7bff',
+        sepOpacity: 1,
+        labelSuffix: ' ',
+        upper: true,
+        glow: false,
+    },
+    image: {
+        separator: DEFAULT_TICKER_SEPARATOR,
+        labelColor: DEFAULT_LABEL_COLOR,
+        valueColor: DEFAULT_VALUE_COLOR,
+        priceColor: DEFAULT_VALUE_COLOR,
+        sepColor: null,
+        sepOpacity: 0.6,
+        labelSuffix: ': ',
+        upper: false,
+        glow: true,
+    },
+}
+
+const PRICE_WIDGETS: readonly WidgetId[] = ['pick2', 'stashorpass']
 
 // Default label text per widget id (obs-ticker-plan.md §3) — a slot's own `label`, when set,
 // overrides this per element instance.
@@ -123,18 +177,20 @@ function valueSegments(id: WidgetId, value: string, valueColor: string, slashCol
 
 // Walks WIDGET_IDS in canonical order; a disabled slot or a slot whose value is null is DROPPED,
 // not rendered as a blank (obs-ticker-plan.md §5.2).
-function compileParts(data: LayoutData, slots: Record<WidgetId, TickerSlot>): TickerPart[] {
+function compileParts(data: LayoutData, slots: Record<WidgetId, TickerSlot>, theme: TickerTheme): TickerPart[] {
     const parts: TickerPart[] = []
     for (const id of WIDGET_IDS) {
         const slot = slots[id]
         if (!slot?.enabled) continue
         const value = widgetValue(id, data, slot.showPctMin ?? DEFAULT_SHOW_PCT_MIN)
         if (value === null) continue
+        const label = slot.label || DEFAULT_TICKER_LABELS[id]
+        const themeValueColor = PRICE_WIDGETS.includes(id) ? theme.priceColor : theme.valueColor
         parts.push({
-            label: slot.label || DEFAULT_TICKER_LABELS[id],
+            label: (theme.upper ? label.toUpperCase() : label) + theme.labelSuffix,
             value,
-            segments: valueSegments(id, value, slot.valueColor ?? DEFAULT_VALUE_COLOR, slot.slashColor),
-            labelColor: slot.labelColor ?? DEFAULT_LABEL_COLOR,
+            segments: valueSegments(id, value, slot.valueColor ?? themeValueColor, slot.slashColor),
+            labelColor: slot.labelColor ?? theme.labelColor,
         })
     }
     return parts
@@ -144,7 +200,38 @@ function compileParts(data: LayoutData, slots: Record<WidgetId, TickerSlot>): Ti
 // compileParts' header) — used only to measure `unitLen` via a hidden `<text>`'s
 // `getComputedTextLength()`. Colours don't affect layout width, so a flat string is enough.
 function unitString(parts: TickerPart[], separator: string): string {
-    return parts.map((p) => `${p.label}: ${p.value}${separator}`).join('')
+    return parts.map((p) => `${p.label}${p.value}${separator}`).join('')
+}
+
+// Splits a separator into its leading spaces, the visible mark, and trailing spaces, so only the
+// mark gets the vertical correction below (spaces have no height to centre).
+function splitSeparator(separator: string): [string, string, string] {
+    const lead = separator.match(/^\s*/)?.[0] ?? ''
+    const rest = separator.slice(lead.length)
+    const trail = rest.match(/\s*$/)?.[0] ?? ''
+    return [lead, rest.slice(0, rest.length - trail.length), trail]
+}
+
+// How far to raise the separator mark, in em, so its vertical centre sits on the centre of the
+// label font's capitals. Needed because neither Orbitron nor Exo 2 contains "◆" (checked against
+// the shipped woff2 files): the browser borrows it from a system font, whose diamond sits lower
+// than Orbitron's cap centre, so it read as hugging the bottom of the line. Measured at runtime,
+// not hard-coded, because the fallback font differs per machine and the separator is editable.
+// Uses the measuring <text>'s RESOLVED font so canvas and SVG pick the same fallback; both
+// position glyphs on the same alphabetic baseline, which is what baseline-shift moves from.
+function separatorShiftEm(el: SVGTextElement, mark: string): number {
+    if (!mark) return 0
+    const ctx = document.createElement('canvas').getContext('2d')
+    if (!ctx) return 0
+    const cs = getComputedStyle(el)
+    const SIZE = 100
+    ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${SIZE}px ${cs.fontFamily}`
+    ctx.textBaseline = 'alphabetic'
+    const capMid = ctx.measureText('H').actualBoundingBoxAscent / 2
+    const m = ctx.measureText(mark)
+    const markMid = (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2
+    const shift = (capMid - markMid) / SIZE
+    return Number.isFinite(shift) ? Math.round(shift * 1000) / 1000 : 0
 }
 
 export function TickerElement({ element, box }: ElementProps) {
@@ -160,13 +247,18 @@ export function TickerElement({ element, box }: ElementProps) {
 
     const isTicker = element.kind === 'ticker'
     const slots = isTicker ? element.slots : null
-    const separator = isTicker ? element.separator ?? DEFAULT_TICKER_SEPARATOR : DEFAULT_TICKER_SEPARATOR
-    const fontSize = isTicker ? element.fontSize ?? DEFAULT_TICKER_FONT_SIZE : DEFAULT_TICKER_FONT_SIZE
+    const band = isTicker ? element.band ?? DEFAULT_TICKER_BAND : DEFAULT_TICKER_BAND
+    const font = isTicker ? element.font ?? DEFAULT_TICKER_FONT : DEFAULT_TICKER_FONT
+    const theme = TICKER_THEMES[band]
+    const separator = isTicker ? element.separator ?? theme.separator : theme.separator
+    const fontSize = isTicker ? element.fontSize ?? defaultTickerFontSize(font) : defaultTickerFontSize(font)
     const speed = isTicker ? element.speed ?? DEFAULT_TICKER_SPEED : DEFAULT_TICKER_SPEED
     const direction = isTicker ? element.direction ?? DEFAULT_TICKER_DIRECTION : DEFAULT_TICKER_DIRECTION
-    const soften = isTicker ? element.soften ?? DEFAULT_TICKER_SOFTEN : DEFAULT_TICKER_SOFTEN
+    const soften = isTicker ? element.soften ?? defaultTickerSoften(font) : defaultTickerSoften(font)
+    const textClass = font === 'orbitron' ? 'tkr-text tkr-text--orbitron' : 'tkr-text'
 
-    const parts = useMemo(() => (slots ? compileParts(data, slots) : []), [data, slots])
+    const parts = useMemo(() => (slots ? compileParts(data, slots, theme) : []), [data, slots, theme])
+    const [sepLead, sepMark, sepTrail] = useMemo(() => splitSeparator(separator), [separator])
     const text = useMemo(() => unitString(parts, separator), [parts, separator])
 
     // Texture -> canvas scale (obs-ticker-plan.md §5.1): the path/image/text all live in the
@@ -182,7 +274,6 @@ export function TickerElement({ element, box }: ElementProps) {
     // writes the same offset to both so the glow never drifts off its glyphs.
     const glowPathRef = useRef<SVGTextPathElement | null>(null)
     const unitLenRef = useRef(0)
-    const startRef = useRef<number | null>(null)
 
     // `pathLen`/`unitLen` are held in STATE (not just a ref) so the repeat count `n` below — which
     // is rendered JSX, not an imperative write — updates once the measurement lands, instead of
@@ -191,6 +282,22 @@ export function TickerElement({ element, box }: ElementProps) {
     // it changes.
     const [pathLen, setPathLen] = useState(0)
     const [unitLen, setUnitLen] = useState(0)
+    const [sepShift, setSepShift] = useState(0)
+
+    // Re-measured when the mark or font changes, and again once webfonts load (before that the
+    // label font itself is still a fallback, so its cap centre is wrong).
+    useLayoutEffect(() => {
+        let cancelled = false
+        function measure() {
+            const el = measureRef.current
+            if (!cancelled && el) setSepShift(separatorShiftEm(el, sepMark))
+        }
+        measure()
+        document.fonts?.ready.then(measure).catch(() => {})
+        return () => {
+            cancelled = true
+        }
+    }, [sepMark, font])
 
     // `pathLen` is a constant for this fixed `d` (obs-ticker-plan.md §5.3: "≈2189 for this d, but
     // measure, don't hard-code") — measured once on mount.
@@ -217,7 +324,42 @@ export function TickerElement({ element, box }: ElementProps) {
         return () => {
             cancelled = true
         }
-    }, [text, svgFontSize])
+    }, [text, svgFontSize, font])
+
+    // `band: 'stadium'` — paint the two static layers once per size change, at whole canvas px.
+    // Neither moves, so the running text never makes them repaint. The front layer's LIVE badge
+    // uses Orbitron, so it's repainted once that face has actually loaded (see below).
+    const backRef = useRef<HTMLCanvasElement | null>(null)
+    const frontRef = useRef<HTMLCanvasElement | null>(null)
+    const bandW = Math.max(1, Math.round(box.w))
+    const bandH = Math.max(1, Math.round(box.h))
+    useEffect(() => {
+        if (band !== 'stadium') return
+        const back = backRef.current?.getContext('2d')
+        if (back) drawStadiumBack(back, bandW, bandH)
+        let cancelled = false
+        // next/font registers the face under a HASHED family ('__Orbitron_7af720', plus a fallback),
+        // exposed through --font-orbitron, so the literal name 'Orbitron' matches no @font-face.
+        // Read the resolved list once and use it for both the load and the paint.
+        const node = frontRef.current
+        const orbitron = node ? getComputedStyle(node).getPropertyValue('--font-orbitron').trim() : ''
+        const family = orbitron ? `${orbitron}, sans-serif` : 'sans-serif'
+        const paintFront = () => {
+            const front = frontRef.current?.getContext('2d')
+            if (cancelled || !front) return
+            drawStadiumFront(front, bandW, bandH, family)
+        }
+        paintFront()
+        // Explicitly request the 800 weight and repaint when it lands. Waiting on fonts.ready alone
+        // is not enough: if nothing on the page has started loading Orbitron yet (e.g. the ticker's
+        // own text is set to Handjet), `ready` can resolve before the face is fetched and the badge
+        // stays in the fallback for good. `ready` is kept as a second chance for other late faces.
+        if (orbitron) document.fonts?.load(`800 24px ${orbitron}`).then(paintFront).catch(() => {})
+        document.fonts?.ready.then(paintFront).catch(() => {})
+        return () => {
+            cancelled = true
+        }
+    }, [band, bandW, bandH])
 
     // Latest speed/direction/scale, read by the persistent rAF loop below without needing to
     // restart it (a settings-panel edit or a box resize takes effect on the next frame instead of
@@ -240,11 +382,23 @@ export function TickerElement({ element, box }: ElementProps) {
             return
         }
 
-        startRef.current = null
+        // Even steps: rAF timestamps jitter by a millisecond or two, and moving the text by the raw
+        // elapsed time turns that jitter into uneven per-frame steps — visible as judder once the
+        // stream encoder is done with it. Instead the text advances by a whole number of frames,
+        // each exactly `frameMs` long, where `frameMs` tracks the browser source's real frame rate.
         let raf = 0
+        let last: number | null = null
+        let frameMs = 1000 / 60
+        let travelled = 0 // canvas-px-seconds / 1000, i.e. elapsed "even" time in seconds
         function frame(now: number) {
-            if (startRef.current === null) startRef.current = now
-            const t = (now - startRef.current) / 1000
+            if (last !== null) {
+                const dt = now - last
+                // Only learn from plausible frame gaps (a hidden tab or a long stall would skew it).
+                if (dt > 4 && dt < 100) frameMs += (dt - frameMs) * 0.05
+                travelled += (Math.max(1, Math.round(dt / frameMs)) * frameMs) / 1000
+            }
+            last = now
+            const t = travelled
             const unitLen = unitLenRef.current
             const node = textPathRef.current
             if (unitLen > 0 && node) {
@@ -268,6 +422,7 @@ export function TickerElement({ element, box }: ElementProps) {
 
     return (
         <div className="tkr-root">
+            {band === 'stadium' && <canvas ref={backRef} className="tkr-band" width={bandW} height={bandH} />}
             <svg
                 className="tkr-svg"
                 viewBox={`0 0 ${TICKER_ASSET.w} ${TICKER_ASSET.h}`}
@@ -275,7 +430,9 @@ export function TickerElement({ element, box }: ElementProps) {
                 width={box.w}
                 height={box.h}
             >
-                <image href={TICKER_ASSET.src} x={0} y={0} width={TICKER_ASSET.w} height={TICKER_ASSET.h} />
+                {band === 'image' && (
+                    <image href={TICKER_ASSET.src} x={0} y={0} width={TICKER_ASSET.w} height={TICKER_ASSET.h} />
+                )}
                 <defs>
                     <path ref={pathElRef} id={pathId} d={TICKER_PATH_D} />
                     {/* Edge fade (obs-ticker-plan.md §5.4): transparent -> opaque over the first/last
@@ -308,7 +465,7 @@ export function TickerElement({ element, box }: ElementProps) {
                     loop and the repeat count `n` above can work in the same units the real
                     <textPath> render uses. Off-canvas AND opacity:0 (TickerElement.css) so it never
                     paints, on-canvas or off. */}
-                <text ref={measureRef} className="tkr-text tkr-text-measure" fontSize={svgFontSize} x={-100000} y={0}>
+                <text ref={measureRef} className={`${textClass} tkr-text-measure`} fontSize={svgFontSize} x={-100000} y={0}>
                     {text}
                 </text>
 
@@ -317,9 +474,9 @@ export function TickerElement({ element, box }: ElementProps) {
                     and separators painted fully transparent so only the VALUE glyphs cast a glow;
                     the main copy on top has no filter at all, so labels are glow-free. Both copies
                     share font metrics and receive the same startOffset every frame. */}
-                {parts.length > 0 && (
+                {parts.length > 0 && theme.glow && (
                     <text
-                        className="tkr-text tkr-glow"
+                        className={`${textClass} tkr-glow`}
                         fontSize={svgFontSize}
                         dominantBaseline="middle"
                         mask={`url(#${maskId})`}
@@ -329,7 +486,7 @@ export function TickerElement({ element, box }: ElementProps) {
                             {Array.from({ length: n }).map((_, i) =>
                                 parts.map((part, j) => (
                                     <tspan key={`${i}-${j}`}>
-                                        <tspan fill="transparent">{part.label}: </tspan>
+                                        <tspan fill="transparent">{part.label}</tspan>
                                         {part.segments.map((seg, k) => (
                                             <tspan key={k} fill={seg.color}>
                                                 {seg.text}
@@ -345,7 +502,7 @@ export function TickerElement({ element, box }: ElementProps) {
 
                 {parts.length > 0 && (
                     <text
-                        className="tkr-text"
+                        className={textClass}
                         fontSize={svgFontSize}
                         dominantBaseline="middle"
                         mask={`url(#${maskId})`}
@@ -355,14 +512,20 @@ export function TickerElement({ element, box }: ElementProps) {
                             {Array.from({ length: n }).map((_, i) =>
                                 parts.map((part, j) => (
                                     <tspan key={`${i}-${j}`}>
-                                        <tspan fill={part.labelColor}>{part.label}: </tspan>
+                                        <tspan fill={part.labelColor}>{part.label}</tspan>
                                         {part.segments.map((seg, k) => (
                                             <tspan key={k} fill={seg.color}>
                                                 {seg.text}
                                             </tspan>
                                         ))}
-                                        <tspan className="tkr-sep" fill={part.labelColor} fillOpacity={0.6}>
-                                            {separator}
+                                        <tspan className="tkr-sep" fill={theme.sepColor ?? part.labelColor} fillOpacity={theme.sepOpacity}>
+                                            {sepLead}
+                                            {/* baseline-shift moves only this tspan (unlike dy, which
+                                                would carry every later glyph with it), perpendicular
+                                                to the path, and leaves advance widths untouched, so
+                                                the measured loop length stays valid. */}
+                                            <tspan baselineShift={sepShift ? `${sepShift}em` : undefined}>{sepMark}</tspan>
+                                            {sepTrail}
                                         </tspan>
                                     </tspan>
                                 ))
@@ -371,6 +534,7 @@ export function TickerElement({ element, box }: ElementProps) {
                     </text>
                 )}
             </svg>
+            {band === 'stadium' && <canvas ref={frontRef} className="tkr-band tkr-band--front" width={bandW} height={bandH} />}
         </div>
     )
 }
