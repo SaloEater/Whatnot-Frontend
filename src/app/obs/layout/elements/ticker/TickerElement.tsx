@@ -328,7 +328,7 @@ export function TickerElement({ element, box }: ElementProps) {
 
     // `band: 'stadium'` — paint the two static layers once per size change, at whole canvas px.
     // Neither moves, so the running text never makes them repaint. The front layer's LIVE badge
-    // uses Orbitron, so it's repainted once the page's fonts have loaded.
+    // uses Orbitron, so it's repainted once that face has actually loaded (see below).
     const backRef = useRef<HTMLCanvasElement | null>(null)
     const frontRef = useRef<HTMLCanvasElement | null>(null)
     const bandW = Math.max(1, Math.round(box.w))
@@ -338,15 +338,23 @@ export function TickerElement({ element, box }: ElementProps) {
         const back = backRef.current?.getContext('2d')
         if (back) drawStadiumBack(back, bandW, bandH)
         let cancelled = false
+        // next/font registers the face under a HASHED family ('__Orbitron_7af720', plus a fallback),
+        // exposed through --font-orbitron, so the literal name 'Orbitron' matches no @font-face.
+        // Read the resolved list once and use it for both the load and the paint.
+        const node = frontRef.current
+        const orbitron = node ? getComputedStyle(node).getPropertyValue('--font-orbitron').trim() : ''
+        const family = orbitron ? `${orbitron}, sans-serif` : 'sans-serif'
         const paintFront = () => {
-            const node = frontRef.current
-            const front = node?.getContext('2d')
-            if (cancelled || !node || !front) return
-            const orbitron = getComputedStyle(node).getPropertyValue('--font-orbitron').trim()
-            drawStadiumFront(front, bandW, bandH, orbitron ? `${orbitron}, sans-serif` : 'sans-serif')
+            const front = frontRef.current?.getContext('2d')
+            if (cancelled || !front) return
+            drawStadiumFront(front, bandW, bandH, family)
         }
         paintFront()
-        document.fonts?.load('800 24px Orbitron').catch(() => {})
+        // Explicitly request the 800 weight and repaint when it lands. Waiting on fonts.ready alone
+        // is not enough: if nothing on the page has started loading Orbitron yet (e.g. the ticker's
+        // own text is set to Handjet), `ready` can resolve before the face is fetched and the badge
+        // stays in the fallback for good. `ready` is kept as a second chance for other late faces.
+        if (orbitron) document.fonts?.load(`800 24px ${orbitron}`).then(paintFront).catch(() => {})
         document.fonts?.ready.then(paintFront).catch(() => {})
         return () => {
             cancelled = true
