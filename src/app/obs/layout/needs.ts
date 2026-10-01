@@ -34,7 +34,8 @@ export const NEEDS_BY_ID = {
     'widget:chasersLeft': ['needsCount'],
     results: [],
     resultsThin: [],
-    cards: ['needsCards'],
+    // `needsCobra` is what gates the spine's `priceRanges` fetch; the tier frames need it (frameTier.ts).
+    cards: ['needsCards', 'needsCobra'],
     ripbar: [],
     reserved: [],
     'frame:static': [],
@@ -53,6 +54,8 @@ export const NEEDS_BY_ID = {
     // Reads no break/stream data (obs-scene-element-plan.md §2.2) — everything it renders comes
     // from its own element config.
     scene: [],
+    // Reads no data either — everything comes from its own `recipe` (rips-scene-plan.md §5).
+    ripsScene: [],
     // The UNION of every one of the six widgets' flags (obs-ticker-plan.md §4): the operator can
     // enable any slot at runtime and needs are static per registry id, so every source a slot might
     // read has to be on. Over-fetches when only a couple of slots are enabled — accepted, the

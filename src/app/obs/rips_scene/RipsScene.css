@@ -1,0 +1,134 @@
+/* `ripsScene` renderer (rips-scene-plan.md §4). Every size/offset is inline px computed in
+   RipsScene.tsx from the box it is given — no vw/vh/rem, no html/body rules. Only `transform` is
+   animated (compositor-driven, same approach as CloudsEffect.css); the z-index stack is inline too,
+   from RipsScene.tsx's constants. `isolation: isolate` keeps a glow's blend mode mixing with the
+   scene's own layers only, never with whatever the layout page has behind the element. */
+
+.rps-root {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+}
+
+.rps-root.rps-overflow {
+    overflow: visible;
+    outline: 2px dashed #4a90d9;
+}
+
+.rps-img {
+    position: absolute;
+    max-width: none;
+    user-select: none;
+    pointer-events: none;
+}
+
+.rps-bg {
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+}
+
+/* Zero-size anchor sitting on the pivot point; the image inside it is positioned relative to it
+   and rotated about it by the keyframes below. */
+.rps-pivot {
+    position: absolute;
+    width: 0;
+    height: 0;
+    transform-origin: 0 0;
+    will-change: transform;
+    animation-name: rps-rotate;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+}
+
+/* Zero-size parent of the middle cloud's two copies; its inline rotate is the cloud's `tilt`. */
+.rps-group {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 0;
+    height: 0;
+}
+
+/* Speed 0 / non-finite duration: RipsScene.tsx sets a static inline transform instead. */
+.rps-pivot.rps-static {
+    animation: none;
+}
+
+@keyframes rps-rotate {
+    from { transform: rotate(var(--rps-from)); }
+    to { transform: rotate(var(--rps-to)); }
+}
+
+.rps-front {
+    position: absolute;
+    left: 0;
+    pointer-events: none;
+}
+
+.rps-front-track {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    will-change: transform;
+    animation-name: rps-scroll;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+}
+
+.rps-front-track.rps-static {
+    animation: none;
+}
+
+@keyframes rps-scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(calc(-1 * var(--rps-pitch))); }
+}
+
+.rps-glow {
+    position: absolute;
+    pointer-events: none;
+}
+
+/* Debug-only pivot markers (setup page's "Show pivots"). */
+.rps-pivot-mark {
+    position: absolute;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+
+.rps-pivot-mark::before,
+.rps-pivot-mark::after {
+    content: '';
+    position: absolute;
+    background: #ff3b3b;
+}
+
+.rps-pivot-mark::before {
+    left: -10px;
+    top: -1px;
+    width: 20px;
+    height: 2px;
+}
+
+.rps-pivot-mark::after {
+    left: -1px;
+    top: -10px;
+    width: 2px;
+    height: 20px;
+}
+
+.rps-pivot-label {
+    position: absolute;
+    left: 12px;
+    top: 4px;
+    font: 12px/1 monospace;
+    color: #ff3b3b;
+    white-space: nowrap;
+}

@@ -22,8 +22,11 @@ import { TextElement } from './elements/text/TextElement'
 import { ImageBoxElement } from './elements/image-box/ImageBoxElement'
 import { PriceRangesElement } from './elements/price-ranges/PriceRangesElement'
 import { PriceSignElement } from './elements/price-sign/PriceSignElement'
+import { RipsSceneElement } from './elements/rips-scene/RipsSceneElement'
+import { RIPS_SCENE_PRELOAD } from '../rips_scene/assets'
 import { SceneElement } from './elements/scene/SceneElement'
 import { SCENE_PRELOAD } from './elements/scene/assets'
+import { FRAME_PRELOAD } from './elements/cards/frameAssets'
 import { SIGN_PRELOAD } from './elements/price-sign/assets'
 import { TickerElement } from './elements/ticker/TickerElement'
 import { TICKER_PRELOAD } from './elements/ticker/assets'
@@ -70,6 +73,7 @@ export type RegistryId =
     | 'priceRanges'
     | 'priceSign'
     | 'scene'
+    | 'ripsScene'
     | 'ticker'
     | 'cameraShelf'
     | 'obsToggle'
@@ -432,7 +436,7 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         singleton: true,
         singletonGroup: 'cards',
         defaultBox: FULL_BOX,
-        preload: [],
+        preload: FRAME_PRELOAD,
         component: CardsElement,
         available: true,
         hasBox: true,
@@ -620,6 +624,22 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         hasBox: true,
         reactsTo: [],
     },
+    ripsScene: {
+        id: 'ripsScene',
+        kind: 'ripsScene',
+        label: 'Rips scene',
+        // Own group: independent of the older `scene` element (rips-scene-plan.md), one per config.
+        singleton: true,
+        singletonGroup: 'ripsScene',
+        defaultBox: { x: 0, y: 0, w: 1080, h: 640 },
+        preload: RIPS_SCENE_PRELOAD,
+        component: RipsSceneElement,
+        available: true,
+        hasBox: true,
+        // The settings panel is a JSON textarea — too wide for a narrow controls column.
+        wideBlock: true,
+        reactsTo: [],
+    },
     scene: {
         id: 'scene',
         kind: 'scene',
@@ -793,6 +813,9 @@ export function makeElement(registryId: RegistryId): Element {
             // the component's own DEFAULT_* constants apply (PriceSignElement.tsx), same
             // convention as `priceRanges` above.
             return { kind: 'priceSign', placements }
+        case 'ripsScene':
+            // `recipe` left unset — the component's DEFAULT_RIPS_RECIPE applies (rips-scene-plan.md §5).
+            return { kind: 'ripsScene', placements }
         case 'scene':
             // Unlike text/imageBox's "leave it unset, the component's own default applies"
             // convention, `effects` is a REQUIRED array (schema.ts's Element union) — there is no

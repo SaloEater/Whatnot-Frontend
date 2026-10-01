@@ -45,6 +45,7 @@ export type ElementKind =
     | 'priceRanges'
     | 'priceSign'
     | 'scene'
+    | 'ripsScene'
     | 'ticker'
     | 'cameraShelf'
     | 'obsToggle'
@@ -418,6 +419,17 @@ export type Element = (
           boardWidthPct?: number // board width as % of box.w, any finite number > 0 (may exceed 100), default 72
           chainLength?: number // canvas px of visible chain between the two hooks, 0..1000, default 120
           windStrength?: number // 0..2 multiplier on swing amplitude, default 1; 0 = static
+          placements: Partial<Record<PlacementKey, Box>>
+          z?: number
+          reactions?: Reactions
+      }
+    // Sunset-mountain layered scene (rips-scene-plan.md §5). `recipe` is an opaque blob exported by
+    // /obs/setup/rips_scene and merged over defaults by the component (rips_scene/recipe.ts's
+    // `mergeRecipe`) — deliberately not validated, same as `board:sport_style`'s `turf`/`patch`. Not
+    // in MIRRORABLE_KINDS.
+    | {
+          kind: 'ripsScene'
+          recipe?: unknown
           placements: Partial<Record<PlacementKey, Box>>
           z?: number
           reactions?: Reactions

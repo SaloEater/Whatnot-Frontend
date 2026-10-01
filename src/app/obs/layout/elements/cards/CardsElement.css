@@ -156,3 +156,55 @@
     height: 100%;
     object-fit: contain;
 }
+
+/* Tier frame overlay (CardFrame.tsx): fills its positioned parent, never takes the pointer, so the
+   card's hover-zoom handlers keep working. Pieces are placed/sized inline. */
+.crd-frame {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.crd-frame-piece {
+    position: absolute;
+    background-repeat: no-repeat;
+}
+
+/* Rotated (landscape) cards: portrait-sized wrapper centred in the box; the frame and its inline
+   rotation live here so the frame is applied before the rotation. */
+.crd-frame-rotator {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    pointer-events: none;
+}
+
+/* v1 photo crops (label / art) composed inside the tier frame's hole; the frame draws after them. */
+.crd-crop {
+    position: absolute;
+    overflow: hidden;
+    background-repeat: no-repeat;
+}
+
+/* Synthetic label (photo-art-label-plan.md §8). Font self-hosted as on /obs/test/team/label; the
+   400 cut only, so no synthesised bold. Positions/sizes are inline (SyntheticLabel.tsx). */
+@font-face {
+    font-family: 'Arial Narrow Web';
+    src: url('/fonts/arialnarrow.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: block;
+}
+
+.crd-label {
+    position: absolute;
+    box-sizing: border-box;
+    background: #fff;
+    border: 0 solid #e2231a;
+    color: #000;
+    font-family: 'Arial Narrow Web', 'Arial Narrow', Arial, sans-serif;
+    font-weight: 400;
+    font-synthesis: none;
+    letter-spacing: 0.02em; /* matches the /obs/test/team/label scratch page the look was approved on */
+    overflow: hidden;
+}
