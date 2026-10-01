@@ -203,6 +203,37 @@ function unitString(parts: TickerPart[], separator: string): string {
     return parts.map((p) => `${p.label}${p.value}${separator}`).join('')
 }
 
+// Splits a separator into its leading spaces, the visible mark, and trailing spaces, so only the
+// mark gets the vertical correction below (spaces have no height to centre).
+function splitSeparator(separator: string): [string, string, string] {
+    const lead = separator.match(/^\s*/)?.[0] ?? ''
+    const rest = separator.slice(lead.length)
+    const trail = rest.match(/\s*$/)?.[0] ?? ''
+    return [lead, rest.slice(0, rest.length - trail.length), trail]
+}
+
+// How far to raise the separator mark, in em, so its vertical centre sits on the centre of the
+// label font's capitals. Needed because neither Orbitron nor Exo 2 contains "◆" (checked against
+// the shipped woff2 files): the browser borrows it from a system font, whose diamond sits lower
+// than Orbitron's cap centre, so it read as hugging the bottom of the line. Measured at runtime,
+// not hard-coded, because the fallback font differs per machine and the separator is editable.
+// Uses the measuring <text>'s RESOLVED font so canvas and SVG pick the same fallback; both
+// position glyphs on the same alphabetic baseline, which is what baseline-shift moves from.
+function separatorShiftEm(el: SVGTextElement, mark: string): number {
+    if (!mark) return 0
+    const ctx = document.createElement('canvas').getContext('2d')
+    if (!ctx) return 0
+    const cs = getComputedStyle(el)
+    const SIZE = 100
+    ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${SIZE}px ${cs.fontFamily}`
+    ctx.textBaseline = 'alphabetic'
+    const capMid = ctx.measureText('H').actualBoundingBoxAscent / 2
+    const m = ctx.measureText(mark)
+    const markMid = (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2
+    const shift = (capMid - markMid) / SIZE
+    return Number.isFinite(shift) ? Math.round(shift * 1000) / 1000 : 0
+}
+
 export function TickerElement({ element, box }: ElementProps) {
     const data = useLayoutData()
     // useId() gives a stable, DOM-safe-ish id containing colons (":r0:") — strip them so it's a
@@ -227,6 +258,7 @@ export function TickerElement({ element, box }: ElementProps) {
     const textClass = font === 'orbitron' ? 'tkr-text tkr-text--orbitron' : 'tkr-text'
 
     const parts = useMemo(() => (slots ? compileParts(data, slots, theme) : []), [data, slots, theme])
+    const [sepLead, sepMark, sepTrail] = useMemo(() => splitSeparator(separator), [separator])
     const text = useMemo(() => unitString(parts, separator), [parts, separator])
 
     // Texture -> canvas scale (obs-ticker-plan.md §5.1): the path/image/text all live in the
@@ -250,6 +282,22 @@ export function TickerElement({ element, box }: ElementProps) {
     // it changes.
     const [pathLen, setPathLen] = useState(0)
     const [unitLen, setUnitLen] = useState(0)
+    const [sepShift, setSepShift] = useState(0)
+
+    // Re-measured when the mark or font changes, and again once webfonts load (before that the
+    // label font itself is still a fallback, so its cap centre is wrong).
+    useLayoutEffect(() => {
+        let cancelled = false
+        function measure() {
+            const el = measureRef.current
+            if (!cancelled && el) setSepShift(separatorShiftEm(el, sepMark))
+        }
+        measure()
+        document.fonts?.ready.then(measure).catch(() => {})
+        return () => {
+            cancelled = true
+        }
+    }, [sepMark, font])
 
     // `pathLen` is a constant for this fixed `d` (obs-ticker-plan.md §5.3: "≈2189 for this d, but
     // measure, don't hard-code") — measured once on mount.
@@ -463,7 +511,13 @@ export function TickerElement({ element, box }: ElementProps) {
                                             </tspan>
                                         ))}
                                         <tspan className="tkr-sep" fill={theme.sepColor ?? part.labelColor} fillOpacity={theme.sepOpacity}>
-                                            {separator}
+                                            {sepLead}
+                                            {/* baseline-shift moves only this tspan (unlike dy, which
+                                                would carry every later glyph with it), perpendicular
+                                                to the path, and leaves advance widths untouched, so
+                                                the measured loop length stays valid. */}
+                                            <tspan baselineShift={sepShift ? `${sepShift}em` : undefined}>{sepMark}</tspan>
+                                            {sepTrail}
                                         </tspan>
                                     </tspan>
                                 ))
