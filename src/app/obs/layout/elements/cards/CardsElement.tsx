@@ -33,7 +33,10 @@ import { useLayoutData } from '../../useLayoutData'
 import { useCueBus } from '../../cueBus'
 import { centerByPrice, packList, PackedRow } from './packing'
 import { CardFrame } from './CardFrame'
+import { SyntheticLabel } from './SyntheticLabel'
 import { frameTierFor } from './frameTier'
+import { composedAspect, composedLayout, isV1 } from './composed'
+import type { Bounds } from '@/app/entity/entities'
 import { normalizeTeam, usePendingSoldCards } from './usePendingSoldCards'
 import { usePendingBroadcast } from './usePendingBroadcast'
 import './CardsElement.css'
@@ -179,6 +182,11 @@ function ZoomPortal({
 }
 
 export function CardsElement({ box, element }: ElementProps) {
+    // Warm the synthetic-label font once (the registry `preload` list is image-only); never blocks render.
+    useEffect(() => {
+        if (typeof document === 'undefined' || !document.fonts) return
+        document.fonts.load('400 10px "Arial Narrow Web"').catch(() => {})
+    }, [])
     const { photos, cardsBoardSettings, events: breakEvents, stream, channel, priceRanges } = useLayoutData()
 
     // `?dev=1` only (cards-main-area-plan.md §3): drives the main-area boundary outline further
@@ -244,6 +252,25 @@ export function CardsElement({ box, element }: ElementProps) {
     const prevIdsRef = useRef<string>('')
 
     const [cardDims, setCardDims] = useState<Record<number, { w: number; h: number }>>({})
+
+    // v1 photos: natural image size for the crop background-size (the box itself comes from the
+    // bounds, so nothing repacks when this lands). One Image() per photo, cached by the browser.
+    // One probe per photo id, ever: without `probedRef`, every `cardDims` update would re-run this
+    // and start a fresh Image() for each still-pending photo (n² loads on a cold board).
+    const probedRef = useRef(new Set<number>())
+    useEffect(() => {
+        for (const p of displayPhotos) {
+            if (!isV1(p) || cardDims[p.id] || probedRef.current.has(p.id)) continue
+            probedRef.current.add(p.id)
+            const im = new Image()
+            im.onload = () => {
+                if (!im.naturalWidth) return
+                setCardDims((prev) => (prev[p.id] ? prev : { ...prev, [p.id]: { w: im.naturalWidth, h: im.naturalHeight } }))
+            }
+            im.onerror = () => { probedRef.current.delete(p.id) }
+            im.src = p.url
+        }
+    }, [displayPhotos, cardDims])
 
     // Hover-to-inspect, ported back from channel/[id]/photos. It was dropped in the §2.8 port on
     // the grounds that a browser source has no mouse — true in OBS, but the layout page is also
@@ -656,6 +683,8 @@ export function CardsElement({ box, element }: ElementProps) {
     if (element.kind !== 'cards') return null
 
     function getAspect(photo: Photo): number {
+        // v1: composed outer aspect straight from the bounds (no image load needed).
+        if (isV1(photo)) return composedAspect(photo, frameTierFor(photo.price, priceRanges))
         const d = cardDims[photo.id]
         return d ? d.w / d.h : FALLBACK_ASPECT
     }
@@ -704,6 +733,18 @@ export function CardsElement({ box, element }: ElementProps) {
         const pinned = new Set(horizontal.map((p) => p.id))
         const rest = sortedPhotos.filter((p) => !pinned.has(p.id))
         return [firstRow, ...packList(rest, cardAreaH - h, cardAreaW, getAspect)]
+    }
+
+    // One crop of a v1 photo: a div showing `b` of the full image, scaled to fill `r`.
+    function cropStyle(photo: Photo, dims: { w: number; h: number }, b: Bounds, r: { x: number; y: number; w: number; h: number }): React.CSSProperties {
+        const kx = r.w / b.w
+        const ky = r.h / b.h
+        return {
+            left: `${r.x}px`, top: `${r.y}px`, width: `${r.w}px`, height: `${r.h}px`,
+            backgroundImage: `url(${photo.url})`,
+            backgroundSize: `${dims.w * kx}px ${dims.h * ky}px`,
+            backgroundPosition: `${-b.x * kx}px ${-b.y * ky}px`,
+        }
     }
 
     function recordDims(photo: Photo, e: React.SyntheticEvent<HTMLImageElement>) {
@@ -920,38 +961,69 @@ export function CardsElement({ box, element }: ElementProps) {
                                                     } : undefined
                                             }
                                         >
-                                            <img
-                                                src={isElevated ? photo.url : (photo.thumbnail || photo.url)}
-                                                alt={photo.name || 'card'}
-                                                style={rotateInBox ? {
-                                                    position: 'absolute',
-                                                    top: '50%',
-                                                    left: '50%',
-                                                    width: `${swap ? row.cardHeights[ci] : row.widths[ci]}px`,
-                                                    height: `${swap ? row.widths[ci] : row.cardHeights[ci]}px`,
-                                                    transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
-                                                } : undefined}
-                                                onLoad={(e) => recordDims(photo, e)}
-                                            />
-                                            {frameTier && !isElevated && (
-                                                rotateInBox ? (
+                                            {isV1(photo) ? (() => {
+                                                if (isElevated) return null
+                                                const pw = swap ? row.cardHeights[ci] : row.widths[ci]
+                                                const ph = swap ? row.widths[ci] : row.cardHeights[ci]
+                                                const lay = composedLayout(photo, frameTier, pw, ph)
+                                                const dims = cardDims[photo.id]
+                                                const composed = (
+                                                    <>
+                                                        {lay.label && photo.label_bounds && photo.label_text ? (
+                                                            <div className="crd-label-slot" style={{ position: 'absolute', left: `${lay.label.x}px`, top: `${lay.label.y}px`, width: `${lay.label.w}px`, height: `${lay.label.h}px` }}>
+                                                                <SyntheticLabel text={photo.label_text} width={lay.label.w} height={lay.label.h} />
+                                                            </div>
+                                                        ) : dims && lay.label && photo.label_bounds && (
+                                                            <div className="crd-crop" style={cropStyle(photo, dims, photo.label_bounds, lay.label)} />
+                                                        )}
+                                                        {dims && <div className="crd-crop" style={cropStyle(photo, dims, photo.art_bounds, lay.art)} />}
+                                                        {frameTier && <CardFrame tier={frameTier} width={pw} height={ph} scale={lay.s} />}
+                                                    </>
+                                                )
+                                                return rotateInBox ? (
                                                     <div
                                                         className="crd-frame-rotator"
-                                                        style={{
-                                                            width: `${swap ? row.cardHeights[ci] : row.widths[ci]}px`,
-                                                            height: `${swap ? row.widths[ci] : row.cardHeights[ci]}px`,
-                                                            transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
-                                                        }}
+                                                        style={{ width: `${pw}px`, height: `${ph}px`, transform: `translate(-50%, -50%) rotate(${rotation}deg)` }}
                                                     >
-                                                        <CardFrame
-                                                            tier={frameTier}
-                                                            width={swap ? row.cardHeights[ci] : row.widths[ci]}
-                                                            height={swap ? row.widths[ci] : row.cardHeights[ci]}
-                                                        />
+                                                        {composed}
                                                     </div>
-                                                ) : (
-                                                    <CardFrame tier={frameTier} width={row.widths[ci]} height={row.cardHeights[ci]} />
-                                                )
+                                                ) : composed
+                                            })() : (
+                                            <>
+                                            <img
+                                                    src={isElevated ? photo.url : (photo.thumbnail || photo.url)}
+                                                    alt={photo.name || 'card'}
+                                                    style={rotateInBox ? {
+                                                        position: 'absolute',
+                                                        top: '50%',
+                                                        left: '50%',
+                                                        width: `${swap ? row.cardHeights[ci] : row.widths[ci]}px`,
+                                                        height: `${swap ? row.widths[ci] : row.cardHeights[ci]}px`,
+                                                        transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+                                                    } : undefined}
+                                                    onLoad={(e) => recordDims(photo, e)}
+                                                />
+                                                {frameTier && !isElevated && (
+                                                    rotateInBox ? (
+                                                        <div
+                                                            className="crd-frame-rotator"
+                                                            style={{
+                                                                width: `${swap ? row.cardHeights[ci] : row.widths[ci]}px`,
+                                                                height: `${swap ? row.widths[ci] : row.cardHeights[ci]}px`,
+                                                                transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+                                                            }}
+                                                        >
+                                                            <CardFrame
+                                                                tier={frameTier}
+                                                                width={swap ? row.cardHeights[ci] : row.widths[ci]}
+                                                                height={swap ? row.widths[ci] : row.cardHeights[ci]}
+                                                            />
+                                                        </div>
+                                                    ) : (
+                                                        <CardFrame tier={frameTier} width={row.widths[ci]} height={row.cardHeights[ci]} />
+                                                    )
+                                                )}
+                                            </>
                                             )}
                                         </div>
                                     </div>

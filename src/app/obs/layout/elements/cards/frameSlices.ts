@@ -33,14 +33,15 @@ function axisBounds(cuts: number[], total: number, s: number): number[] {
     return out
 }
 
-export function frameSlices(asset: FrameAsset, width: number, height: number): FramePiece[] {
+export function frameSlices(asset: FrameAsset, width: number, height: number, scale?: number): FramePiece[] {
     const { x, y } = asset
     const sum = (cuts: number[], parity: number) => {
         let t = 0
         for (let b = 0; b < 7; b++) if (b % 2 === parity) t += cuts[b + 1] - cuts[b]
         return t
     }
-    const s = Math.min(
+    // `scale` (composed v1 path) overrides the fit-to-box scale; default path unchanged.
+    const s = scale ?? Math.min(
         width / (sum(x, 0) + KMIN * sum(x, 1)),
         height / (sum(y, 0) + KMIN * sum(y, 1)),
     )

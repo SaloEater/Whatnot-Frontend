@@ -8,11 +8,11 @@ import React, { useMemo } from 'react'
 import { FRAME_ASSETS, FrameTier } from './frameAssets'
 import { frameSlices } from './frameSlices'
 
-export function CardFrame({ tier, width, height }: { tier: FrameTier; width: number; height: number }) {
+export function CardFrame({ tier, width, height, scale }: { tier: FrameTier; width: number; height: number; scale?: number }) {
     const asset = FRAME_ASSETS[tier]
     const pieces = useMemo(
-        () => frameSlices(asset, width, height),
-        [asset, width, height]
+        () => frameSlices(asset, width, height, scale),
+        [asset, width, height, scale]
     )
     return (
         <div className="crd-frame">

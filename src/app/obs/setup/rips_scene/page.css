@@ -1,0 +1,51 @@
+/* rips-scene-plan.md §7 — `/obs/setup/rips_scene` tuning page. Chrome only: the scene itself is
+   RipsScene.tsx at true size. Class prefix `rsp-` (page) vs `rps-` (renderer). No vh/vw/rem, no
+   html/body rules. */
+
+.rsp-page {
+    background: #111;
+    min-height: 100%;
+    color: #eee;
+}
+
+.rsp-preview-panel {
+    overflow: auto;
+    background: #222;
+    padding: 24px;
+    max-height: 1100px;
+}
+
+.rsp-preview-frame {
+    width: 1080px;
+    margin: 0 auto;
+    outline: 1px dashed #666;
+    outline-offset: -1px;
+}
+
+.rsp-section {
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 6px 10px;
+    margin-bottom: 8px;
+}
+
+.rsp-section > summary {
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.rsp-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.rsp-num {
+    width: 92px;
+}
+
+.rsp-json {
+    font-family: monospace;
+    font-size: 12px;
+}

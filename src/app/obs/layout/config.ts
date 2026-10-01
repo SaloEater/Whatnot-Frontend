@@ -875,6 +875,13 @@ function validatePriceSignKind({ key, rawEl, stages }: KindValidatorCtx): { erro
     }
 }
 
+// `ripsScene` has no field checks (rips-scene-plan.md §5): `recipe` is an opaque blob that
+// mergeRecipe() (rips_scene/recipe.ts) repairs at render time, so only placements are validated.
+function validateRipsSceneKind({ key, rawEl, stages }: KindValidatorCtx): { errors: string[]; regId?: RegistryId } {
+    const regId: RegistryId = 'ripsScene'
+    return { errors: validatePlacements(key, rawEl.placements, regId, stages), regId }
+}
+
 // `scene.effects[i]` field validation (obs-scene-element-plan.md §2.2/§5/§6): ranges match the
 // plan's table (speed 0..200, opacity/intensity 0..1, y 0..100, ambientIntervalSec null or 1..600,
 // birds count 1..12/intervalSec 5..600/yMin,yMax 0..100 with yMin <= yMax). By the time this runs,
@@ -1178,6 +1185,7 @@ const KIND_VALIDATORS = {
     priceRanges: validatePriceRangesKind,
     priceSign: validatePriceSignKind,
     scene: validateSceneKind,
+    ripsScene: validateRipsSceneKind,
     ticker: validateTickerKind,
     cameraShelf: validateCameraShelfKind,
     obsToggle: validateObsToggleKind,

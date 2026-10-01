@@ -88,6 +88,8 @@ export interface SeriesListPage {
     total: number
 }
 
+export type Bounds = { x: number; y: number; w: number; h: number }
+
 export interface Photo {
     id: number
     series_id: number
@@ -100,7 +102,13 @@ export interface Photo {
     created_at: string
     is_deleted: boolean
     rotation: number
+    version: number // -1 legacy (url only), 1 = art_bounds set
+    art_bounds: Bounds | null
+    label_bounds: Bounds | null
+    label_text: LabelText | null
 }
+
+export type LabelText = { kind: string; rows: [string, string][] }
 
 export interface SeriesTeamTotal {
     team: string
