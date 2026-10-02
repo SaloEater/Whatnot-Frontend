@@ -719,6 +719,9 @@ function validateCardsFields(key: string, rawEl: Record<string, unknown>): strin
     if (rawEl.autoShowPending !== undefined && typeof rawEl.autoShowPending !== 'boolean') {
         errors.push(`element "${key}": autoShowPending must be a boolean`)
     }
+    if (rawEl.showFrames !== undefined && typeof rawEl.showFrames !== 'boolean') {
+        errors.push(`element "${key}": showFrames must be a boolean`)
+    }
     return errors
 }
 

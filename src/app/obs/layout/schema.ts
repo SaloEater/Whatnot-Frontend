@@ -264,6 +264,9 @@ export type Element = (
           // instead of waiting for the operator to hover it. Optional, default false — unset
           // reproduces today's behaviour (operator-driven only).
           autoShowPending?: boolean
+          // List mode: draw the tier frames (and compose v1 photos inside them). Optional, default
+          // true; false = bare cards, board packs as if no card had a tier.
+          showFrames?: boolean
           placements: Partial<Record<PlacementKey, Box>>
           z?: number
           reactions?: Reactions
