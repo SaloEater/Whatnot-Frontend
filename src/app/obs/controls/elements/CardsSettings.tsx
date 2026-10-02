@@ -355,6 +355,7 @@ export default function CardsSettings({channelId, elementKey, element, onPatchEl
 
     const horizontalId = `ctl-showHorizontalRowCheck-${elementKey}`
     const onlyAvailableId = `ctl-showOnlyAvailableTeamsCheck-${elementKey}`
+    const showFramesId = `ctl-showFramesCheck-${elementKey}`
     const autoShowPendingId = `ctl-autoShowPendingCheck-${elementKey}`
     const mainAreaPctId = `ctl-mainAreaHeightPct-${elementKey}`
     const mainAreaMaxId = `ctl-mainAreaMaxCards-${elementKey}`
@@ -422,6 +423,17 @@ export default function CardsSettings({channelId, elementKey, element, onPatchEl
                 {!showOnlyAvailableTeams && (
                     <span className="text-secondary small ms-2">(needs Show only available teams)</span>
                 )}
+            </div>
+
+            <div className="form-check">
+                <input
+                    type="checkbox"
+                    className="form-check-input"
+                    id={showFramesId}
+                    checked={cards?.showFrames ?? true}
+                    onChange={(e) => onPatchElement(elementKey, {showFrames: e.target.checked})}
+                />
+                <label className="form-check-label" htmlFor={showFramesId}>Show frames</label>
             </div>
 
             {/* Main area / card-count threshold (cards-main-area-plan.md §1): lets the board pack

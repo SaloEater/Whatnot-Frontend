@@ -207,6 +207,7 @@ export function CardsElement({ box, element }: ElementProps) {
     // cards-auto-show-pending-plan.md decision 2: carousel mode ignores auto-show entirely, and so
     // the 30s pending timeout stays live there too — otherwise a carousel with the box ticked would
     // hold pending cards forever, since it has no zoom to acknowledge them with.
+    const showFrames = (element.kind === 'cards' ? element.showFrames : undefined) ?? true
     const autoShow = autoShowPending && orientation === 'list'
 
     // Pending-sold-cards (pending-sold-cards-plan.md): a team just becoming taken doesn't drop its
@@ -684,7 +685,7 @@ export function CardsElement({ box, element }: ElementProps) {
 
     function getAspect(photo: Photo): number {
         // v1: composed outer aspect straight from the bounds (no image load needed).
-        if (isV1(photo)) return composedAspect(photo, frameTierFor(photo.price, priceRanges))
+        if (isV1(photo)) return composedAspect(photo, showFrames ? frameTierFor(photo.price, priceRanges) : null)
         const d = cardDims[photo.id]
         return d ? d.w / d.h : FALLBACK_ASPECT
     }
@@ -933,7 +934,7 @@ export function CardsElement({ box, element }: ElementProps) {
                                 // List mode only (card-frames-plan.md decision 7). Hidden while the card is
                                 // elevated: a zoomed card is shown raw, and in the in-place fallback (no
                                 // portal) this is what keeps the frame off the zoomed card.
-                                const frameTier = frameTierFor(photo.price, priceRanges)
+                                const frameTier = showFrames ? frameTierFor(photo.price, priceRanges) : null
                                 return (
                                     <div
                                         key={photo.id}
