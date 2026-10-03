@@ -42,6 +42,9 @@ import { usePendingBroadcast } from './usePendingBroadcast'
 import './CardsElement.css'
 
 const FALLBACK_ASPECT = 3 / 4
+// Cap on the pinned horizontal (landscape) first row, as a share of the card area's height — the
+// row is otherwise width-driven, and three wide cards could take half the box (was 0.5 until 2026-10-03).
+const HORIZONTAL_ROW_MAX_H = 0.2
 const GALLERY_INTERVAL_MS = 5000
 
 // Main area / card-count threshold (cards-main-area-plan.md §1): the operator sometimes covers the
@@ -720,7 +723,7 @@ export function CardsElement({ box, element }: ElementProps) {
 
         const h = Math.min(
             cardAreaW / horizontal.reduce((s, p) => s + getDisplayAspect(p), 0),
-            cardAreaH * 0.5,
+            cardAreaH * HORIZONTAL_ROW_MAX_H,
         )
         const centered = centerByPrice(horizontal)
         const firstRow: PackedRow = {
