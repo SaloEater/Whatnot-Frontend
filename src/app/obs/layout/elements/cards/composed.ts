@@ -18,7 +18,14 @@ import type { Bounds, Photo } from '@/app/entity/entities'
 import { FRAME_ASSETS, FrameTier } from './frameAssets'
 
 export const GAP = 0
-const KMIN = 0.6 // same floor as frameSlices.ts
+// TEMPORARY (2026-10-06): hole-height floor disabled. With the 0.6 floor (frameSlices.ts's KMIN) a
+// stack shorter than the frame's minimum height — typically a label-less card, whose art alone is
+// squatter than the frame's hole — got a hole taller than the photo and showed the fill above and
+// below it. At 0 the stretch bands may compress all the way to nothing, so the hole hugs the stack;
+// only a stack shorter than the frame's FIXED pieces alone (aspect above ~0.78) would still get a
+// gap, and there the frame pieces start to overlap. Restore 0.6 once the frames' stretch bands are
+// reworked to tolerate it, or make this a per-element option.
+const KMIN = 0
 
 export type Rect = { x: number; y: number; w: number; h: number }
 

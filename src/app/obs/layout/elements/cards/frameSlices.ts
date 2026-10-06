@@ -33,18 +33,32 @@ function axisBounds(cuts: number[], total: number, s: number): number[] {
     return out
 }
 
-export function frameSlices(asset: FrameAsset, width: number, height: number, scale?: number): FramePiece[] {
-    const { x, y } = asset
+/** Source-px → target-px scale of the frame in a `width`×`height` box; `scale` (composed v1 path) overrides the fit-to-box rule. */
+export function frameScale(asset: FrameAsset, width: number, height: number, scale?: number): number {
     const sum = (cuts: number[], parity: number) => {
         let t = 0
         for (let b = 0; b < 7; b++) if (b % 2 === parity) t += cuts[b + 1] - cuts[b]
         return t
     }
-    // `scale` (composed v1 path) overrides the fit-to-box scale; default path unchanged.
-    const s = scale ?? Math.min(
-        width / (sum(x, 0) + KMIN * sum(x, 1)),
-        height / (sum(y, 0) + KMIN * sum(y, 1)),
+    return scale ?? Math.min(
+        width / (sum(asset.x, 0) + KMIN * sum(asset.x, 1)),
+        height / (sum(asset.y, 0) + KMIN * sum(asset.y, 1)),
     )
+}
+
+/** The hole's bounding box in target px — the area the frame's rails do NOT cover (its chamfered corners do). */
+export function frameHole(asset: FrameAsset, width: number, height: number, scale?: number): { left: number; top: number; width: number; height: number } {
+    const s = frameScale(asset, width, height, scale)
+    const ml = asset.hole.x1 * s
+    const mt = asset.hole.y1 * s
+    const mr = (asset.w - asset.hole.x2) * s
+    const mb = (asset.h - asset.hole.y2) * s
+    return { left: ml, top: mt, width: Math.max(width - ml - mr, 0), height: Math.max(height - mt - mb, 0) }
+}
+
+export function frameSlices(asset: FrameAsset, width: number, height: number, scale?: number): FramePiece[] {
+    const { x, y } = asset
+    const s = frameScale(asset, width, height, scale)
     const tx = axisBounds(x, width, s)
     const ty = axisBounds(y, height, s)
 
