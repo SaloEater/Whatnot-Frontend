@@ -357,6 +357,8 @@ export function laneShapes(
     const outer = expandRect(box, pad + thickness)
     const inner = expandRect(box, pad)
     const white = ringShape(outer, ro, inner, ri)
+    // thickness <= 2 * edge leaves no room for a blue core (it would collapse or invert): solid white.
+    if (thickness <= 2 * edge) return { white, blue: '' }
     const blue = ringShape(expandRect(outer, -edge), Math.max(0, ro - edge), expandRect(inner, edge), ri + edge)
     return { white, blue }
 }

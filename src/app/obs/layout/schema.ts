@@ -364,6 +364,8 @@ export type Element = (
            */
           cornerWidth?: number
           cornerRoundness?: number
+          /** `animation:stashOrPassSportStyle` only: thickness (canvas px) of the static idle ring, 0 = off (default 10). */
+          idleThickness?: number
           placements: Partial<Record<PlacementKey, Box>>
           z?: number
           reactions?: Reactions

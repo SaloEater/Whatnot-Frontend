@@ -18,6 +18,11 @@
 // fan-in would fly the copies back into the board and un-glitch the word. `ctl.reverse` is
 // therefore never called from this component's own state machine (the tuner's manual "reverse"
 // button is a separate, dev-only path into the shared Controller).
+//
+// IDLE RING (Revision 3). A thin static lane (`idleThickness`, 0 = off) is painted in EVERY phase
+// BEFORE the masked full lane, as a permanent base layer. It shares the full lane's inner edge and
+// inner corner radius, and the full lane's band contains it, so the growing quarters simply cover
+// it and the exit's retracting quarters uncover it again: no idle->entrance tween is needed.
 
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
@@ -57,6 +62,8 @@ export const DEFAULT_HOLD_MS = 1100 // paced to match ring/ — see its choreogr
 /** 0..1, inner corner radius as a fraction of the outer (`cornerWidth`). 0 = sharp inner corner
  *  (Revision 1's look), 1 = inner corner as round as the outer. */
 export const DEFAULT_CORNER_ROUNDNESS = 0.5
+/** Canvas px thickness of the always-on thin idle ring (0 = off). */
+export const DEFAULT_IDLE_THICKNESS = 10
 
 const PHRASE = 'STASH OR PASS'
 const STAR = '★'
@@ -162,6 +169,7 @@ export function StashOrPassQuarters(props: ElementProps) {
     const cornerWidth = Math.max(0, anim?.cornerWidth ?? defaultCornerWidth)
     const cornerRoundness = Math.min(1, Math.max(0, anim?.cornerRoundness ?? defaultCornerRoundness))
     const cornerRadiusInner = cornerRoundness * cornerWidth
+    const idleThickness = Math.max(0, anim?.idleThickness ?? DEFAULT_IDLE_THICKNESS)
     // The ring CENTRELINE's own radius sits between the two fill radii — see geometry.ts's header.
     const centrelineRadius = Math.max(1, (cornerWidth + cornerRadiusInner) / 2)
 
@@ -311,6 +319,7 @@ export function StashOrPassQuarters(props: ElementProps) {
                     pad={pad}
                     cornerRadiusOuter={cornerWidth}
                     cornerRadiusInner={cornerRadiusInner}
+                    idleThickness={idleThickness}
                 />
                 {/* Rendered AFTER <Lane/> (plus the z-index pair in the CSS) so the word/copies
                     always paint in front of the masked lane shapes as they land/arrive — see the
@@ -367,6 +376,7 @@ function Lane({
     pad,
     cornerRadiusOuter,
     cornerRadiusInner,
+    idleThickness,
 }: {
     ring: ReturnType<typeof buildRing>
     laneFontSize: number
@@ -378,6 +388,7 @@ function Lane({
     pad: number
     cornerRadiusOuter: number
     cornerRadiusInner: number
+    idleThickness: number
 }) {
     // useId is unique per component instance, so two quarters elements on one canvas cannot
     // collide over their <defs>. The colons React puts in the id are stripped — legal in an id
@@ -475,6 +486,10 @@ function Lane({
     const textD = slots ? ringTextPath(ring, slots.laps) : null
     const paths = quarterPaths(ring)
     const shapes = laneShapes(shape, pad, thickness, cornerRadiusOuter, cornerRadiusInner, EDGE_PX)
+    const idleShapes =
+        idleThickness > 0
+            ? laneShapes(shape, pad, idleThickness, cornerRadiusInner + idleThickness, cornerRadiusInner, EDGE_PX)
+            : null
 
     return (
         <svg
@@ -525,6 +540,13 @@ function Lane({
                     ))}
                 </mask>
             </defs>
+
+            {idleShapes && (
+                <g className="sopq-idle">
+                    <path d={idleShapes.white} className="sopq-lane-white" fillRule="evenodd" />
+                    <path d={idleShapes.blue} className="sopq-lane-blue" fillRule="evenodd" />
+                </g>
+            )}
 
             <g mask={`url(#${maskId})`}>
                 <path d={shapes.white} className="sopq-lane-white" fillRule="evenodd" />

@@ -819,6 +819,9 @@ function validateAnimationKind({
     ) {
         errors.push(`element "${key}": cornerRoundness must be a finite number between 0 and 1`)
     }
+    if (rawEl.idleThickness !== undefined && (!isFiniteNumber(rawEl.idleThickness) || rawEl.idleThickness < 0)) {
+        errors.push(`element "${key}": idleThickness must be a finite number >= 0`)
+    }
     return { errors, regId }
 }
 
