@@ -24,6 +24,7 @@ import {
 } from '@/app/obs/layout/elements/animation/tl/StashOrPassTl'
 import {
     DEFAULT_CORNER_ROUNDNESS,
+    DEFAULT_IDLE_THICKNESS,
     DEFAULT_CORNER_WIDTH,
 } from '@/app/obs/layout/elements/animation/quarters/StashOrPassQuarters'
 import type { PatchElement } from './ElementBlock'
@@ -114,6 +115,7 @@ export default function StashOrPassWrapSettings({
     const isSportStyle = registryIdOf(element) === 'animation:stashOrPassSportStyle'
     const cornerWidth = anim.cornerWidth ?? DEFAULT_CORNER_WIDTH
     const cornerRoundness = anim.cornerRoundness ?? DEFAULT_CORNER_ROUNDNESS
+    const idleThickness = anim.idleThickness ?? DEFAULT_IDLE_THICKNESS
 
     return (
         <div>
@@ -260,6 +262,23 @@ export default function StashOrPassWrapSettings({
                                     const parsed = parseFloat(e.target.value)
                                     if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 1) {
                                         onPatchElement(elementKey, { cornerRoundness: parsed })
+                                    }
+                                }}
+                            />
+                        </div>
+                        <div className="mb-2">
+                            <label className="form-label mb-0 small">Idle ring (px, 0 = off)</label>
+                            <input
+                                type="number"
+                                min={0}
+                                className="form-control form-control-sm"
+                                style={{ width: '100px' }}
+                                value={idleThickness}
+                                title="Thickness of the thin static lane shown while the cue is off. 0 = no idle ring."
+                                onChange={(e) => {
+                                    const parsed = parseFloat(e.target.value)
+                                    if (Number.isFinite(parsed) && parsed >= 0) {
+                                        onPatchElement(elementKey, { idleThickness: parsed })
                                     }
                                 }}
                             />
