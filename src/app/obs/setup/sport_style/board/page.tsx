@@ -24,31 +24,38 @@ import {useEffect, useMemo, useRef, useState, type ChangeEvent} from 'react'
 import {Teams, TeamIconSrc} from '@/app/common/teams'
 import {fieldGeometry, type FieldInput} from '@/app/obs/sport_style/fieldGeometry'
 import {renderTurf, type TurfParams} from '@/app/obs/sport_style/turfTexture'
+import PatchCell from '@/app/obs/sport_style/PatchCell'
+import {mix, resolveStitch, type RGB} from '@/app/obs/sport_style/patchColors'
+import {hasLogo, useTeamPalette} from '@/app/obs/sport_style/teamPalette'
+import {patchSizeFor, scalePatchStyle} from '@/app/obs/sport_style/scalePatchStyle'
+import {wearParamsFor} from '@/app/obs/sport_style/wearRandom'
+import {DEFAULT_PATCH, PATCH_REFERENCE_SIZE} from '@/app/obs/sport_style/fieldConstants'
 import './page.css'
 
-const STORAGE_KEY = 'test-board-field-v9'
+const STORAGE_KEY = 'test-board-field-v14'
 
 const DEFAULTS = {
     boxW: 1080,
-    boxH: 440,
-    rows: 4,
-    cols: 10,
-    edgeGap: 60,
+    boxH: 410,
+    rows: 3,
+    cols: 11,
+    edgeGap: 16,
     lineWFactor: 0.035,
     tickHFactor: 0.14,
     seamTickHFactor: 0.14,
     sameAsLine: true,
     tickWOverride: 4,
     ticksPerColumn: 4,
-    ticksAreaHeight: 36,
+    ticksAreaHeight: 16,
     turfMargin: 0,
     opacity: 0.85,
     soldCount: 6,
     showStrips: true,
     showTicks: true,
     seamTicks: true,
-    cornerWidth: 120,
-    cornerRoundness: 1,
+    // A slight rounding (~12px) on the field.
+    cornerWidth: 12,
+    cornerRoundness: 0.08,
     borderWidth: 6,
     turfEnabled: true,
     turfDark: '#1e3a08',
@@ -66,6 +73,57 @@ const DEFAULTS = {
     turfSpotRadiusMax: 2.0,
     turfSpotStrength: 0.18,
     turfSpotLightRatio: 0.6,
+    // Transparent band between the preview box and the painted field — the element's `margin`.
+    margin: 60,
+    cellsMode: 'patch' as 'patch' | 'mock',
+    backdrop: 'busy' as Backdrop,
+}
+
+type Backdrop = 'black' | 'busy' | 'checker'
+
+const BACKDROPS: Array<{id: Backdrop; label: string}> = [
+    {id: 'busy', label: 'Busy image'},
+    {id: 'black', label: 'Black'},
+    {id: 'checker', label: 'Transparency'},
+]
+
+// Turf with every fine-grained layer (fBm patches, per-pixel grain, spots) off — only the wide
+// per-column mowing stripes stay. Fine random texture is exactly what the stream encoder can't
+// hold still frame-to-frame (it "shimmers"); wide flat bands compress to almost nothing.
+const STREAM_SAFE_TURF = {
+    turfDark: '#1d4a12',
+    turfLight: '#4f8f2c',
+    turfBaseLum: 0.55,
+    turfStripeStrength: 0.1,
+    turfPatchContrast: 0,
+    turfGrainStrength: 0,
+    turfSpotCount: 0,
+}
+
+// Same fallbacks and per-cell recipe as the board:sport_style element's SportStyleCell, with the
+// element's default patch settings — so the preview shows the patches the stream actually draws.
+const FALLBACK_BACKGROUND: RGB = [40, 40, 40]
+const FALLBACK_STITCH: RGB = [230, 230, 230]
+const WEAR_SEED = 12345
+
+function PreviewPatch({team, sold, size}: {team: string; sold: boolean; size: number}) {
+    const patch = DEFAULT_PATCH
+    const withLogo = hasLogo(team)
+    const palette = useTeamPalette(team)
+    const background = palette
+        ? (patch.mixEnabled ? mix(palette.background, palette.secondary, patch.mixRatio) : palette.background)
+        : FALLBACK_BACKGROUND
+    const stitch = palette
+        ? resolveStitch(patch.stitchMode, palette.candidates, background, {
+              minContrast: patch.stitchMinContrast,
+              minLuminance: patch.stitchMinLuminance,
+          })
+        : FALLBACK_STITCH
+    const style = scalePatchStyle({...patch.style, ...wearParamsFor(WEAR_SEED, team)}, size / PATCH_REFERENCE_SIZE)
+    return (
+        <PatchCell background={background} stitch={stitch} logoSrc={withLogo ? TeamIconSrc(team) : ''}
+                   style={style} size={size} sold={sold} />
+    )
 }
 
 type SavedState = typeof DEFAULTS
@@ -152,6 +210,10 @@ export default function Page() {
     const [turfSpotStrength, setTurfSpotStrength] = useState<number>(() => saved.turfSpotStrength ?? DEFAULTS.turfSpotStrength)
     const [turfSpotLightRatio, setTurfSpotLightRatio] = useState<number>(() => saved.turfSpotLightRatio ?? DEFAULTS.turfSpotLightRatio)
 
+    const [margin, setMargin] = useState<number>(() => saved.margin ?? DEFAULTS.margin)
+    const [cellsMode, setCellsMode] = useState<'patch' | 'mock'>(() => saved.cellsMode ?? DEFAULTS.cellsMode)
+    const [backdrop, setBackdrop] = useState<Backdrop>(() => saved.backdrop ?? DEFAULTS.backdrop)
+
     // Seed is deliberately NOT persisted/loaded from `saved` — the spec wants a fresh random seed
     // on every (re)generation, only ever surfaced in the read-out so a liked look can be quoted.
     const [seed, setSeed] = useState<number>(() => Math.floor(Math.random() * 2 ** 31))
@@ -172,6 +234,7 @@ export default function Page() {
                 turfEnabled, turfDark, turfLight, turfBaseLum, turfStripeStrength, turfStripePeriod, turfPatchScale,
                 turfPatchContrast, turfOctaves, turfAnisotropy, turfGrainStrength,
                 turfSpotCount, turfSpotRadiusMin, turfSpotRadiusMax, turfSpotStrength, turfSpotLightRatio,
+                margin, cellsMode, backdrop,
             }))
         } catch {
             // ignore storage errors
@@ -179,7 +242,8 @@ export default function Page() {
     }, [boxW, boxH, rows, cols, edgeGap, lineWFactor, tickHFactor, seamTickHFactor, sameAsLine, tickWOverride, ticksPerColumn, ticksAreaHeight, turfMargin, opacity, soldCount, showStrips, showTicks, seamTicks,
         cornerWidth, cornerRoundness, borderWidth,
         turfEnabled, turfDark, turfLight, turfBaseLum, turfStripeStrength, turfStripePeriod, turfPatchScale, turfPatchContrast, turfOctaves, turfAnisotropy, turfGrainStrength,
-        turfSpotCount, turfSpotRadiusMin, turfSpotRadiusMax, turfSpotStrength, turfSpotLightRatio])
+        turfSpotCount, turfSpotRadiusMin, turfSpotRadiusMax, turfSpotStrength, turfSpotLightRatio,
+        margin, cellsMode, backdrop])
 
     // Seed regenerates automatically whenever a turf knob OR the geometry (box size, rows, cols,
     // edge gap) changes — but not on the very first render, which already picked a random seed
@@ -432,13 +496,30 @@ export default function Page() {
         setTurfSpotRadiusMax(DEFAULTS.turfSpotRadiusMax)
         setTurfSpotStrength(DEFAULTS.turfSpotStrength)
         setTurfSpotLightRatio(DEFAULTS.turfSpotLightRatio)
+        setMargin(DEFAULTS.margin)
+        setCellsMode(DEFAULTS.cellsMode)
+        setBackdrop(DEFAULTS.backdrop)
+    }
+
+    const applyStreamSafeTurf = () => {
+        setTurfEnabled(true)
+        setTurfDark(STREAM_SAFE_TURF.turfDark)
+        setTurfLight(STREAM_SAFE_TURF.turfLight)
+        setTurfBaseLum(STREAM_SAFE_TURF.turfBaseLum)
+        setTurfStripeStrength(STREAM_SAFE_TURF.turfStripeStrength)
+        setTurfPatchContrast(STREAM_SAFE_TURF.turfPatchContrast)
+        setTurfGrainStrength(STREAM_SAFE_TURF.turfGrainStrength)
+        setTurfSpotCount(STREAM_SAFE_TURF.turfSpotCount)
     }
 
     // tickW defaults to "same as line": probe fieldGeometry once to get lineW (tickW has no effect
     // on lineW/strips, so the value passed in this probe call is irrelevant), then feed the real
     // tickW into the geometry actually rendered.
+    // Everything painted lives in the inner box, inset by `margin` — same model as the element.
+    const innerW = Math.max(1, boxW - 2 * margin)
+    const innerH = Math.max(1, boxH - 2 * margin)
     const base: Omit<FieldInput, 'tickW'> = {
-        boxW, boxH, cols, rows, edgeGap, lineWFactor, tickHFactor, seamTickHFactor, ticksPerColumn, ticksAreaHeight, turfMargin,
+        boxW: innerW, boxH: innerH, cols, rows, edgeGap, lineWFactor, tickHFactor, seamTickHFactor, ticksPerColumn, ticksAreaHeight, turfMargin,
     }
     const lineWProbe = fieldGeometry({...base, tickW: 1}).lineW
     const tickW = sameAsLine ? lineWProbe : tickWOverride
@@ -451,7 +532,8 @@ export default function Page() {
     // R2.1/R2.2: oval-field shape, computed from the same `geometry.field` the strips/ticks/canvas
     // already use — the radii and clip path are identical for the playground and the element.
     const {rx: fieldRx, ry: fieldRy} = fieldCornerRadii(geometry.field.w, geometry.field.h, cornerWidth, cornerRoundness)
-    const fieldClip = fieldClipPath(geometry.field, boxW, boxH, fieldRx, fieldRy)
+    const fieldClip = fieldClipPath(geometry.field, innerW, innerH, fieldRx, fieldRy)
+    const patchSize = Math.max(1, patchSizeFor(geometry.cellPx, DEFAULT_PATCH.style.padding))
 
     // Turf draw pass — keyed on every turf knob plus the geometry it depends on (cellPx/gridLeft)
     // and the seed, so a fresh render happens exactly when any of those change (turfTexture.ts does
@@ -462,7 +544,7 @@ export default function Page() {
         const ctx = canvas.getContext('2d')
         if (!ctx) return
         if (!turfEnabled) {
-            ctx.clearRect(0, 0, boxW, boxH)
+            ctx.clearRect(0, 0, innerW, innerH)
             setRenderMs(0)
             return
         }
@@ -485,7 +567,7 @@ export default function Page() {
         }
         const t0 = performance.now()
         renderTurf(ctx, {
-            width: boxW, height: boxH, cellPx: geometry.cellPx, gridLeft: geometry.gridLeft, cols, seed, params,
+            width: innerW, height: innerH, cellPx: geometry.cellPx, gridLeft: geometry.gridLeft, cols, seed, params,
             field: geometry.field,
         })
         const t1 = performance.now()
@@ -494,8 +576,10 @@ export default function Page() {
         // call); depending on the object itself would re-run this effect on every render regardless
         // of value, so its four primitive members are listed below instead — same trick already
         // used for `geometry.cellPx`/`geometry.gridLeft`.
+        // `mounted`: the canvas isn't in the DOM until the first client render after mount — without
+        // it this effect only ran while `canvasRef` was still null and the field stayed black.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [boxW, boxH, geometry.cellPx, geometry.gridLeft, geometry.field.x, geometry.field.y, geometry.field.w, geometry.field.h,
+    }, [mounted, innerW, innerH, geometry.cellPx, geometry.gridLeft, geometry.field.x, geometry.field.y, geometry.field.w, geometry.field.h,
         cols, seed, turfEnabled, turfDark, turfLight, turfBaseLum,
         turfStripeStrength, turfStripePeriod, turfPatchScale, turfPatchContrast, turfOctaves, turfAnisotropy, turfGrainStrength,
         turfSpotCount, turfSpotRadiusMin, turfSpotRadiusMax, turfSpotStrength, turfSpotLightRatio])
@@ -527,6 +611,39 @@ export default function Page() {
                             </button>
                         ))}
                     </div>
+
+                    <h6>Stream look</h6>
+                    <div className="mb-2 d-flex align-items-center gap-2 small flex-wrap">
+                        <span style={{width: 140}}>Backdrop</span>
+                        <div className="btn-group btn-group-sm" role="group">
+                            {BACKDROPS.map(b => (
+                                <button key={b.id} type="button"
+                                        className={`btn btn-outline-secondary${backdrop === b.id ? ' active' : ''}`}
+                                        onClick={() => setBackdrop(b.id)}>{b.label}</button>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="mb-2 d-flex align-items-center gap-2 small">
+                        <span style={{width: 140}}>Cells</span>
+                        <div className="btn-group btn-group-sm" role="group">
+                            <button type="button" className={`btn btn-outline-secondary${cellsMode === 'patch' ? ' active' : ''}`}
+                                    onClick={() => setCellsMode('patch')}>Real patches</button>
+                            <button type="button" className={`btn btn-outline-secondary${cellsMode === 'mock' ? ' active' : ''}`}
+                                    onClick={() => setCellsMode('mock')}>Mock</button>
+                        </div>
+                    </div>
+                    <div className="mb-2 d-flex align-items-center gap-2 small">
+                        <span style={{width: 140}}>Margin (px)</span>
+                        <input type="range" className="form-range" min={0} max={120} step={1}
+                               value={margin} onChange={e => setMargin(parseInt(e.target.value))} />
+                        <span style={{width: 30, textAlign: 'right'}}>{margin}</span>
+                    </div>
+                    <div className="mb-3">
+                        <button className="btn btn-sm btn-outline-success" onClick={applyStreamSafeTurf}>
+                            Stream-safe turf (no grain/patches/spots)
+                        </button>
+                    </div>
+                    <hr className="my-3" />
 
                     <div className="mb-2 d-flex align-items-center gap-2 small">
                         <span style={{width: 140}}>Rows</span>
@@ -790,10 +907,12 @@ export default function Page() {
                 </div>
 
                 <div className="col-lg-8">
-                    <div className="field-preview" style={{width: boxW, height: boxH}}>
+                    <div className={`field-preview field-preview--${backdrop}`} style={{width: boxW, height: boxH}}>
+                      {/* Everything painted lives in the inner box, inset by `margin` (the element's own model). */}
+                      <div className="field-inner" style={{left: margin, top: margin, width: innerW, height: innerH}}>
                         {/* Layer 1 — clip group A: turf canvas only, clipped to the oval field. */}
                         <div className="field-clip-turf" style={{clipPath: fieldClip, WebkitClipPath: fieldClip}}>
-                            <canvas ref={canvasRef} className="field-turf-canvas" width={boxW} height={boxH} />
+                            <canvas ref={canvasRef} className="field-turf-canvas" width={innerW} height={innerH} />
                         </div>
 
                         {/* Layer 2 — cells, unclipped by the oval. */}
@@ -804,6 +923,17 @@ export default function Page() {
                                 const sold = idx < clampedSoldCount
                                 const footprintX = geometry.gridLeft + c * geometry.cellPx
                                 const footprintY = geometry.gridTop + r * geometry.cellPx
+                                if (cellsMode === 'patch') {
+                                    // Centred in its footprint, exactly like the element places it.
+                                    const px = footprintX + Math.floor((geometry.cellPx - patchSize) / 2)
+                                    const py = footprintY + Math.floor((geometry.cellPx - patchSize) / 2)
+                                    return (
+                                        <div key={`cell-${idx}`} className="field-patch"
+                                             style={{left: px, top: py, width: patchSize, height: patchSize}}>
+                                            <PreviewPatch team={team} sold={sold} size={patchSize} />
+                                        </div>
+                                    )
+                                }
                                 const x = footprintX + geometry.cellBox.mx
                                 const y = footprintY + geometry.cellBox.my
                                 return (
@@ -854,11 +984,14 @@ export default function Page() {
                             }} />
                         )}
 
-                        {/* Debug aid — un-rounded field bounds, never clipped to the oval. */}
-                        <div className="field-outline" style={{
-                            left: geometry.field.x, top: geometry.field.y,
-                            width: geometry.field.w, height: geometry.field.h,
-                        }} />
+                        {/* Debug aid (mock cells only) — un-rounded field bounds, never clipped to the oval. */}
+                        {cellsMode === 'mock' && (
+                            <div className="field-outline" style={{
+                                left: geometry.field.x, top: geometry.field.y,
+                                width: geometry.field.w, height: geometry.field.h,
+                            }} />
+                        )}
+                      </div>
                     </div>
 
                     <h6 className="mt-4">Reference photo</h6>

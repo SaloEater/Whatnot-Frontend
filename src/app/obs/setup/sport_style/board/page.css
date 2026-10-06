@@ -20,6 +20,30 @@
     outline-offset: -1px;
 }
 
+/* Backdrops — stand-ins for whatever sits behind the board on stream (outside the field the
+   element is transparent). `busy` is a deliberately loud image to judge the board against. */
+.field-preview--black {
+    background: #000;
+}
+
+.field-preview--busy {
+    background: #000 url('/images/stream_bg_empty.png') center / cover no-repeat;
+}
+
+.field-preview--checker {
+    background: repeating-conic-gradient(#444 0% 25%, #222 0% 50%) 0 0 / 20px 20px;
+}
+
+/* The inner box, inset by the margin knob — own origin for every fieldGeometry.ts rect. */
+.field-inner {
+    position: absolute;
+}
+
+/* Absolute wrapper placing one real PatchCell (the element's `.sps-cell`). */
+.field-patch {
+    position: absolute;
+}
+
 .field-turf-canvas {
     position: absolute;
     inset: 0;
