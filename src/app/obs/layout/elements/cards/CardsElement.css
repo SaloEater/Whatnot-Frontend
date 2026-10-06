@@ -165,11 +165,6 @@
     pointer-events: none;
 }
 
-/* Plain fill under the card inside the frame's hole (CardFrame.tsx's FrameBackground). */
-.crd-frame-bg {
-    position: absolute;
-}
-
 .crd-frame-piece {
     position: absolute;
     background-repeat: no-repeat;

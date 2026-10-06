@@ -32,7 +32,7 @@ import { CANVAS } from '../../schema'
 import { useLayoutData } from '../../useLayoutData'
 import { useCueBus } from '../../cueBus'
 import { centerByPrice, packList, PackedRow } from './packing'
-import { CardFrame, FrameBackground } from './CardFrame'
+import { CardFrame } from './CardFrame'
 import { SyntheticLabel } from './SyntheticLabel'
 import { frameTierFor } from './frameTier'
 import { composedAspect, composedLayout, isV1 } from './composed'
@@ -973,7 +973,6 @@ export function CardsElement({ box, element }: ElementProps) {
                                                 const dims = cardDims[photo.id]
                                                 const composed = (
                                                     <>
-                                                        {frameTier && <FrameBackground tier={frameTier} width={pw} height={ph} scale={lay.s} />}
                                                         {lay.label && photo.label_bounds && photo.label_text ? (
                                                             <div className="crd-label-slot" style={{ position: 'absolute', left: `${lay.label.x}px`, top: `${lay.label.y}px`, width: `${lay.label.w}px`, height: `${lay.label.h}px` }}>
                                                                 <SyntheticLabel text={photo.label_text} width={lay.label.w} height={lay.label.h} />
@@ -995,27 +994,6 @@ export function CardsElement({ box, element }: ElementProps) {
                                                 ) : composed
                                             })() : (
                                             <>
-                                                {/* Under the image, same geometry as the frame below it (rotated with it when the row rotates). */}
-                                                {frameTier && !isElevated && (
-                                                    rotateInBox ? (
-                                                        <div
-                                                            className="crd-frame-rotator"
-                                                            style={{
-                                                                width: `${swap ? row.cardHeights[ci] : row.widths[ci]}px`,
-                                                                height: `${swap ? row.widths[ci] : row.cardHeights[ci]}px`,
-                                                                transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
-                                                            }}
-                                                        >
-                                                            <FrameBackground
-                                                                tier={frameTier}
-                                                                width={swap ? row.cardHeights[ci] : row.widths[ci]}
-                                                                height={swap ? row.widths[ci] : row.cardHeights[ci]}
-                                                            />
-                                                        </div>
-                                                    ) : (
-                                                        <FrameBackground tier={frameTier} width={row.widths[ci]} height={row.cardHeights[ci]} />
-                                                    )
-                                                )}
                                             <img
                                                     src={isElevated ? photo.url : (photo.thumbnail || photo.url)}
                                                     alt={photo.name || 'card'}
