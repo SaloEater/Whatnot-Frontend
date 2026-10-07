@@ -12,17 +12,14 @@ on:
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+    # Draft PRs are skipped; comment "@claude review" on a draft to review it anyway.
+    if: github.event.pull_request.draft == false
 
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
-      issues: read
+      pull-requests: write
+      issues: write
       id-token: write
 
     steps:
@@ -31,15 +28,41 @@ jobs:
         with:
           fetch-depth: 1
 
+      # NOTE: The stock `code-review@claude-code-plugins` recipe is NOT used here.
+      # That plugin delegates to background subagents, and the action ends the job
+      # as soon as the orchestrator yields, so the review silently never posts
+      # (anthropics/claude-code-action#1646, #1852). A direct prompt with the
+      # Agent tool disallowed avoids the problem entirely.
       - name: Run Claude Code Review
         id: claude-review
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
-          plugins: 'code-review@claude-code-plugins'
-          prompt: '/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
-          claude_args: '--allowedTools "mcp__github_inline_comment__create_inline_comment"'
+          # Show the model transcript in the run log so an empty review can be diagnosed.
+          show_full_output: true
+          prompt: |
+            Review pull request #${{ github.event.pull_request.number }} in ${{ github.repository }}.
+
+            Read the change with `gh pr view` (title, description) and `gh pr diff`.
+            Do everything yourself in this session. Do not delegate to subagents.
+
+            Follow the repository's CLAUDE.md. Report only high-signal findings:
+            - code that will not compile or type-check (missing imports, unresolved references)
+            - logic that is definitely wrong regardless of input
+            - security problems introduced by the change
+            - clear CLAUDE.md violations where you can quote the rule being broken
+            Do not report style nits, subjective suggestions, or pre-existing issues
+            outside the diff. If you are not certain an issue is real, do not report it.
+
+            For each finding, post an inline comment on the relevant diff line using
+            mcp__github_inline_comment__create_inline_comment, with a one-paragraph
+            explanation and a suggested fix where practical.
+
+            Finish by posting exactly one summary comment with `gh pr comment`:
+            start it with "## Claude code review", then list the findings in one line
+            each, or write "No issues found." if there are none.
+          claude_args: >-
+            --disallowedTools Agent
+            --allowedTools "Read,Glob,Grep,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),mcp__github_inline_comment__create_inline_comment"
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
-
