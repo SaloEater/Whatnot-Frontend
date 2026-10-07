@@ -50,7 +50,7 @@ export type ElementKind =
     | 'cameraShelf'
     | 'obsToggle'
 
-export const BOARD_VARIANTS = ['flat', 'classic', 'cobra', 'cobra_flat', 'sport_style'] as const
+export const BOARD_VARIANTS = ['flat', 'classic', 'cobra', 'cobra_flat', 'rips_flat', 'sport_style'] as const
 export type BoardVariant = (typeof BOARD_VARIANTS)[number]
 
 // `count` split into `boxesLeft`/`chasersLeft` (obs-layout-plan.md §2.7) — mirrors upstream commit
@@ -418,20 +418,12 @@ export type Element = (
           z?: number
           reactions?: Reactions
       }
-    // A second readout of the same `price_ranges` series as `priceRanges` above, styled as a
-    // wooden shop sign hanging by two chains from a wall bracket, swaying gently in a fake wind
-    // (obs-price-sign-plan.md). Same data source, different skin — see
-    // elements/price-sign/PriceSignElement.tsx. Not in MIRRORABLE_KINDS (mirroring a hanging sign
-    // makes no sense the way mirroring a text/scene layer does). All fields optional — component
-    // defaults (DEFAULT_* constants, PriceSignElement.tsx) apply when unset, same convention as
-    // `priceRanges`'s labelFontSize/badgeFontSize.
+    // A second readout of the same `price_ranges` series as `priceRanges` above, drawn as a stone
+    // pedestal with one stone tablo per range stacked upward (obs-price-sign-plan.md v2,
+    // elements/price-sign/PriceSignElement.tsx). Not in MIRRORABLE_KINDS.
     | {
           kind: 'priceSign'
-          labelFontSize?: number // canvas px, default 44 (same as priceRanges)
-          badgeFontSize?: number // canvas px, default 40
-          boardWidthPct?: number // board width as % of box.w, any finite number > 0 (may exceed 100), default 72
-          chainLength?: number // canvas px of visible chain between the two hooks, 0..1000, default 120
-          windStrength?: number // 0..2 multiplier on swing amplitude, default 1; 0 = static
+          fontScale?: number // multiplier on the derived text size, > 0, default 1
           placements: Partial<Record<PlacementKey, Box>>
           z?: number
           reactions?: Reactions
@@ -469,7 +461,7 @@ export type Element = (
     // list of six independently-toggled entries has no single sane "leave it unset" default; a
     // freshly-added ticker is seeded with `DEFAULT_TICKER_SLOTS` (all six enabled, no overrides).
     // Every other field is optional — component defaults (TickerElement.tsx's DEFAULT_* constants)
-    // apply when unset, same convention as `priceSign`'s labelFontSize/badgeFontSize/etc. Not in
+    // apply when unset, same convention as `priceRanges`'s labelFontSize/badgeFontSize Not in
     // MIRRORABLE_KINDS (§3: "a moving ticker mirrored elsewhere would drift out of phase").
     | {
           kind: 'ticker'

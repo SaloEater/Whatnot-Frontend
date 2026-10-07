@@ -1,0 +1,72 @@
+.rfb-cell {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    perspective: 800px;
+}
+
+.rfb-cell-flipping {
+    z-index: 100;
+}
+
+.rfb-cell-content {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transform: translateY(0) scale(1) rotateY(0deg);
+    transition: transform 0.8s ease-in-out;
+}
+
+@keyframes rfb-flip-lift {
+    0%   { transform: translateY(0)    scale(1)   rotateY(0deg); }
+    35%  { transform: translateY(-15%) scale(1.2) rotateY(0deg); }
+    80%  { transform: translateY(-15%) scale(1.2) rotateY(180deg); }
+    90%  { transform: translateY(-15%) scale(1.2) rotateY(180deg); }
+    100% { transform: translateY(0)    scale(1)   rotateY(180deg); }
+}
+
+.rfb-cell-flipped {
+    transform: translateY(0) scale(1) rotateY(180deg);
+    animation: rfb-flip-lift 1.2s ease-in-out forwards;
+}
+
+/* Already sold at mount: same end state, no `animation`, so it never plays on insertion. */
+.rfb-cell-final {
+    transform: translateY(0) scale(1) rotateY(180deg);
+}
+
+.rfb-face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+
+.rfb-back {
+    transform: rotateY(180deg);
+}
+
+/* Plain dark square while the manifest / group is missing. */
+.rfb-back-fallback {
+    width: 100%;
+    height: 100%;
+    background: #14161c;
+}
+
+/* 92% tile leaves a gap between neighbouring icons; the back skin fills 100% so slabs have no seams. */
+.rfb-tile {
+    position: absolute;
+    top: 4%;
+    left: 4%;
+    width: 92%;
+    height: 92%;
+}
+
+.rfb-icon {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+}

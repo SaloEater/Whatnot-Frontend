@@ -849,28 +849,11 @@ function validatePriceRangesKind({ key, rawEl, stages }: KindValidatorCtx): { er
     }
 }
 
-// `priceSign` field validation (obs-price-sign-plan.md §3). `labelFontSize`/`badgeFontSize` reuse
-// `validatePriceRangesFields`'s rule verbatim (copied, not imported — ADDING_AN_ELEMENT.md's copy
-// convention); the three new numbers each get their own range check.
+// `priceSign` field validation (obs-price-sign-plan.md §3).
 function validatePriceSignFields(key: string, rawEl: Record<string, unknown>): string[] {
-    const errors = validatePriceRangesFields(key, rawEl)
-    if (
-        rawEl.boardWidthPct !== undefined &&
-        (!isFiniteNumber(rawEl.boardWidthPct) || rawEl.boardWidthPct <= 0)
-    ) {
-        errors.push(`element "${key}": boardWidthPct must be a finite number > 0`)
-    }
-    if (
-        rawEl.chainLength !== undefined &&
-        (!isFiniteNumber(rawEl.chainLength) || rawEl.chainLength < 0 || rawEl.chainLength > 1000)
-    ) {
-        errors.push(`element "${key}": chainLength must be a finite number in [0, 1000]`)
-    }
-    if (
-        rawEl.windStrength !== undefined &&
-        (!isFiniteNumber(rawEl.windStrength) || rawEl.windStrength < 0 || rawEl.windStrength > 2)
-    ) {
-        errors.push(`element "${key}": windStrength must be a finite number in [0, 2]`)
+    const errors: string[] = []
+    if (rawEl.fontScale !== undefined && (!isFiniteNumber(rawEl.fontScale) || rawEl.fontScale <= 0)) {
+        errors.push(`element "${key}": fontScale must be a finite number > 0`)
     }
     return errors
 }

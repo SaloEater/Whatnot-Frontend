@@ -19,6 +19,7 @@ export const NEEDS_BY_ID = {
     // `needsCobra`/`needsSeries` in useLayoutData's pollers.
     'board:cobra': ['needsCobra', 'needsSeries'],
     'board:cobra_flat': ['needsCobra', 'needsSeries'],
+    'board:rips_flat': ['needsCobra', 'needsSeries'],
     // Reads `stream`/`events` (always-on sources) plus a lazily-loaded, self-cached team palette
     // (teamPalette.ts, no flag needed) — and, since R3 (tiered edges + centered sort), the same
     // price-range/team-price sources `board:cobra`/`board:cobra_flat` gate behind

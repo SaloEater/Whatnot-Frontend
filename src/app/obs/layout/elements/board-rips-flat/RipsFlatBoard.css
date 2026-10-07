@@ -1,0 +1,30 @@
+/* `board:rips_flat` chrome (rips-flat-board-plan.md §5). Cell sizes and padding arrive as integer-px
+   CSS vars from RipsFlatBoard.tsx; the imported AccentOverlay mirrors the same vars. */
+.rfb-root {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    /* board.png has no alpha; stretched to the box like board:flat's backdrop. */
+    background: url('/images/rips_board/board.png') 0 0 / 100% 100% no-repeat;
+}
+
+.rfb-grid {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: repeat(var(--cols, 11), var(--cell-px, 1fr));
+    grid-template-rows: repeat(var(--rows, 1), var(--cell-px, 1fr));
+    padding: var(--pad-top, 0) var(--pad-right, 0) var(--pad-bottom, 0) var(--pad-left, 0);
+    box-sizing: border-box;
+}
+
+.rfb-waiting {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-family: sans-serif;
+}

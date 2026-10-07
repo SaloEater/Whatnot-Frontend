@@ -13,6 +13,7 @@ import { FlatBoard } from './elements/board-flat/FlatBoard'
 import { ClassicBoard } from './elements/board-classic/ClassicBoard'
 import { CobraBoard } from './elements/board-cobra/CobraBoard'
 import { CobraFlatBoard } from './elements/board-cobra-flat/CobraFlatBoard'
+import { RipsFlatBoard } from './elements/board-rips-flat/RipsFlatBoard'
 import { SportStyleBoard } from './elements/board-sport-style/SportStyleBoard'
 import { ResultsElement } from './elements/results/ResultsElement'
 import { ThinResults } from './elements/results-thin/ThinResults'
@@ -51,6 +52,7 @@ export type RegistryId =
     | 'board:classic'
     | 'board:cobra'
     | 'board:cobra_flat'
+    | 'board:rips_flat'
     | 'board:sport_style'
     | 'widget:pick2'
     | 'widget:stashorpass'
@@ -156,6 +158,9 @@ const BOARD_BOX: Box = { x: 0, y: 300, w: 1080, h: 1300 }
 // portrait footprint would sit two-thirds empty (cobra-flat-board-plan.md §4). Purely a starting
 // point — the operator resizes it in the builder like any other box.
 const COBRA_FLAT_BOX: Box = { x: 0, y: 300, w: 1080, h: 340 }
+// rips_flat: board.png's native size (1080x250), so the backdrop is 1:1 by default
+// (rips-flat-board-plan.md §4). Any other box stretches the marble like board:flat's board.png.
+const RIPS_FLAT_BOX: Box = { x: 0, y: 300, w: 1080, h: 250 }
 // classic is a 10-column grid of square team tiles plus an 8-cell centre block: 32 teams + 8
 // reserved cells = 40 cells / 10 cols = 4 rows of squares — at REF_W (ClassicBoard.tsx, 810) that's
 // roughly 2.1:1, landscape (obs-layout-plan.md §2.10.4). BOARD_BOX is 1080x1300 (0.83:1, portrait)
@@ -186,12 +191,8 @@ const IMAGE_BOX: Box = { x: 300, y: 720, w: 480, h: 480 }
 // Same starting corner as TEXT_BOX (the one gap the other defaults leave clear, see that comment)
 // but taller — a price-ranges list is a handful of stacked lines, not one line of copy.
 const PRICE_RANGES_BOX: Box = { x: 40, y: 130, w: 560, h: 400 }
-// obs-price-sign-plan.md §3: right edge flush with the 1080 canvas so the wall bracket/plate reads
-// as actually mounted on the edge rather than floating mid-canvas. h: 1000 (revised 2026-09-21,
-// was 700) — the assembled sign (bracket + chains + board) needs roughly 920px at this width with
-// a typical 4-row board and the default chainLength (120); see PriceSignElement.tsx's header
-// comment for the derivation.
-const PRICE_SIGN_BOX: Box = { x: 300, y: 120, w: 780, h: 1000 }
+// obs-price-sign-plan.md §3: the pedestal sits on the box's bottom edge, tablos stack upward.
+const PRICE_SIGN_BOX: Box = { x: 240, y: 1100, w: 600, h: 500 }
 // obs-scene-element-plan.md §1.1: the stage is the box itself, no reference aspect assumed — this
 // is a starting point only (roughly the "upper third" the plan's intro describes replacing), same
 // as every other registry default box; the operator resizes it in the builder like any other.
@@ -289,6 +290,24 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         // but never call it — that wiring is already dead in every board this was meant to copy.
         // Left `[]`, matching what those entries actually declare; see CobraFlatBoard.tsx's header
         // for the full note. The board still catches up within one events poll (5s) of a sale.
+        reactsTo: [],
+    },
+    'board:rips_flat': {
+        id: 'board:rips_flat',
+        kind: 'board',
+        label: 'Board — Rips Flat',
+        // Not a singleton: each board variant gets its own group, `singleton: false` allows several.
+        singleton: false,
+        singletonGroup: 'board:rips_flat',
+        defaultBox: RIPS_FLAT_BOX,
+        // Static art only; team icons and tiled skins resolve at render time.
+        preload: ['/images/rips_board/board.png'],
+        component: RipsFlatBoard,
+        available: true,
+        hasBox: true,
+        // No settings panel (ElementSettings.tsx), so no wide block.
+        // No `sold` scene event exists (see board:cobra_flat's note); the board catches up within
+        // one 5 s events poll.
         reactsTo: [],
     },
     'board:sport_style': {
@@ -622,6 +641,8 @@ export const REGISTRY: Record<RegistryId, RegistryEntry> = {
         component: PriceSignElement,
         available: true,
         hasBox: true,
+        // The stack grows above the box top when the rows need more height than the box has.
+        unclipped: true,
         reactsTo: [],
     },
     ripsScene: {
@@ -809,9 +830,7 @@ export function makeElement(registryId: RegistryId): Element {
             // layout config, so there is nothing else to seed here.
             return { kind: 'priceRanges', placements }
         case 'priceSign':
-            // labelFontSize/badgeFontSize/boardWidthPct/chainLength/windStrength all left unset —
-            // the component's own DEFAULT_* constants apply (PriceSignElement.tsx), same
-            // convention as `priceRanges` above.
+            // fontScale left unset — the component defaults it to 1.
             return { kind: 'priceSign', placements }
         case 'ripsScene':
             // `recipe` left unset — the component's DEFAULT_RIPS_RECIPE applies (rips-scene-plan.md §5).

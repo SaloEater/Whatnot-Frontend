@@ -66,58 +66,32 @@ This reads `<monorepo root>/birds_original.png` and writes
 width height frames cellW cellH
 ```
 
-## build_sign_assets.py
+## trim_canvas.py
 
-Builds the nine art assets for the `priceSign` OBS layout element
-(`src/app/obs/layout/elements/price-sign/PriceSignElement.tsx`,
-`src/app/obs/layout/elements/price-sign/assets.ts`, obs-price-sign-plan.md §1) from the raw
-AI-delivered artwork kept at `public/images/sign/raw/`.
+General tool: shrinks a PNG's canvas to its actual content. Used for the two `priceSign` stones
+(`public/images/sign/MiddlePedestal.png`, `MiddleStoneTablo.png`), but not sign-specific.
 
-The raw delivery has large transparent margins and inconsistent canvas sizes across the nine
-files, so it is never rendered directly. This script crops each raw file to its opaque content
-(alpha > 16, not > 0, so stray near-invisible anti-aliasing pixels don't widen a crop) and writes
-the result back to `public/images/sign/`. `bracket.png`'s right edge is kept at the raw image's
-right edge (the plate is cut by the border by design) instead of being trimmed to its own bbox.
-`sign_top.png`/`sign_middle.png`/`sign_bottom.png` are cropped in X to the SHARED intersection of
-`sign_top`'s and `sign_middle`'s own bboxes (not each file's own bbox) so the three stack with
-matching side trims and no seam. `chain_link.png` keeps its full raw height (only X is cropped to
-its bbox) since it's a tiling strip deliberately cut mid-link top and bottom. Every output's
-width/height is forced even (drop the last row/column if the raw crop came out odd). Every output
-is then solidified: any pixel with alpha >= 200 is forced to 255 (the delivery's "solid" wood and
-metal sat at alpha ~236-252, so the scene bled through the board on stream); softer pixels such as
-feathered edges and the bottom cap's shadow tail are kept as delivered.
+It crops each file to the bounding box of pixels with alpha > `--threshold` (default 16, not 0 —
+`MiddlePedestal.png` has a faint alpha halo over its whole canvas, so alpha > 0 would trim
+nothing). The sign stones sit mostly at alpha 240-254, so the scene bleeds through unless they are
+solidified; `--solidify N` (off by default) forces every pixel with alpha >= N to 255 after the crop.
 
-`sign_top.png`/`sign_bottom.png` in `public/images/sign/` are HAND-TRIMMED to the bronze trim band
-only (rows 0..54 of the full top cap, rows 372..425 of the full bottom cap; the untrimmed outputs
-are kept as `sign_top_full.png`/`sign_bottom_full.png`). This script regenerates the FULL caps
-under the short names, so after any re-run, re-trim from the `_full` copies and keep `h` at 54/53
-in `assets.ts`.
-
-Requires Python 3 with Pillow (`python3 -c "from PIL import Image"` should succeed).
-
-From the `Whatnot-Frontend/` directory:
+Requires Python 3 with Pillow. From the `Whatnot-Frontend/` directory:
 
 ```
-python3 scripts/build_sign_assets.py
+python3 scripts/trim_canvas.py --solidify 200 \
+    public/images/sign/MiddlePedestal.png public/images/sign/MiddleStoneTablo.png
 ```
 
-On success it prints one `name w h` line per output, plus `bracket barUnderY <y>` — the y (in
-`bracket.png`'s own OUTPUT coordinates) of the last row with any opaque pixel in the x ∈ [30%, 60%]
-horizontal band, i.e. the underside of the bar's free span away from the wall plate and the corner
-brace. Whenever this command is re-run against new art, copy every printed number (including
-`barUnderY`) into `SIGN_ASSETS`/`BRACKET_BAR_UNDER_Y` in
-`src/app/obs/layout/elements/price-sign/assets.ts`.
-
-It also writes two tiling-check images to `public/images/sign/` for manual review —
-`_check_chain.png` (two `chain_link` output crops stacked, to eyeball the `repeat-y` seam) and
-`_check_board.png` (`sign_top` + 2×`sign_middle` + `sign_bottom` stacked, to eyeball the board's
-side-trim alignment and row seams). Look at both, then delete them
-(`rm public/images/sign/_check_*.png`) — they are a manual QA aid only, never committed.
+Writes in place and prints `name w h` per file. After re-running on new art, copy the printed sizes
+(and re-measure the badge square) into `src/app/obs/layout/elements/price-sign/assets.ts`.
 
 ### Flags
 
-- `--raw-dir PATH` — directory holding the 9 raw PNGs (default: `public/images/sign/raw`)
-- `--out-dir PATH` — directory to write the cropped PNGs to (default: `public/images/sign`)
+- `--threshold N` — alpha cut for the content bounding box (default 16)
+- `--solidify N` — after cropping, force alpha >= N to 255 (default: off)
+- `--pad N` — keep N transparent px around the content (default 0)
+- `--out PATH` — write here instead of in place (only valid with one FILE)
 
 ## build_shelf_assets.py
 
@@ -133,7 +107,7 @@ different canvases, so the two files are never overlaid 1:1; the glare's content
 window by contract, and `CameraShelfElement.tsx` stretches the cropped glare over the computed
 window rect at render time instead of sharing a canvas with the frame art. Every output's
 width/height is forced even (drop the last row/column if the crop came out odd), same convention as
-`build_sign_assets.py`.
+the earlier sign asset script.
 
 It also measures the WINDOW — the fully transparent opening the OBS camera shows through — as the
 largest run of alpha == 0 pixels along the row at 50% of the cropped `shelf.png`'s height (gives
